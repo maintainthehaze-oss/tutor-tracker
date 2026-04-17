@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tutoring Tracker Pro</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#333333">
+</head>
+<body>
+
+<div id="toast-container" class="toast-container"></div>
+
+<div class="app">
+  <header class="app-header">
+    <div class="header-top">
+      <h1 class="logo-title">Tutoring Tracker Pro</h1>
+      <div class="header-right">
+        <div class="header-stats">
+          <span><strong id="client-count">0</strong> Clients</span>
+          <span><strong id="session-count">0</strong> Sessions</span>
+          <span><strong id="expense-count">0</strong> Expenses</span>
+        </div>
+        <span id="sync-status" class="sync-indicator"></span>
+        <button class="btn-icon" onclick="openSettingsModal()">⚙️</button>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input type="text" id="global-search" placeholder="Search clients, sessions, expenses... (Ctrl+K)" oninput="performGlobalSearch(this.value)" onfocus="if(this.value.length>1)performGlobalSearch(this.value)" autocomplete="off">
+      <div id="search-results" class="search-results"></div>
+    </div>
+  </header>
+
+  <nav class="tab-nav">
+    <button onclick="switchTab('clients')" class="active" data-tab="clients">Clients</button>
+    <button onclick="switchTab('sessions')" data-tab="sessions">Sessions</button>
+    <button onclick="switchTab('expenses')" data-tab="expenses">Expenses</button>
+    <button onclick="switchTab('reports')" data-tab="reports">Reports</button>
+    <button onclick="switchTab('tax-summary')" data-tab="tax-summary">Tax Summary</button>
+  </nav>
+
+  <main class="main-content">
+
+    <!-- Clients -->
+    <div id="clients-tab" class="tab-content active">
+      <div class="section-header">
+        <h2>Clients</h2>
+        <div class="header-actions">
+          <button class="btn-secondary" onclick="exportClients()">Export CSV</button>
+          <button class="btn-primary" onclick="openClientForm()">+ Add Client</button>
+        </div>
+      </div>
+      <div id="clients-list" class="clients-grid"></div>
+    </div>
+
+    <!-- Sessions -->
+    <div id="sessions-tab" class="tab-content">
+      <div class="section-header">
+        <h2>Sessions</h2>
+        <div class="header-actions">
+          <button class="btn-secondary" onclick="exportSessions()">Export CSV</button>
+          <button class="btn-primary" onclick="openSessionForm()">+ Log Session</button>
+        </div>
+      </div>
+      <div id="sessions-list-view">
+        <div id="today-dashboard" class="card-panel">
+          <div class="panel-header">
+            <h4>Today's Schedule</h4>
+            <span class="text-muted" id="today-date"></span>
+          </div>
+          <div id="today-content" class="text-secondary"></div>
+        </div>
+        <div id="sessions-summary" class="summary-banner">
+          <div class="summary-grid">
+            <div class="summary-item"><div class="summary-label">Sessions</div><div class="summary-value" id="sm-count">0</div></div>
+            <div class="summary-item"><div class="summary-label">Revenue</div><div class="summary-value" id="sm-rev">$0</div></div>
+            <div class="summary-item"><div class="summary-label">Company Split</div><div class="summary-value" id="sm-split">$0</div></div>
+            <div class="summary-item"><div class="summary-label">Your Income</div><div class="summary-value" id="sm-net">$0</div></div>
+            <div class="summary-item"><div class="summary-label">Hours</div><div class="summary-value" id="sm-hrs">0</div></div>
+            <div class="summary-item"><div class="summary-label">Miles</div><div class="summary-value" id="sm-mi">0</div></div>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="summary-grid summary-grid-wide">
+            <div class="summary-item"><div class="summary-label">Unpaid — Completed</div><div class="summary-value-sm" id="sm-unpaid-done">$0</div><div class="summary-sub" id="sm-unpaid-done-ct">0 sessions</div></div>
+            <div class="summary-item"><div class="summary-label">Unpaid — Scheduled</div><div class="summary-value-sm" id="sm-unpaid-sched">$0</div><div class="summary-sub" id="sm-unpaid-sched-ct">0 sessions</div></div>
+            <div class="summary-item"><div class="summary-label">Total Outstanding</div><div class="summary-value-sm" id="sm-unpaid-total">$0</div></div>
+          </div>
+        </div>
+        <div class="card-panel">
+          <div class="panel-header">
+            <h4>Filters</h4>
+            <label class="edit-toggle"><input type="checkbox" id="edit-mode-toggle" onchange="toggleEditMode()"> Edit Mode</label>
+          </div>
+          <div class="filter-grid">
+            <div class="filter-group">
+              <label>Date Range</label>
+              <div class="date-range">
+                <input type="date" id="filter-date-start" onchange="applyFilters()">
+                <span>to</span>
+                <input type="date" id="filter-date-end" onchange="applyFilters()">
+              </div>
+            </div>
+            <div class="filter-group"><label>Client</label><select id="filter-client" onchange="applyFilters()"><option value="">All</option></select></div>
+            <div class="filter-group"><label>Payment</label><select id="filter-payment" onchange="applyFilters()"><option value="">All</option><option value="paid">Paid</option><option value="unpaid">Unpaid</option></select></div>
+            <div class="filter-group"><label>Status</label><select id="filter-status" onchange="applyFilters()"><option value="">All</option><option value="scheduled">Scheduled</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="no-show">No-Show</option></select></div>
+            <div class="filter-group filter-actions"><button class="btn-secondary btn-sm" onclick="clearFilters()">Clear All</button></div>
+          </div>
+        </div>
+        <div id="bulk-actions-bar" class="bulk-bar" style="display:none">
+          <span class="bulk-count"><span id="selected-count">0</span> selected</span>
+          <div class="bulk-actions">
+            <button class="btn-success btn-sm" onclick="bulkUpdatePaymentStatus('paid')">✓ Mark Paid</button>
+            <button class="btn-secondary btn-sm" onclick="bulkUpdatePaymentStatus('unpaid')">✕ Mark Unpaid</button>
+            <button class="btn-secondary btn-sm" onclick="clearSelection()">Clear</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="sessions-table">
+            <thead><tr>
+              <th class="col-check"><input type="checkbox" id="select-all-sessions" onchange="toggleSelectAll()"></th>
+              <th>Date</th><th>Client</th><th>Type</th><th>Duration</th><th>Amount</th><th>Split</th><th class="col-check">Paid</th><th>Status</th><th>Mileage</th><th>Actions</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expenses -->
+    <div id="expenses-tab" class="tab-content">
+      <div class="section-header">
+        <h2>Business Expenses</h2>
+        <div class="header-actions">
+          <button class="btn-secondary" onclick="exportExpenses()">Export CSV</button>
+          <button class="btn-primary" onclick="openExpenseForm()">+ Add Expense</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="expenses-table">
+          <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th>Receipt</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Reports -->
+    <div id="reports-tab" class="tab-content">
+      <div class="section-header">
+        <h2>Reports</h2>
+        <span class="year-badge">Tax Year 2026</span>
+      </div>
+      <div id="report-stats"></div>
+      <div id="monthly-breakdown"></div>
+    </div>
+
+    <!-- Tax Summary -->
+    <div id="tax-summary-tab" class="tab-content">
+      <div class="section-header">
+        <h2>Year-End Tax Summary</h2>
+        <div class="header-actions">
+          <button class="btn-secondary" onclick="printTaxSummary()">Print</button>
+          <button class="btn-primary" onclick="exportTaxSummary()">Export PDF</button>
+        </div>
+      </div>
+      <div id="tax-summary-content"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Client Modal -->
+<div id="client-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h2 class="modal-title" id="client-modal-title">New Client</h2>
+    <form id="client-form" onsubmit="saveClient(event)">
+      <div class="form-grid">
+        <div class="form-group"><label>Name *</label><input type="text" id="client-name" required></div>
+        <div class="form-group"><label>Address *</label><input type="text" id="client-address" required placeholder="Street, City, State ZIP"></div>
+        <div class="form-group"><label>Age</label><input type="number" id="client-age" min="1" max="100"></div>
+        <div class="form-group"><label>School</label><input type="text" id="client-school"></div>
+        <div class="form-group"><label>Hourly Rate ($) *</label><input type="number" step="0.01" id="client-rate" required></div>
+        <div class="form-group"><label>Company Split (%)</label><input type="number" step="1" min="0" max="100" id="client-split"><small class="hint">% that goes to company</small></div>
+        <div class="form-group"><label>Parent/Guardian</label><input type="text" id="client-parent-name"></div>
+        <div class="form-group"><label>Parent Email</label><input type="email" id="client-parent-email"></div>
+        <div class="form-group"><label>Parent Phone</label><input type="tel" id="client-parent-phone"></div>
+        <div class="form-group"><label>Subjects</label><input type="text" id="client-subjects" placeholder="Math, Science..."></div>
+        <div class="form-group full-width"><label>Goals</label><textarea id="client-goals" rows="2" placeholder="Learning goals..."></textarea></div>
+        <div class="form-group full-width"><label>Notes</label><textarea id="client-notes-field" rows="2"></textarea></div>
+      </div>
+      <div class="button-group">
+        <button type="button" class="btn-secondary" onclick="closeModal('client-modal')">Cancel</button>
+        <button type="submit" class="btn-primary">Save Client</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Session Modal -->
+<div id="session-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h2 class="modal-title" id="session-modal-title">New Session</h2>
+    <form id="session-form" onsubmit="saveSession(event)">
+      <div class="form-grid">
+        <div class="form-group"><label>Client(s) *</label><select id="session-client" required onchange="calculateSessionAmount();calculateMileage()" multiple size="4" class="multi-select"></select><small class="hint">Ctrl/Cmd+click for family sessions</small></div>
+        <div class="form-group"><label>Date *</label><input type="date" id="session-date" required onchange="calculateMileage()"></div>
+        <div class="form-group"><label>Type *</label><select id="session-type" required onchange="toggleMileageField()"><option value="in-person">In-Person</option><option value="remote">Remote</option></select></div>
+        <div class="form-group"><label>Duration (hrs) *</label><input type="number" step="0.25" min="0.25" max="8" id="session-duration" required onchange="enforceDuration(this);calculateSessionAmount()" oninput="calculateSessionAmount()"><small class="hint">Quarter-hour increments</small></div>
+        <div class="form-group"><label>Amount ($) *</label><input type="number" step="0.01" id="session-amount" required oninput="markAmountCustom()"><small class="hint" id="amount-hint">Auto-calculated</small></div>
+        <div class="form-group"><label>Status</label><select id="session-status"><option value="scheduled">Scheduled</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="no-show">No-Show</option><option value="rescheduled">Rescheduled</option></select></div>
+        <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="session-paid-checkbox"> Paid</label></div>
+        <div class="form-group" id="mileage-field"><label>Mileage</label><input type="number" step="0.1" id="session-mileage" value="0" readonly class="input-disabled"><small class="hint" id="mileage-hint">Auto-calculated | <a href="#" onclick="event.preventDefault();var m=$('session-mileage');m.readOnly=false;m.className=''" class="link">Edit manually</a></small></div>
+        <div class="form-group full-width"><label>Session Notes</label><textarea id="session-notes" rows="2" placeholder="What was covered?"></textarea></div>
+      </div>
+      <div class="button-group">
+        <button type="button" class="btn-secondary" onclick="closeModal('session-modal')">Cancel</button>
+        <button type="button" class="btn-accent" onclick="saveAndNew()">Save & New</button>
+        <button type="submit" class="btn-primary">Save Session</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Expense Modal -->
+<div id="expense-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h2 class="modal-title" id="expense-modal-title">New Expense</h2>
+    <form id="expense-form" onsubmit="saveExpense(event)">
+      <div class="form-grid">
+        <div class="form-group"><label>Date *</label><input type="date" id="expense-date" required></div>
+        <div class="form-group"><label>Category *</label><select id="expense-category" required><option value="supplies">Supplies</option><option value="materials">Materials</option><option value="software">Software</option><option value="equipment">Equipment</option><option value="advertising">Advertising</option><option value="professional">Professional Services</option><option value="other">Other</option></select></div>
+        <div class="form-group full-width"><label>Description *</label><input type="text" id="expense-description" required></div>
+        <div class="form-group"><label>Amount ($) *</label><input type="number" step="0.01" id="expense-amount" required></div>
+        <div class="form-group full-width"><label>Receipt URL</label><input type="url" id="expense-receipt-url" placeholder="https://drive.google.com/..."><small class="hint">Link to receipt or cloud storage</small></div>
+      </div>
+      <div class="button-group">
+        <button type="button" class="btn-secondary" onclick="closeModal('expense-modal')">Cancel</button>
+        <button type="submit" class="btn-primary">Save Expense</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal-overlay">
+  <div class="modal-content modal-wide">
+    <h2 class="modal-title">Settings</h2>
+    <div class="settings-section">
+      <h3>Backup & Restore</h3>
+      <p class="text-secondary">Save all data or restore from a backup file.</p>
+      <div class="settings-actions">
+        <button type="button" class="btn-primary" onclick="backupData()">Download Backup</button>
+        <button type="button" class="btn-secondary" onclick="$('restore-file-input').click()">Restore from File</button>
+        <input type="file" id="restore-file-input" accept=".json" style="display:none" onchange="restoreData(event)">
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>Mileage</h3>
+      <div class="form-grid">
+        <div class="form-group full-width"><label>OpenRouteService API Key</label><input type="text" id="google-maps-api-key" placeholder="For accurate mileage"><small class="hint">Free at <a href="https://openrouteservice.org/dev/#/signup" target="_blank" class="link">openrouteservice.org</a></small></div>
+        <div class="form-group"><button type="button" class="btn-secondary btn-full" onclick="testDistanceCalculation()">Test API Connection</button></div>
+        <div class="form-group"><button type="button" class="btn-secondary btn-full" onclick="if(confirm('Recalculate mileage for ALL sessions?'))recalculateAllMileage()">Recalculate All Mileage</button></div>
+        <div class="form-group full-width"><label>Business Address</label><input type="text" id="business-address" value="33 Bible Street, Cos Cob, CT 06807"><small class="hint">Starting point for mileage calculations</small></div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>Cloud Sync</h3>
+      <p class="text-secondary">Syncs data across devices via GitHub Gist. Create a secret Gist at <a href="https://gist.github.com" target="_blank" class="link">gist.github.com</a> with a file named <code>tutoring-data.json</code>.</p>
+      <div class="form-grid">
+        <div class="form-group"><label>Gist ID</label><input type="text" id="gist-id" placeholder="abc123def456..."><small class="hint">From the Gist URL</small></div>
+        <div class="form-group"><label>Personal Access Token</label><input type="password" id="gist-pat" placeholder="ghp_..."><small class="hint">GitHub → Settings → Developer → Tokens</small></div>
+      </div>
+    </div>
+    <div class="button-group">
+      <button class="btn-secondary" onclick="closeModal('settings-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
