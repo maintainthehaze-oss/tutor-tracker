@@ -331,7 +331,6 @@ doc.setFontSize(20);doc.text('Year-End Tax Summary',20,20);doc.setFontSize(12);d
 let y=50;doc.text(`Gross Income: $${gross.toFixed(2)}`,20,y);y+=8;doc.text(`Company Split: -$${split.toFixed(2)}`,20,y);y+=8;doc.text(`Your Gross: $${(gross-split).toFixed(2)}`,20,y);y+=12;doc.text(`Expenses: $${tExp.toFixed(2)}`,20,y);y+=8;doc.text(`Mileage (${tMi.toFixed(0)} mi): $${miDed.toFixed(2)}`,20,y);y+=8;doc.text(`Total Deductions: $${(miDed+tExp).toFixed(2)}`,20,y);y+=12;doc.setFontSize(14);doc.text(`Net Profit: $${(gross-split-miDed-tExp).toFixed(2)}`,20,y);y+=16;doc.setFontSize(12);doc.text(`Company Split YTD (for 1096): $${split.toFixed(2)}`,20,y);y+=12;
 
 doc.save(`tax-summary-${yr}.pdf`);showToast('Tax PDF exported!','success')}catch(e){alert('Error generating PDF');console.error(e)}}
-async 
 function openSettingsModal(){
 $('google-maps-api-key').value=settings.googleMapsApiKey||'';
 $('business-address').value=settings.businessAddress||'';
