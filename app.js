@@ -173,12 +173,18 @@ const old=clients.find(c=>c.id===editingId);
 const splitChanged=old&&old.companySplit!==d.companySplit;
 clients[clients.findIndex(c=>c.id===editingId)]=d;
 if(splitChanged){
-const today=new Date().toISOString().split('T')[0];
+const effDate=prompt('When does the new '+d.companySplit+'% split take effect?\n\nEnter date (YYYY-MM-DD):',new Date().toISOString().split('T')[0]);
+if(effDate&&/^\d{4}-\d{2}-\d{2}$/.test(effDate)){
 const famMembers=clients.filter(c=>getLastName(c)===getLastName(d));
 famMembers.forEach(m=>{
 if(!m.splitHistory)m.splitHistory=[];
-m.splitHistory.push({rate:d.companySplit,date:today});
-m.companySplit=d.companySplit})}}
+m.splitHistory.push({rate:d.companySplit,date:effDate});
+m.companySplit=d.companySplit});
+showToast('Split updated to '+d.companySplit+'% effective '+formatDate(effDate),'success')}
+else if(effDate!==null){showToast('Invalid date format — split saved with today\'s date','warning');
+const today=new Date().toISOString().split('T')[0];
+const famMembers=clients.filter(c=>getLastName(c)===getLastName(d));
+famMembers.forEach(m=>{if(!m.splitHistory)m.splitHistory=[];m.splitHistory.push({rate:d.companySplit,date:today});m.companySplit=d.companySplit})}}}
 else{clients.push(d);if(d.companySplit>0){d.splitHistory=[{rate:d.companySplit,date:new Date().toISOString().split('T')[0]}]}}
 saveAndRender('clients');closeModal('client-modal');showToast(editingId?'Client updated!':'Client added!','success')}
 function deleteClient(id){if(!confirm('Delete this client and their sessions?'))return;clients=clients.filter(c=>c.id!==id);sessions=sessions.filter(s=>!cids(s).includes(id));saveAndRender('clients','sessions');showToast('Client deleted','info')}
