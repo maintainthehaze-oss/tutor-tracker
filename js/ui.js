@@ -673,6 +673,13 @@
           }).catch(() => { showToast('Could not calculate mileage', 'error'); });
           break;
         }
+        case 'recalc-2026-mileage':
+          showConfirm(
+            'Recalculate 2026 Mileage',
+            'This recomputes per-leg driving miles for all 2026 in-person sessions (in drive order) and overwrites their current mileage. Previous years and historical data are NOT affected. Continue?',
+            () => { App.recalc2026Mileage(); }
+          );
+          break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
 
         case 'add-expense': App.openExpenseForm(); break;

@@ -709,6 +709,122 @@
     App.showToast('Mileage recalculation complete', 'success');
   }
 
+  /**
+   * Distance in miles between two addresses (one-way), using ORS routing when
+   * available, falling back to haversine*1.3, then to the crude town estimate.
+   * Returns one-way miles (NOT round trip).
+   */
+  async function legMiles(addrA, addrB) {
+    const settings = App.state.settings;
+    if (!addrA || !addrB) return 0;
+    if (settings.orsApiKey) {
+      try {
+        const cA = await geocode(addrA);
+        const cB = await geocode(addrB);
+        if (cA && cB) {
+          const dist = await routeDist(cA, cB);
+          if (dist != null) return dist;
+          return haversine(cA[1], cA[0], cB[1], cB[0]) * 1.3;
+        }
+      } catch (e) {
+        console.error('legMiles error:', e);
+      }
+    }
+    return fallbackDist(addrA, addrB);
+  }
+
+  /**
+   * Resolve the address to route to for a session: prefer the session's own
+   * stored address, then fall back to the primary client's address on file.
+   */
+  function sessionAddress(s) {
+    if (s.address && s.address.trim()) return s.address.trim();
+    const clients = App.state.clients;
+    for (const cid of (s.clientIds || [])) {
+      const c = clients.find((cl) => String(cl.id) === String(cid));
+      if (c && c.address && c.address.trim()) return c.address.trim();
+    }
+    return '';
+  }
+
+  /**
+   * Per-leg mileage for one day. Sessions are ordered by time (the order you
+   * actually drove). Route is home -> stop1 -> stop2 -> ... -> home. Each
+   * session is credited with the leg that ARRIVED at it; the final leg back
+   * home is added onto the last stop of the day.
+   */
+  async function recalcDayMileagePerLeg(date) {
+    const sessions = App.state.sessions;
+    const settings = App.state.settings;
+    const homeAddr = settings.businessAddress;
+    if (!homeAddr) return;
+
+    const daySessions = sessions
+      .filter((s) => s.date === date && s.status === 'completed' && s.type === 'in-person')
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    if (daySessions.length === 0) return;
+
+    let prevAddr = homeAddr;
+    for (let i = 0; i < daySessions.length; i++) {
+      const s = daySessions[i];
+      const addr = sessionAddress(s);
+      if (!addr) {
+        // No address to route to — leave a zero leg rather than guess.
+        s.mileage = 0;
+        s.mileageDetails = 'No address on file — mileage not calculated';
+        s.updatedAt = new Date().toISOString();
+        continue;
+      }
+      // Leg that arrived at this stop
+      let miles = await legMiles(prevAddr, addr);
+      // The last stop also drives home — add that leg to it
+      if (i === daySessions.length - 1) {
+        miles += await legMiles(addr, homeAddr);
+      }
+      s.mileage = Math.round(miles * 10) / 10;
+      const fromLabel = i === 0 ? 'home' : 'prev stop';
+      s.mileageDetails = i === daySessions.length - 1
+        ? ('Leg from ' + fromLabel + ' + return home (stop ' + (i + 1) + ' of ' + daySessions.length + ')')
+        : ('Leg from ' + fromLabel + ' (stop ' + (i + 1) + ' of ' + daySessions.length + ')');
+      s.updatedAt = new Date().toISOString();
+      prevAddr = addr;
+    }
+  }
+
+  /**
+   * Recalculate mileage for 2026 ONLY, using per-leg routing in drive order.
+   * Operates exclusively on live sessions (App.state.sessions). Historical data
+   * (tutoring-historical / previous years) is never read or modified here.
+   */
+  async function recalc2026Mileage() {
+    const sessions = App.state.sessions;
+    const settings = App.state.settings;
+
+    if (!settings.businessAddress) {
+      App.showToast('Set your home-base address in Settings first', 'warning');
+      return;
+    }
+
+    const dates2026 = [...new Set(
+      sessions
+        .filter((s) => s.date && s.date.slice(0, 4) === '2026' && s.status === 'completed' && s.type === 'in-person')
+        .map((s) => s.date)
+    )].sort();
+
+    if (dates2026.length === 0) {
+      App.showToast('No 2026 in-person sessions to calculate', 'info');
+      return;
+    }
+
+    App.showToast('Calculating 2026 mileage (' + dates2026.length + ' days)…', 'info');
+    for (const date of dates2026) {
+      await recalcDayMileagePerLeg(date);
+    }
+    App.saveAndRender();
+    App.showToast('2026 mileage recalculated (' + dates2026.length + ' days)', 'success');
+  }
+
   // Expose to App namespace
   App.renderSessions = renderSessions;
   App.openSessionForm = openSessionForm;
@@ -720,6 +836,7 @@
   App.applySessionFilters = applySessionFilters;
   App.calculateMileage = calculateMileage;
   App.recalculateAllMileage = recalculateAllMileage;
+  App.recalc2026Mileage = recalc2026Mileage;
   App.sessionSort = sessionSort;
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
