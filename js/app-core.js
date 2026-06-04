@@ -124,6 +124,7 @@
     settings: 'tutoring-settings',
     receipts: 'tutoring-receipts',
     theme: 'tutoring-theme',
+    taxPayments: 'tutoring-tax-payments',
   };
 
   const DEFAULT_SETTINGS = {
@@ -163,6 +164,7 @@
   let expenses = [];
   let settings = { ...DEFAULT_SETTINGS };
   let receipts = {};
+  let taxPayments = [];
 
   let activeTab = 'dashboard';
   let editMode = false;
@@ -188,6 +190,8 @@
     set settings(v) { settings = v; },
     get receipts() { return receipts; },
     set receipts(v) { receipts = v; },
+    get taxPayments() { return taxPayments; },
+    set taxPayments(v) { taxPayments = v; },
     get activeTab() { return activeTab; },
     set activeTab(v) { activeTab = v; },
     get editMode() { return editMode; },
@@ -235,6 +239,13 @@
       receipts = raw ? JSON.parse(raw) : {};
     } catch (_) {
       receipts = {};
+    }
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.taxPayments);
+      taxPayments = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(taxPayments)) taxPayments = [];
+    } catch (_) {
+      taxPayments = [];
     }
 
     // Migrations
@@ -335,6 +346,123 @@
     return num(client.companySplit);
   }
 
+  /* ==========================================================
+     SHARED METRICS MODEL — single source of truth
+     Every dashboard/report/tax view should derive its numbers
+     from computeMetrics() so "income", "your cut", "net", and
+     per-family rollups are calculated ONE way everywhere.
+     ========================================================== */
+
+  /** Family group label for a client ('' if none). */
+  function clientFamily(c) {
+    return c && c.familyGroup ? String(c.familyGroup).trim() : '';
+  }
+
+  /**
+   * A "group key" for rollups: the family name if the client belongs to one,
+   * otherwise the individual client's own name. So Cal/Chase/Daisy (no family)
+   * each become their own group, and the three Ventorinos roll into one.
+   */
+  function groupKeyForClient(c) {
+    const fam = clientFamily(c);
+    return fam || clientName(c);
+  }
+
+  /**
+   * Compute rolled-up business metrics over a filtered set of sessions.
+   *
+   * filter (all optional):
+   *   year       e.g. '2026'        (matches s.date.slice(0,4))
+   *   month      e.g. '2026-03'     (matches s.date.slice(0,7))
+   *   dateStart / dateEnd  ISO YYYY-MM-DD inclusive bounds
+   *   clientId   only sessions including this client
+   *   family     only sessions whose primary/any client is in this family
+   *   paid       'paid' | 'unpaid'  (unpaid excludes waived)
+   *
+   * Money model (consistent everywhere):
+   *   gross        = sum of session.amount (the full charged amount)
+   *   companySplit = sum of session.companyAmount (what you pay the company)
+   *   yourCut      = gross - companySplit   (what you actually keep, pre-expense)
+   *   For per-CLIENT / per-FAMILY attribution, a multi-client session's gross
+   *   and companySplit are divided EVENLY among its clients.
+   */
+  function computeMetrics(filter) {
+    filter = filter || {};
+    const allClients = clients;
+    const findClient = (id) => allClients.find((c) => String(c.id) === String(id));
+
+    // 1) Filter sessions (completed only — these are realized business activity)
+    let rows = sessions.filter((s) => s.status === 'completed' && s.date);
+
+    if (filter.year) rows = rows.filter((s) => s.date.slice(0, 4) === String(filter.year));
+    if (filter.month) rows = rows.filter((s) => s.date.slice(0, 7) === filter.month);
+    if (filter.dateStart) rows = rows.filter((s) => s.date >= filter.dateStart);
+    if (filter.dateEnd) rows = rows.filter((s) => s.date <= filter.dateEnd);
+    if (filter.clientId) {
+      rows = rows.filter((s) => (s.clientIds || []).some((id) => String(id) === String(filter.clientId)));
+    }
+    if (filter.family) {
+      rows = rows.filter((s) => (s.clientIds || []).some((id) => {
+        const c = findClient(id);
+        return c && clientFamily(c) === filter.family;
+      }));
+    }
+    if (filter.paid === 'paid') rows = rows.filter((s) => s.paid === true);
+    else if (filter.paid === 'unpaid') rows = rows.filter((s) => !s.paid && s.payment !== 'waived');
+
+    // 2) Totals
+    let gross = 0, companySplit = 0, miles = 0, hours = 0;
+    let outstanding = 0, outstandingCount = 0;
+    rows.forEach((s) => {
+      gross += num(s.amount);
+      companySplit += num(s.companyAmount);
+      miles += num(s.mileage);
+      hours += num(s.duration);
+      if (!s.paid && s.payment !== 'waived') {
+        outstanding += num(s.amount);
+        outstandingCount++;
+      }
+    });
+    const yourCut = gross - companySplit;
+
+    // 3) Per-group (family-or-individual) rollup, splitting multi-client sessions evenly
+    const groups = {};
+    rows.forEach((s) => {
+      const ids = s.clientIds || [];
+      if (ids.length === 0) return;
+      const shareGross = num(s.amount) / ids.length;
+      const shareSplit = num(s.companyAmount) / ids.length;
+      const shareHours = num(s.duration) / ids.length;
+      const isUnpaid = !s.paid && s.payment !== 'waived';
+      const shareUnpaid = isUnpaid ? num(s.amount) / ids.length : 0;
+      // count a session once per group it touches
+      const touched = new Set();
+      ids.forEach((id) => {
+        const c = findClient(id);
+        if (!c) return;
+        const key = groupKeyForClient(c);
+        if (!groups[key]) {
+          groups[key] = { key, family: clientFamily(c), gross: 0, companySplit: 0, yourCut: 0, hours: 0, sessions: 0, outstanding: 0 };
+        }
+        groups[key].gross += shareGross;
+        groups[key].companySplit += shareSplit;
+        groups[key].yourCut += (shareGross - shareSplit);
+        groups[key].hours += shareHours;
+        groups[key].outstanding += shareUnpaid;
+        if (!touched.has(key)) { groups[key].sessions++; touched.add(key); }
+      });
+    });
+    const groupRows = Object.values(groups).sort((a, b) => b.gross - a.gross);
+
+    return {
+      sessionCount: rows.length,
+      gross, companySplit, yourCut, miles, hours,
+      outstanding, outstandingCount,
+      groups: groupRows,
+      sessions: rows,
+    };
+  }
+
   /** Save all data to localStorage */
   function saveData() {
     try {
@@ -343,6 +471,7 @@
       localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
       localStorage.setItem(STORAGE_KEYS.receipts, JSON.stringify(receipts));
+      localStorage.setItem(STORAGE_KEYS.taxPayments, JSON.stringify(taxPayments));
       const now = new Date();
       const ts = now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       const el = $('last-saved');
@@ -452,6 +581,9 @@
   App.loadData = loadData;
   App.migrateData = migrateData;
   App.getEffectiveSplit = getEffectiveSplit;
+  App.computeMetrics = computeMetrics;
+  App.clientFamily = clientFamily;
+  App.groupKeyForClient = groupKeyForClient;
   App.saveData = saveData;
   App.saveAndRender = saveAndRender;
 

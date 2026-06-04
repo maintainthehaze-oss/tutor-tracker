@@ -512,19 +512,57 @@
           <h2 class="panel-title">Reports</h2>
         </div>
         <div class="toolbar-right">
-          <div class="filter-group">
-            <label for="report-year">Year</label>
-            <select id="report-year" class="input" data-action="change-report-year">
-              <option value="2026" selected>2026</option>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
-            </select>
-          </div>
           <button class="btn btn-sm" data-action="export-report-csv" aria-label="Export report to CSV">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             CSV
           </button>
         </div>
+      </div>
+
+      <!-- Interactive filter bar — every number/table below updates live -->
+      <div class="report-filter-bar">
+        <div class="filter-group">
+          <label for="report-year">Year</label>
+          <select id="report-year" class="input" data-action="report-filter">
+            <option value="2026" selected>2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="report-month">Month</label>
+          <select id="report-month" class="input" data-action="report-filter">
+            <option value="" selected>All months</option>
+            <option value="01">January</option>
+            <option value="02">February</option>
+            <option value="03">March</option>
+            <option value="04">April</option>
+            <option value="05">May</option>
+            <option value="06">June</option>
+            <option value="07">July</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="report-family">Family / Client</label>
+          <select id="report-family" class="input" data-action="report-filter">
+            <option value="" selected>All families</option>
+            <!-- Populated by JS -->
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="report-paid">Payment</label>
+          <select id="report-paid" class="input" data-action="report-filter">
+            <option value="" selected>All</option>
+            <option value="paid">Paid only</option>
+            <option value="unpaid">Unpaid only</option>
+          </select>
+        </div>
+        <button class="btn btn-sm btn-link" data-action="report-filter-reset">Reset</button>
       </div>
 
       <!-- Report Summary Cards -->
@@ -543,6 +581,12 @@
         </article>
         <article class="summary-card">
           <div class="card-data">
+            <span class="card-value" id="report-your-cut">$0</span>
+            <span class="card-label">Your Cut (after split)</span>
+          </div>
+        </article>
+        <article class="summary-card">
+          <div class="card-data">
             <span class="card-value" id="report-total-expenses">$0</span>
             <span class="card-label">Total Expenses</span>
           </div>
@@ -550,7 +594,7 @@
         <article class="summary-card">
           <div class="card-data">
             <span class="card-value" id="report-net-profit">$0</span>
-            <span class="card-label">Net Profit</span>
+            <span class="card-label">Net Profit (after split, expenses, mileage)</span>
           </div>
         </article>
         <article class="summary-card">
@@ -601,6 +645,40 @@
           </tfoot>
         </table>
       </div>
+
+      <!-- Family Breakdown -->
+      <article class="report-section">
+        <h3 class="section-title">Family Breakdown <span class="section-sub" id="family-filter-label"></span></h3>
+        <div class="table-wrapper" role="region" aria-label="Family breakdown" tabindex="0">
+          <table class="data-table" id="family-stats-table">
+            <thead>
+              <tr>
+                <th>Family / Client</th>
+                <th>Sessions</th>
+                <th>Hours</th>
+                <th>Gross</th>
+                <th>Company Split</th>
+                <th>Your Cut</th>
+                <th>Outstanding</th>
+              </tr>
+            </thead>
+            <tbody id="family-stats-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+            <tfoot id="family-stats-tfoot">
+              <tr>
+                <td><strong>Totals</strong></td>
+                <td id="family-foot-sessions">0</td>
+                <td id="family-foot-hours">0</td>
+                <td id="family-foot-gross">$0</td>
+                <td id="family-foot-split">$0</td>
+                <td id="family-foot-cut">$0</td>
+                <td id="family-foot-outstanding">$0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </article>
 
       <!-- Per-Client Stats -->
       <article class="report-section">
@@ -758,6 +836,7 @@
         <!-- Other Expenses Detail -->
         <article class="tax-section">
           <h3 class="section-title">Other Expenses Detail (Line 27a)</h3>
+          <p class="tax-flag-note">⚠ Note: business <strong>meals</strong> are included here at 100%. The IRS generally allows only <strong>50%</strong> for meals — confirm the correct treatment with your accountant before filing.</p>
           <div class="table-wrapper" role="region" aria-label="Other expenses breakdown" tabindex="0">
             <table class="data-table" id="tax-other-expenses-table">
               <thead>
@@ -772,8 +851,77 @@
             </table>
           </div>
         </article>
+
+        <!-- Estimated Tax Payments (record-keeping) -->
+        <article class="tax-section">
+          <div class="section-head-row">
+            <h3 class="section-title">Estimated Tax Payments <span class="section-sub">— what you've paid in</span></h3>
+            <button class="btn btn-sm btn-primary" data-action="add-tax-payment">+ Add Payment</button>
+          </div>
+          <p class="tax-flag-note">These are estimated tax payments YOU sent to the IRS / CT (record-keeping only). They are NOT a business expense and do not appear on Schedule C.</p>
+          <div class="table-wrapper" role="region" aria-label="Estimated tax payments" tabindex="0">
+            <table class="data-table" id="tax-payments-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Agency</th>
+                  <th>Amount</th>
+                  <th>Note</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tax-payments-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2"><strong>Total paid (this year)</strong></td>
+                  <td id="tax-payments-total"><strong>$0</strong></td>
+                  <td colspan="2"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </article>
       </div>
     </section>
+
+    <!-- Tax Payment Modal -->
+    <div class="modal-overlay" id="modal-tax-payment" role="dialog" aria-modal="true" aria-labelledby="modal-tax-payment-title" hidden>
+      <div class="modal modal-sm">
+        <header class="modal-header">
+          <h2 id="modal-tax-payment-title">Add Estimated Tax Payment</h2>
+          <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+        </header>
+        <form class="modal-body" id="tax-payment-form" novalidate>
+          <div class="form-group">
+            <label for="tax-payment-date">Date Paid <span class="required">*</span></label>
+            <input type="date" id="tax-payment-date" class="input" required>
+          </div>
+          <div class="form-group">
+            <label for="tax-payment-agency">Paid To</label>
+            <select id="tax-payment-agency" class="input">
+              <option value="IRS">IRS (Federal)</option>
+              <option value="CT-DRS">CT-DRS (Connecticut)</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="tax-payment-amount">Amount ($) <span class="required">*</span></label>
+            <input type="number" id="tax-payment-amount" class="input" min="0" step="0.01" required placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label for="tax-payment-note">Note (optional)</label>
+            <input type="text" id="tax-payment-note" class="input" placeholder="e.g. Q1 2026 estimate, confirmation #...">
+          </div>
+          <input type="hidden" id="tax-payment-id">
+        </form>
+        <footer class="modal-footer">
+          <button class="btn" data-action="close-modal">Cancel</button>
+          <button class="btn btn-primary" data-action="save-tax-payment">Save Payment</button>
+        </footer>
+      </div>
+    </div>
 
   </main>
 
@@ -1087,7 +1235,7 @@
               </div>
               <div class="form-group">
                 <label for="settings-irs-rate">IRS Mileage Rate ($/mile)</label>
-                <input type="number" id="settings-irs-rate" class="input" min="0" step="0.005" value="0.70" placeholder="0.70">
+                <input type="number" id="settings-irs-rate" class="input" min="0" step="0.005" value="0.725" placeholder="0.725">
               </div>
               <div class="form-group">
                 <label for="settings-default-duration">Default Session Duration (hours)</label>

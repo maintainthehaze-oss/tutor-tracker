@@ -32,6 +32,7 @@
       expenses: App.state.expenses,
       settings: App.state.settings,
       receipts: App.state.receipts,
+      taxPayments: App.state.taxPayments,
     };
     const json = JSON.stringify(backup, null, 2);
     const date = todayISO().replace(/-/g, '');
@@ -66,6 +67,7 @@
         if (imported.expenses) App.state.expenses = imported.expenses;
         if (imported.settings) App.state.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
         if (imported.receipts) App.state.receipts = imported.receipts;
+        if (Array.isArray(imported.taxPayments)) App.state.taxPayments = imported.taxPayments;
         App.migrateData();
         App.saveData();
         App.renderTab(App.state.activeTab);
@@ -702,9 +704,17 @@
         }
 
         case 'change-report-year': App.renderReports(); break;
+        case 'report-filter-reset': {
+          ['report-month', 'report-family', 'report-paid'].forEach((id) => { const el = $(id); if (el) el.value = ''; });
+          App.renderReports();
+          break;
+        }
         case 'export-report-csv': exportCSV('report'); break;
 
         case 'change-tax-year': App.renderTaxSummary(); break;
+        case 'add-tax-payment': App.openTaxPaymentForm(); break;
+        case 'save-tax-payment': App.saveTaxPayment(); break;
+        case 'delete-tax-payment': App.deleteTaxPayment(id); break;
         case 'export-tax-pdf': App.exportTaxPDF(); break;
         case 'export-tax-csv': exportCSV('tax'); break;
 
@@ -777,6 +787,7 @@
       if (action === 'inline-edit') { App.handleInlineEdit(target); return; }
       if (action === 'filter-sessions') { App.renderSessions(); return; }
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
+      if (action === 'report-filter') { App.renderReports(); return; }
       if (action === 'search-clients') { App.renderClients(target.value); return; }
       if (target.id === 'session-clients') { App.updateSessionPrefill(); return; }
     });

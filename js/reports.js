@@ -19,97 +19,156 @@
      REPORTS
      ========================================================== */
 
+  /** Read the current Reports filter-bar selections. */
+  function getReportFilter() {
+    const year = $('report-year') ? $('report-year').value : String(new Date().getFullYear());
+    const monthSel = $('report-month') ? $('report-month').value : '';
+    const family = $('report-family') ? $('report-family').value : '';
+    const paid = $('report-paid') ? $('report-paid').value : '';
+    const filter = { year, paid };
+    if (monthSel) filter.month = year + '-' + monthSel;
+    // family value is either "fam:<name>" for a family group or "cli:<id>" for an individual
+    if (family.startsWith('fam:')) filter.family = family.slice(4);
+    else if (family.startsWith('cli:')) filter.clientId = family.slice(4);
+    return filter;
+  }
+
+  /** Populate the Family/Client filter dropdown from current clients. */
+  function populateFamilyFilter() {
+    const sel = $('report-family');
+    if (!sel) return;
+    const clients = App.state.clients;
+    const current = sel.value;
+    const families = [...new Set(clients.map((c) => App.clientFamily(c)).filter(Boolean))].sort();
+    const loners = clients.filter((c) => !App.clientFamily(c)).sort((a, b) => clientName(a).localeCompare(clientName(b)));
+    let html = '<option value="">All families</option>';
+    families.forEach((f) => { html += '<option value="fam:' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>'; });
+    if (loners.length) {
+      html += '<optgroup label="Individuals">';
+      loners.forEach((c) => { html += '<option value="cli:' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c)) + '</option>'; });
+      html += '</optgroup>';
+    }
+    sel.innerHTML = html;
+    sel.value = current; // preserve selection across re-renders
+  }
+
   function renderReports() {
-    const sessions = App.state.sessions;
     const expenses = App.state.expenses;
     const settings = App.state.settings;
 
-    const yearSelect = $('report-year');
-    const year = yearSelect ? parseInt(yearSelect.value) : new Date().getFullYear();
+    populateFamilyFilter();
+    const filter = getReportFilter();
+    const year = parseInt(filter.year);
 
-    const yearSessions = sessions.filter((s) =>
-      s.date && s.date.slice(0, 4) === String(year) && s.status === 'completed'
-    );
-    const yearExpenses = expenses.filter((e) => e.date && e.date.slice(0, 4) === String(year));
+    // All money/session metrics come from the ONE shared model
+    const M = App.computeMetrics(filter);
 
-    const totalIncome = yearSessions.reduce((s, x) => s + num(x.amount), 0);
-    const totalCompanySplit = yearSessions.reduce((s, x) => s + num(x.companyAmount), 0);
+    // Expenses honor year + (optional) month. Expenses aren't per-client, so
+    // family/client filters don't restrict them — note this in the label.
+    let yearExpenses = expenses.filter((e) => e.date && e.date.slice(0, 4) === String(year));
+    if (filter.month) yearExpenses = yearExpenses.filter((e) => e.date.slice(0, 7) === filter.month);
     const totalExpenses = yearExpenses.reduce((s, x) => s + num(x.amount), 0);
-    const totalMiles = yearSessions.reduce((s, x) => s + num(x.mileage), 0);
-    const totalHours = yearSessions.reduce((s, x) => s + num(x.duration), 0);
+    const mileageDed = M.miles * settings.mileageRate;
+
+    // Net profit = your cut (gross - company split) - expenses - mileage deduction
+    const netProfit = M.yourCut - totalExpenses - mileageDed;
 
     // Summary cards
-    const riEl = $('report-total-income');
-    if (riEl) riEl.textContent = formatCurrency(totalIncome);
-    const rcEl = $('report-company-split');
-    if (rcEl) rcEl.textContent = formatCurrency(totalCompanySplit);
-    const reEl = $('report-total-expenses');
-    if (reEl) reEl.textContent = formatCurrency(totalExpenses);
-    const rnEl = $('report-net-profit');
-    if (rnEl) rnEl.textContent = formatCurrency(totalIncome - totalCompanySplit - totalExpenses - totalMiles * settings.mileageRate);
-    const rsEl = $('report-total-sessions');
-    if (rsEl) rsEl.textContent = yearSessions.length;
-    const rmEl = $('report-total-miles');
-    if (rmEl) rmEl.textContent = totalMiles.toFixed(1);
+    const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+    set('report-total-income', formatCurrency(M.gross));
+    set('report-company-split', formatCurrency(M.companySplit));
+    set('report-your-cut', formatCurrency(M.yourCut));
+    set('report-total-expenses', formatCurrency(totalExpenses));
+    set('report-net-profit', formatCurrency(netProfit));
+    set('report-total-sessions', M.sessionCount);
+    set('report-total-miles', M.miles.toFixed(1));
 
-    // Monthly breakdown
+    // Monthly breakdown — each month recomputed via the shared model (respects family/client/paid filters)
     const tbody = $('report-tbody');
     if (tbody) {
-      const months = [];
+      let rows = '';
       for (let m = 0; m < 12; m++) {
         const monthKey = year + '-' + String(m + 1).padStart(2, '0');
-        const mSessions = yearSessions.filter((s) => s.date.slice(0, 7) === monthKey);
-        const mExpenses = yearExpenses.filter((e) => e.date.slice(0, 7) === monthKey);
-        const income = mSessions.reduce((s, x) => s + num(x.amount), 0);
-        const companySplit = mSessions.reduce((s, x) => s + num(x.companyAmount), 0);
-        const exp = mExpenses.reduce((s, x) => s + num(x.amount), 0);
-        const miles = mSessions.reduce((s, x) => s + num(x.mileage), 0);
-        const hours = mSessions.reduce((s, x) => s + num(x.duration), 0);
-
+        // If a specific month is selected, only show that one row
+        if (filter.month && filter.month !== monthKey) continue;
+        const mf = Object.assign({}, filter, { month: monthKey });
+        const mm = App.computeMetrics(mf);
+        const mExp = expenses
+          .filter((e) => e.date && e.date.slice(0, 7) === monthKey)
+          .reduce((s, x) => s + num(x.amount), 0);
         const monthName = new Date(year, m, 1).toLocaleDateString('en-US', { month: 'long' });
-        months.push({ monthName, sessions: mSessions.length, hours, income, companySplit, exp, miles });
+        rows +=
+          '<tr>' +
+            '<td>' + monthName + '</td>' +
+            '<td>' + mm.sessionCount + '</td>' +
+            '<td>' + formatDuration(mm.hours) + '</td>' +
+            '<td>' + formatCurrency(mm.gross) + '</td>' +
+            '<td>' + formatCurrency(mm.companySplit) + '</td>' +
+            '<td>' + formatCurrency(mExp) + '</td>' +
+            '<td>' + formatCurrency(mm.yourCut - mExp) + '</td>' +
+            '<td>' + mm.miles.toFixed(1) + '</td>' +
+            '<td>' + formatCurrency(mm.miles * settings.mileageRate) + '</td>' +
+          '</tr>';
       }
+      tbody.innerHTML = rows || '<tr><td colspan="9">No data for this selection</td></tr>';
+    }
 
-      tbody.innerHTML = months.map((m) =>
+    // Footer totals
+    set('report-foot-sessions', M.sessionCount);
+    set('report-foot-hours', formatDuration(M.hours));
+    set('report-foot-income', formatCurrency(M.gross));
+    set('report-foot-split', formatCurrency(M.companySplit));
+    set('report-foot-expenses', formatCurrency(totalExpenses));
+    set('report-foot-net', formatCurrency(M.yourCut - totalExpenses));
+    set('report-foot-miles', M.miles.toFixed(1));
+    set('report-foot-mileage-ded', formatCurrency(mileageDed));
+
+    // Family breakdown + per-client stats
+    renderFamilyStats(M);
+    renderClientStats(year, filter);
+  }
+
+  /** Render the per-family (or individual) rollup table from shared metrics. */
+  function renderFamilyStats(M) {
+    const tbody = $('family-stats-tbody');
+    if (!tbody) return;
+
+    const rows = M.groups;
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7">No data for this selection</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map((g) =>
         '<tr>' +
-          '<td>' + m.monthName + '</td>' +
-          '<td>' + m.sessions + '</td>' +
-          '<td>' + formatDuration(m.hours) + '</td>' +
-          '<td>' + formatCurrency(m.income) + '</td>' +
-          '<td>' + formatCurrency(m.companySplit) + '</td>' +
-          '<td>' + formatCurrency(m.exp) + '</td>' +
-          '<td>' + formatCurrency(m.income - m.companySplit - m.exp) + '</td>' +
-          '<td>' + m.miles.toFixed(1) + '</td>' +
-          '<td>' + formatCurrency(m.miles * settings.mileageRate) + '</td>' +
+          '<td>' + escapeHtml(g.key) + '</td>' +
+          '<td>' + g.sessions + '</td>' +
+          '<td>' + formatDuration(g.hours) + '</td>' +
+          '<td>' + formatCurrency(g.gross) + '</td>' +
+          '<td>' + formatCurrency(g.companySplit) + '</td>' +
+          '<td>' + formatCurrency(g.yourCut) + '</td>' +
+          '<td>' + (g.outstanding > 0 ? '<span class="owe">' + formatCurrency(g.outstanding) + '</span>' : '—') + '</td>' +
         '</tr>'
       ).join('');
     }
 
-    // Footer totals
-    const mileageDed = totalMiles * settings.mileageRate;
-    const feEl = $('report-foot-sessions'); if (feEl) feEl.textContent = yearSessions.length;
-    const fhEl = $('report-foot-hours'); if (fhEl) fhEl.textContent = formatDuration(totalHours);
-    const fiEl = $('report-foot-income'); if (fiEl) fiEl.textContent = formatCurrency(totalIncome);
-    const fcEl = $('report-foot-split'); if (fcEl) fcEl.textContent = formatCurrency(totalCompanySplit);
-    const fxEl = $('report-foot-expenses'); if (fxEl) fxEl.textContent = formatCurrency(totalExpenses);
-    const fnEl = $('report-foot-net'); if (fnEl) fnEl.textContent = formatCurrency(totalIncome - totalCompanySplit - totalExpenses);
-    const fmEl = $('report-foot-miles'); if (fmEl) fmEl.textContent = totalMiles.toFixed(1);
-    const fdEl = $('report-foot-mileage-ded'); if (fdEl) fdEl.textContent = formatCurrency(mileageDed);
-
-    // Per-client stats
-    renderClientStats(year);
+    const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+    set('family-foot-sessions', M.sessionCount);
+    set('family-foot-hours', formatDuration(M.hours));
+    set('family-foot-gross', formatCurrency(M.gross));
+    set('family-foot-split', formatCurrency(M.companySplit));
+    set('family-foot-cut', formatCurrency(M.yourCut));
+    set('family-foot-outstanding', formatCurrency(M.outstanding));
   }
 
-  function renderClientStats(year) {
-    const sessions = App.state.sessions;
+  function renderClientStats(year, filter) {
     const clients = App.state.clients;
 
     const tbody = $('client-stats-tbody');
     if (!tbody) return;
 
-    const yearSessions = sessions.filter((s) =>
-      s.date && s.date.slice(0, 4) === String(year) && s.status === 'completed'
-    );
+    // Use the shared metrics model's filtered session set so per-client stats
+    // respect the same year/month/family/paid filters as everything else.
+    const M = App.computeMetrics(filter || { year: String(year) });
+    const yearSessions = M.sessions;
 
     const stats = {};
     yearSessions.forEach((s) => {
@@ -238,6 +297,9 @@
     const trEl = $('tax-irs-rate'); if (trEl) trEl.textContent = '$' + settings.mileageRate.toFixed(3) + '/mi';
     const tdEl = $('tax-mileage-deduction'); if (tdEl) tdEl.textContent = formatCurrency(data.mileageDeduction);
 
+    // Estimated tax payments log (record-keeping)
+    renderTaxPayments(year);
+
     // Other expenses detail
     const otherTbody = $('tax-other-expenses-tbody');
     if (otherTbody) {
@@ -327,10 +389,105 @@
     App.showToast('Tax PDF exported', 'success');
   }
 
+  /* ==========================================================
+     ESTIMATED TAX PAYMENTS (record-keeping only)
+     ========================================================== */
+
+  function renderTaxPayments(year) {
+    const tbody = $('tax-payments-tbody');
+    if (!tbody) return;
+    const payments = (App.state.taxPayments || [])
+      .filter((p) => p.date && p.date.slice(0, 4) === String(year))
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    if (payments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5">No estimated tax payments logged for ' + year + '</td></tr>';
+    } else {
+      tbody.innerHTML = payments.map((p) =>
+        '<tr>' +
+          '<td>' + escapeHtml(formatDate(p.date)) + '</td>' +
+          '<td>' + escapeHtml(p.agency || '') + '</td>' +
+          '<td>' + formatCurrency(p.amount) + '</td>' +
+          '<td>' + escapeHtml(p.note || '') + '</td>' +
+          '<td><button class="btn btn-sm btn-icon btn-danger" data-action="delete-tax-payment" data-id="' + escapeHtml(p.id) + '" title="Delete" aria-label="Delete payment">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>' +
+          '</button></td>' +
+        '</tr>'
+      ).join('');
+    }
+    const total = payments.reduce((s, p) => s + num(p.amount), 0);
+    const totEl = $('tax-payments-total');
+    if (totEl) totEl.innerHTML = '<strong>' + formatCurrency(total) + '</strong>';
+  }
+
+  function openTaxPaymentForm(id) {
+    const form = $('tax-payment-form');
+    if (form) form.reset();
+    $('tax-payment-id').value = '';
+    const title = $('modal-tax-payment-title');
+    if (id) {
+      const p = (App.state.taxPayments || []).find((x) => String(x.id) === String(id));
+      if (p) {
+        if (title) title.textContent = 'Edit Tax Payment';
+        $('tax-payment-id').value = p.id;
+        $('tax-payment-date').value = p.date || '';
+        $('tax-payment-agency').value = p.agency || 'IRS';
+        $('tax-payment-amount').value = p.amount || '';
+        $('tax-payment-note').value = p.note || '';
+      }
+    } else {
+      if (title) title.textContent = 'Add Estimated Tax Payment';
+      // default the date to today
+      $('tax-payment-date').value = App.todayISO();
+    }
+    App.openModal('modal-tax-payment');
+  }
+
+  function saveTaxPayment() {
+    const date = $('tax-payment-date').value;
+    const amount = num($('tax-payment-amount').value);
+    if (!date) { App.showToast('Date is required', 'error'); return; }
+    if (amount <= 0) { App.showToast('Enter a valid amount', 'error'); return; }
+
+    const id = $('tax-payment-id').value;
+    const payments = App.state.taxPayments || [];
+    const data = {
+      id: id || App.generateId(),
+      date,
+      agency: $('tax-payment-agency').value || 'IRS',
+      amount,
+      note: ($('tax-payment-note').value || '').trim(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (id) {
+      const idx = payments.findIndex((p) => String(p.id) === String(id));
+      if (idx !== -1) payments[idx] = data;
+    } else {
+      payments.push(data);
+    }
+    App.state.taxPayments = payments;
+    App.saveData();
+    App.closeModal('modal-tax-payment');
+    App.renderTaxSummary();
+    App.showToast(id ? 'Payment updated' : 'Payment added', 'success');
+  }
+
+  function deleteTaxPayment(id) {
+    App.showConfirm('Delete Payment', 'Remove this estimated tax payment from your records?', () => {
+      App.state.taxPayments = (App.state.taxPayments || []).filter((p) => String(p.id) !== String(id));
+      App.saveData();
+      App.renderTaxSummary();
+      App.showToast('Payment deleted', 'success');
+    });
+  }
+
   // Expose to App namespace
   App.renderReports = renderReports;
   App.renderTaxSummary = renderTaxSummary;
   App.getTaxData = getTaxData;
   App.exportTaxPDF = exportTaxPDF;
+  App.openTaxPaymentForm = openTaxPaymentForm;
+  App.saveTaxPayment = saveTaxPayment;
+  App.deleteTaxPayment = deleteTaxPayment;
 
 })();

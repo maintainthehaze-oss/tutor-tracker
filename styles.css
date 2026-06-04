@@ -2446,3 +2446,83 @@ select.input[multiple] {
   .outstanding-item { flex-wrap: wrap; }
   .btn-mark-paid { margin-left: auto; }
 }
+
+/* ============================================================
+   16. INTERACTIVE REPORTS (filter bar, family table)
+   ============================================================ */
+
+.report-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+}
+.report-filter-bar .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 130px;
+}
+.report-filter-bar .filter-group label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.report-filter-bar .input { min-width: 130px; }
+.report-filter-bar > .btn-link { margin-left: auto; align-self: center; }
+
+.section-sub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 0.4rem;
+}
+
+/* Outstanding amount emphasis in tables */
+.owe {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+/* Family table totals row */
+#family-stats-tfoot td {
+  font-weight: 700;
+  border-top: 2px solid var(--border-default);
+}
+
+/* Tax flag note (meals 50% reminder) */
+.tax-flag-note {
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .report-filter-bar .filter-group { min-width: 100%; }
+  .report-filter-bar > .btn-link { margin-left: 0; }
+}
+
+/* Small modal (tax payment form) */
+.modal.modal-sm { max-width: 420px; }
+
+/* Section header with an action button on the right */
+.section-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.section-head-row .section-title { margin-bottom: 0; }
