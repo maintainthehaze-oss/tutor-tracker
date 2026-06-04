@@ -218,9 +218,6 @@
       $('client-rate').value = c.rate || '';
       $('client-subjects').value = c.subjects || '';
       $('client-goals').value = c.goals || '';
-      $('client-parent-name').value = c.parentName || '';
-      $('client-parent-email').value = c.parentEmail || '';
-      $('client-parent-phone').value = c.parentPhone || '';
       $('client-family').value = c.familyGroup || '';
       $('client-company-name').value = c.companyName || '';
       $('client-company-pct').value = c.companySplit || '';
@@ -281,9 +278,6 @@
       rate: num(rate),
       subjects: ($('client-subjects').value || '').trim(),
       goals: ($('client-goals').value || '').trim(),
-      parentName: ($('client-parent-name').value || '').trim(),
-      parentEmail: ($('client-parent-email').value || '').trim(),
-      parentPhone: ($('client-parent-phone').value || '').trim(),
       familyGroup: ($('client-family').value || '').trim(),
       companyName: ($('client-company-name').value || '').trim(),
       companySplit: num($('client-company-pct').value),
