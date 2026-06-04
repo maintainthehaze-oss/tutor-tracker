@@ -461,12 +461,18 @@
       status: $('session-status').value || 'completed',
       mileage: num($('session-mileage').value),
       mileageDetails: '',
+      // If the user typed a mileage by hand, respect it (treat as final). If
+      // they left it blank/0, the auto-calc below will fill it in.
+      mileageCalculated: num($('session-mileage').value) > 0,
       address: primaryClient ? primaryClient.address : '',
       notes: ($('session-notes').value || '').trim(),
       recurring: null,
       createdAt: isNew ? new Date().toISOString() : undefined,
       updatedAt: new Date().toISOString(),
     };
+
+    // Capture whether mileage was hand-entered BEFORE the modal/form resets.
+    const mileageEnteredManually = num($('session-mileage').value) > 0;
 
     if (isNew) {
       sessions.push(sessionData);
@@ -480,6 +486,13 @@
     App.closeModal('modal-session');
     App.saveAndRender();
     App.showToast(isNew ? 'Session added' : 'Session updated', 'success');
+
+    // Auto-calculate mileage in the BACKGROUND for in-person completed sessions
+    // when the user didn't enter one manually. Recalculates the whole day so
+    // multi-stop drive order stays correct. Never blocks the save.
+    if (sessionData.status === 'completed' && sessionData.type === 'in-person' && !mileageEnteredManually) {
+      autoCalcDayMileage(sessionData.date);
+    }
   }
 
   function duplicateSession(id) {
@@ -709,28 +722,59 @@
     App.showToast('Mileage recalculation complete', 'success');
   }
 
-  /**
-   * Distance in miles between two addresses (one-way), using ORS routing when
-   * available, falling back to haversine*1.3, then to the crude town estimate.
-   * Returns one-way miles (NOT round trip).
-   */
-  async function legMiles(addrA, addrB) {
-    const settings = App.state.settings;
-    if (!addrA || !addrB) return 0;
-    if (settings.orsApiKey) {
-      try {
-        const cA = await geocode(addrA);
-        const cB = await geocode(addrB);
-        if (cA && cB) {
-          const dist = await routeDist(cA, cB);
-          if (dist != null) return dist;
-          return haversine(cA[1], cA[0], cB[1], cB[0]) * 1.3;
-        }
-      } catch (e) {
-        console.error('legMiles error:', e);
-      }
+  /* ---- Throttled, cached, real-routes-only mileage (2026 recalc) ----
+     The 2026 recalc must NEVER save a crude estimate over real data, and must
+     stay under OpenRouteService rate limits. So: geocode each unique address
+     once (cached), throttle every API call, retry on failure, and if any leg
+     of a day can't get a REAL route, that whole day is skipped (left unchanged)
+     and reported — no haversine/town fallbacks are written. */
+
+  const _sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const ORS_DELAY_MS = 1600;   // spacing between API calls (~37/min, under the 40/min cap)
+  const ORS_RETRIES = 3;       // attempts per call before giving up
+
+  /** Geocode with retry. Returns [lng,lat] or null. Throttled by caller. */
+  async function geocodeRetry(address, cache) {
+    if (!address) return null;
+    if (cache.has(address)) return cache.get(address);
+    let result = null;
+    for (let attempt = 0; attempt < ORS_RETRIES; attempt++) {
+      result = await geocode(address);
+      if (result) break;
+      await _sleep(ORS_DELAY_MS * (attempt + 1)); // back off a bit longer each retry
     }
-    return fallbackDist(addrA, addrB);
+    cache.set(address, result); // cache even null so we don't hammer a bad address
+    return result;
+  }
+
+  /** Real driving miles (one-way) between two cached coord pairs, with retry.
+   *  Returns a number, or null if it never succeeded (NO fallback estimate). */
+  async function routeMilesStrict(coordsA, coordsB) {
+    if (!coordsA || !coordsB) return null;
+    for (let attempt = 0; attempt < ORS_RETRIES; attempt++) {
+      const dist = await routeDist(coordsA, coordsB);
+      if (dist != null) return dist;
+      await _sleep(ORS_DELAY_MS * (attempt + 1));
+    }
+    return null;
+  }
+
+  /**
+   * Distance between two ADDRESSES (one-way miles), memoized by address pair so
+   * each unique route is fetched from the API only ONCE across the whole run.
+   * With ~6 addresses this caps total route calls at ~30 instead of one-per-leg.
+   * Returns a number, or null if no real route could be obtained.
+   */
+  async function pairMiles(addrA, addrB, coordCache, distCache, callCounter) {
+    if (!addrA || !addrB) return null;
+    if (addrA === addrB) return 0;
+    const k = addrA + '' + addrB;
+    if (distCache.has(k)) return distCache.get(k);
+    const miles = await routeMilesStrict(coordCache.get(addrA), coordCache.get(addrB));
+    callCounter.n++;
+    await _sleep(ORS_DELAY_MS);
+    distCache.set(k, miles);
+    return miles;
   }
 
   /**
@@ -748,81 +792,141 @@
   }
 
   /**
-   * Per-leg mileage for one day. Sessions are ordered by time (the order you
-   * actually drove). Route is home -> stop1 -> stop2 -> ... -> home. Each
-   * session is credited with the leg that ARRIVED at it; the final leg back
-   * home is added onto the last stop of the day.
+   * Compute & assign real-route mileage for ONE day's in-person sessions, in
+   * drive order (home -> s1 -> ... -> home). Each stop is credited with the leg
+   * that arrived at it; the final home leg is added to the last stop. Sets the
+   * `mileageCalculated` flag on success. If any leg can't get a real route, the
+   * day is left UNTOUCHED and the function returns false (never writes a guess).
+   *
+   * Shared by the bulk 2026 recalc and the per-day auto-calc on save.
    */
-  async function recalcDayMileagePerLeg(date) {
-    const sessions = App.state.sessions;
+  async function computeDayMileage(date, coordCache, distCache, callCounter) {
     const settings = App.state.settings;
     const homeAddr = settings.businessAddress;
-    if (!homeAddr) return;
+    if (!homeAddr || !settings.orsApiKey) return false;
 
-    const daySessions = sessions
+    const daySessions = App.state.sessions
       .filter((s) => s.date === date && s.status === 'completed' && s.type === 'in-person')
       .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    if (daySessions.length === 0) return true; // nothing to do
 
-    if (daySessions.length === 0) return;
+    const stops = daySessions.map((s) => ({ s, addr: sessionAddress(s) }));
+    if (stops.some((x) => !x.addr)) return false; // can't route reliably
 
-    let prevAddr = homeAddr;
-    for (let i = 0; i < daySessions.length; i++) {
-      const s = daySessions[i];
-      const addr = sessionAddress(s);
-      if (!addr) {
-        // No address to route to — leave a zero leg rather than guess.
-        s.mileage = 0;
-        s.mileageDetails = 'No address on file — mileage not calculated';
-        s.updatedAt = new Date().toISOString();
-        continue;
-      }
-      // Leg that arrived at this stop
-      let miles = await legMiles(prevAddr, addr);
-      // The last stop also drives home — add that leg to it
-      if (i === daySessions.length - 1) {
-        miles += await legMiles(addr, homeAddr);
-      }
-      s.mileage = Math.round(miles * 10) / 10;
-      const fromLabel = i === 0 ? 'home' : 'prev stop';
-      s.mileageDetails = i === daySessions.length - 1
-        ? ('Leg from ' + fromLabel + ' + return home (stop ' + (i + 1) + ' of ' + daySessions.length + ')')
-        : ('Leg from ' + fromLabel + ' (stop ' + (i + 1) + ' of ' + daySessions.length + ')');
-      s.updatedAt = new Date().toISOString();
-      prevAddr = addr;
+    // Ensure every address for this day is geocoded (cached)
+    const addrs = [homeAddr, ...stops.map((x) => x.addr)];
+    for (const a of addrs) {
+      if (!coordCache.has(a)) { await geocodeRetry(a, coordCache); await _sleep(ORS_DELAY_MS); }
+    }
+
+    const route = [homeAddr, ...stops.map((x) => x.addr), homeAddr];
+    const legMilesArr = [];
+    for (let i = 0; i < route.length - 1; i++) {
+      const miles = await pairMiles(route[i], route[i + 1], coordCache, distCache, callCounter);
+      if (miles == null) return false; // real route unavailable — abort, change nothing
+      legMilesArr.push(miles);
+    }
+
+    stops.forEach((x, i) => {
+      let m = legMilesArr[i];
+      if (i === stops.length - 1) m += legMilesArr[legMilesArr.length - 1];
+      x.s.mileage = Math.round(m * 10) / 10;
+      x.s.mileageCalculated = true;
+      x.s.mileageDetails = (i === stops.length - 1)
+        ? ('Leg ' + (i + 1) + ' of ' + stops.length + ' + return home (real route)')
+        : ('Leg ' + (i + 1) + ' of ' + stops.length + ' (real route)');
+      x.s.updatedAt = new Date().toISOString();
+    });
+    return true;
+  }
+
+  /**
+   * Auto-calculate mileage for the day of a session that was just saved, in the
+   * BACKGROUND (does not block the save). Recalculates the whole day so drive
+   * order stays correct when a session is added/backdated. Silent on success;
+   * a quiet toast only if it couldn't get a real route.
+   */
+  async function autoCalcDayMileage(date) {
+    const settings = App.state.settings;
+    if (!settings.businessAddress || !settings.orsApiKey) return; // mileage off — skip silently
+    const ok = await computeDayMileage(date, new Map(), new Map(), { n: 0 });
+    if (ok) {
+      App.saveData();
+      if (App.state.activeTab === 'sessions') App.renderSessions();
+      App.updateHeaderStats();
+    } else {
+      App.showToast('Mileage for ' + formatDate(date) + ' needs a manual recalc (no route)', 'warning');
     }
   }
 
   /**
-   * Recalculate mileage for 2026 ONLY, using per-leg routing in drive order.
+   * Recalculate mileage for 2026 ONLY, per-leg in drive order, REAL routes only.
    * Operates exclusively on live sessions (App.state.sessions). Historical data
    * (tutoring-historical / previous years) is never read or modified here.
+   *
+   * Strategy:
+   *  1. Collect every unique address (home + all 2026 stops), geocode each ONCE.
+   *  2. For each day, route home->s1->...->home using cached coords (throttled).
+   *  3. Only write a day's mileage if ALL its legs returned real distances.
+   *     Days with any failure are left untouched and reported at the end.
    */
   async function recalc2026Mileage() {
     const sessions = App.state.sessions;
     const settings = App.state.settings;
+    const homeAddr = settings.businessAddress;
 
-    if (!settings.businessAddress) {
+    if (!homeAddr) {
       App.showToast('Set your home-base address in Settings first', 'warning');
       return;
     }
-
-    const dates2026 = [...new Set(
-      sessions
-        .filter((s) => s.date && s.date.slice(0, 4) === '2026' && s.status === 'completed' && s.type === 'in-person')
-        .map((s) => s.date)
-    )].sort();
-
-    if (dates2026.length === 0) {
-      App.showToast('No 2026 in-person sessions to calculate', 'info');
+    if (!settings.orsApiKey) {
+      App.showToast('Add your OpenRouteService API key in Settings first', 'warning');
       return;
     }
 
-    App.showToast('Calculating 2026 mileage (' + dates2026.length + ' days)…', 'info');
-    for (const date of dates2026) {
-      await recalcDayMileagePerLeg(date);
+    // Group 2026 in-person sessions by day, in drive order
+    const day2026 = {};
+    sessions
+      .filter((s) => s.date && s.date.slice(0, 4) === '2026' && s.status === 'completed' && s.type === 'in-person')
+      .forEach((s) => { (day2026[s.date] = day2026[s.date] || []).push(s); });
+    const dates = Object.keys(day2026).sort();
+    if (dates.length === 0) {
+      App.showToast('No 2026 in-person sessions to calculate', 'info');
+      return;
     }
+    dates.forEach((d) => day2026[d].sort((a, b) => (a.time || '').localeCompare(b.time || '')));
+
+    // 1) Geocode all unique addresses once (cached + throttled)
+    const uniqueAddrs = new Set([homeAddr]);
+    dates.forEach((d) => day2026[d].forEach((s) => { const a = sessionAddress(s); if (a) uniqueAddrs.add(a); }));
+    const coordCache = new Map();
+    App.showToast('Geocoding ' + uniqueAddrs.size + ' addresses…', 'info');
+    for (const addr of uniqueAddrs) {
+      await geocodeRetry(addr, coordCache);
+      await _sleep(ORS_DELAY_MS);
+    }
+
+    // 2) Route each day; only commit days where every leg succeeded.
+    //    Distances are memoized per address-pair (shared distCache), so repeated
+    //    routes across days cost zero extra API calls.
+    let daysDone = 0;
+    const failedDays = [];
+    const distCache = new Map();
+    const callCounter = { n: 0 };
+    App.showToast('Routing ' + dates.length + ' days (deliberately throttled)…', 'info');
+
+    for (const date of dates) {
+      const ok = await computeDayMileage(date, coordCache, distCache, callCounter);
+      if (ok) daysDone++; else failedDays.push(date);
+    }
+
     App.saveAndRender();
-    App.showToast('2026 mileage recalculated (' + dates2026.length + ' days)', 'success');
+    if (failedDays.length === 0) {
+      App.showToast('2026 mileage done — ' + daysDone + ' days, all real routes', 'success');
+    } else {
+      App.showToast(daysDone + ' days updated. ' + failedDays.length + ' skipped (left unchanged) — see console.', 'warning');
+      console.warn('2026 mileage: days left unchanged (no real route):', failedDays);
+    }
   }
 
   // Expose to App namespace
@@ -837,6 +941,7 @@
   App.calculateMileage = calculateMileage;
   App.recalculateAllMileage = recalculateAllMileage;
   App.recalc2026Mileage = recalc2026Mileage;
+  App.autoCalcDayMileage = autoCalcDayMileage;
   App.sessionSort = sessionSort;
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
