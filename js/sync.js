@@ -1,0 +1,206 @@
+/* ============================================================
+   Tutoring Tracker Pro — Sync
+   GitHub Gist sync functions
+   ============================================================ */
+(function () {
+  'use strict';
+
+  const App = window.App;
+  const $ = App.$;
+  const num = App.num;
+
+  function getSyncConfig() {
+    const settings = App.state.settings;
+    return {
+      token: settings.gistToken || sessionStorage.getItem('gist-token') || '',
+      gistId: settings.gistId || '',
+    };
+  }
+
+  function hasSyncConfig() {
+    const cfg = getSyncConfig();
+    return !!(cfg.token);
+  }
+
+  async function saveToGist() {
+    const cfg = getSyncConfig();
+    if (!cfg.token) {
+      App.showToast('No GitHub token configured', 'warning');
+      return;
+    }
+    updateSyncUI('syncing');
+    try {
+      const clients = App.state.clients;
+      const sessions = App.state.sessions;
+      const expenses = App.state.expenses;
+      const settings = App.state.settings;
+      const receipts = App.state.receipts;
+
+      const payload = {
+        description: 'Tutoring Tracker Pro Backup',
+        files: {
+          'tutoring-data.json': {
+            content: JSON.stringify({
+              clients,
+              sessions,
+              expenses,
+              settings,
+              receipts,
+              exportedAt: new Date().toISOString(),
+            }, null, 2),
+          },
+        },
+      };
+
+      let url, method;
+      if (cfg.gistId) {
+        url = 'https://api.github.com/gists/' + cfg.gistId;
+        method = 'PATCH';
+      } else {
+        url = 'https://api.github.com/gists';
+        method = 'POST';
+        payload.public = false;
+      }
+
+      const resp = await fetch(url, {
+        method,
+        headers: {
+          Authorization: 'Bearer ' + cfg.token,
+          'Content-Type': 'application/json',
+          Accept: 'application/vnd.github.v3+json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+      const data = await resp.json();
+      if (!cfg.gistId && data.id) {
+        App.state.settings.gistId = data.id;
+        const el = $('settings-gist-id');
+        if (el) el.value = data.id;
+        App.saveData();
+      }
+
+      updateSyncUI('synced');
+      App.showToast('Data pushed to Gist', 'success');
+    } catch (e) {
+      console.error('Gist push error:', e);
+      updateSyncUI('error');
+      App.showToast('Failed to push to Gist: ' + e.message, 'error');
+    }
+  }
+
+  async function loadFromGist() {
+    const cfg = getSyncConfig();
+    if (!cfg.token || !cfg.gistId) {
+      App.showToast('Gist ID and token required for pull', 'warning');
+      return;
+    }
+    updateSyncUI('syncing');
+    try {
+      const resp = await fetch('https://api.github.com/gists/' + cfg.gistId, {
+        headers: {
+          Authorization: 'Bearer ' + cfg.token,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+      const data = await resp.json();
+      const file = data.files['tutoring-data.json'];
+      if (!file || !file.content) throw new Error('No data file in Gist');
+
+      const imported = JSON.parse(file.content);
+      if (imported.clients) App.state.clients = imported.clients;
+      if (imported.sessions) App.state.sessions = imported.sessions;
+      if (imported.expenses) App.state.expenses = imported.expenses;
+      if (imported.settings) App.state.settings = { ...App.DEFAULT_SETTINGS, ...imported.settings };
+      if (imported.receipts) App.state.receipts = imported.receipts;
+
+      App.migrateData();
+      App.saveData();
+      App.renderTab(App.state.activeTab);
+      App.updateHeaderStats();
+      updateSyncUI('synced');
+      App.showToast('Data pulled from Gist', 'success');
+    } catch (e) {
+      console.error('Gist pull error:', e);
+      updateSyncUI('error');
+      App.showToast('Failed to pull from Gist: ' + e.message, 'error');
+    }
+  }
+
+  function scheduleSave() {
+    if (!hasSyncConfig()) return;
+    const settings = App.state.settings;
+    if (settings.autoSync === 'off') return;
+    if (settings.autoSync === 'save') {
+      clearTimeout(App.state.syncDebounceTimer);
+      App.state.syncDebounceTimer = setTimeout(() => saveToGist(), 5000);
+    }
+  }
+
+  function startAutoSync() {
+    clearInterval(App.state.syncTimer);
+    if (!hasSyncConfig()) return;
+    const settings = App.state.settings;
+    let interval = 0;
+    if (settings.autoSync === '5min' || settings.autoSync === 'frequent') interval = 5 * 60 * 1000;
+    else if (settings.autoSync === '15min') interval = 15 * 60 * 1000;
+    if (interval > 0) {
+      App.state.syncTimer = setInterval(() => saveToGist(), interval);
+    }
+  }
+
+  function updateSyncUI(status) {
+    const el = $('sync-indicator');
+    if (!el) return;
+    el.className = 'sync-indicator';
+    const textEl = el.querySelector('.sync-text');
+    const gistLink = el.querySelector('.sync-gist-link');
+    const settings = App.state.settings;
+
+    // Show/hide Gist link
+    if (gistLink) {
+      if (hasSyncConfig() && settings.gistId) {
+        gistLink.href = 'https://gist.github.com/' + encodeURIComponent(settings.gistId);
+        gistLink.style.display = 'inline';
+        gistLink.title = 'Open Gist: ' + settings.gistId;
+      } else {
+        gistLink.style.display = 'none';
+      }
+    }
+
+    switch (status) {
+      case 'synced':
+        el.classList.add('sync-ok');
+        if (textEl) textEl.textContent = 'Synced';
+        break;
+      case 'syncing':
+        el.classList.add('sync-active');
+        if (textEl) textEl.textContent = 'Syncing...';
+        break;
+      case 'error':
+        el.classList.add('sync-error');
+        if (textEl) textEl.textContent = 'Sync error';
+        break;
+      case 'offline':
+        el.classList.add('sync-offline');
+        if (textEl) textEl.textContent = 'Offline';
+        break;
+      default:
+        if (textEl) textEl.textContent = hasSyncConfig() ? 'Ready' : 'Not synced';
+    }
+  }
+
+  // Expose to App namespace
+  App.getSyncConfig = getSyncConfig;
+  App.hasSyncConfig = hasSyncConfig;
+  App.saveToGist = saveToGist;
+  App.loadFromGist = loadFromGist;
+  App.scheduleSave = scheduleSave;
+  App.startAutoSync = startAutoSync;
+  App.updateSyncUI = updateSyncUI;
+
+})();

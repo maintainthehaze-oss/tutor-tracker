@@ -1,0 +1,13 @@
+# Never commit data files — all session/client data stays local only
+historical_sessions.json
+tutoring-backup-*.json
+
+# Private local config (home address, etc.) — never commit
+local-config.js
+
+# Local helper scripts (contain machine paths / private values) — never commit
+*.bat
+
+# OS files
+.DS_Store
+Thumbs.db

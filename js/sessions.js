@@ -1,0 +1,728 @@
+/* ============================================================
+   Tutoring Tracker Pro — Sessions
+   Session CRUD, sorting, filtering, mileage calculation
+   ============================================================ */
+(function () {
+  'use strict';
+
+  const App = window.App;
+  const $ = App.$;
+  const escapeHtml = App.escapeHtml;
+  const generateId = App.generateId;
+  const formatCurrency = App.formatCurrency;
+  const formatDate = App.formatDate;
+  const formatDuration = App.formatDuration;
+  const todayISO = App.todayISO;
+  const num = App.num;
+  const clientName = App.clientName;
+
+  let sessionSort = { field: 'date', dir: 'desc' };
+
+  function renderSessions() {
+    const sessions = App.state.sessions;
+
+    // Update client count
+    const countEl = $('session-count');
+    if (countEl) countEl.textContent = sessions.length;
+
+    // Populate filter client dropdown
+    populateClientFilter();
+
+    // Monthly summary
+    renderMonthlySummary();
+
+    // Apply filters
+    let filtered = applySessionFilters();
+
+    // Sort
+    filtered = sortSessions(filtered);
+
+    // Show/hide columns for edit mode and checkboxes
+    const editMode = App.state.editMode;
+    const checkCols = document.querySelectorAll('.col-check');
+    checkCols.forEach((el) => el.hidden = !editMode);
+
+    // Render table
+    const tbody = $('sessions-tbody');
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="11">No sessions match your filters</td></tr>';
+      updateSessionTotals([]);
+      return;
+    }
+
+    tbody.innerHTML = filtered.map((s) => renderSessionRow(s)).join('');
+    updateSessionTotals(filtered);
+    updateBulkBar();
+  }
+
+  function renderSessionRow(s) {
+    const clients = App.state.clients;
+    const editMode = App.state.editMode;
+    const selectedSessions = App.state.selectedSessions;
+
+    const clientNames = (s.clientIds || []).map((id) => {
+      const c = clients.find((cl) => String(cl.id) === String(id));
+      return c ? clientName(c) : 'Unknown';
+    }).join(', ');
+
+    const typeLabels = { 'in-person': 'In Person', 'online': 'Online', 'hybrid': 'Hybrid', 'group': 'Group' };
+    const typeClass = 'type-badge type-' + (s.type || 'in-person');
+    const paymentClass = s.paid ? 'payment-paid' : (s.payment === 'waived' ? 'payment-waived' : 'payment-unpaid');
+    const paymentLabel = s.paid ? 'Paid' : (s.payment === 'waived' ? 'Waived' : 'Unpaid');
+    const statusClass = 'status-badge status-' + (s.status || 'completed');
+    const isSelected = selectedSessions.has(s.id);
+
+    const splitAmount = num(s.companyAmount);
+
+    let amountDisplay = formatCurrency(s.amount);
+    const splitDisplay = splitAmount > 0
+      ? escapeHtml(num(s.companySplit)) + '% / ' + formatCurrency(splitAmount)
+      : '-';
+
+    if (editMode) {
+      return '<tr class="session-row' + (isSelected ? ' selected' : '') + '" data-id="' + escapeHtml(s.id) + '">' +
+        '<td class="col-check"><input type="checkbox" data-action="select-session" data-id="' + escapeHtml(s.id) + '"' + (isSelected ? ' checked' : '') + ' aria-label="Select session"></td>' +
+        '<td><input type="date" class="input input-sm" value="' + escapeHtml(s.date || '') + '" data-field="date" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
+        '<td><input type="time" class="input input-sm" value="' + escapeHtml(s.time || '') + '" data-field="time" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
+        '<td>' + escapeHtml(clientNames) + '</td>' +
+        '<td><span class="' + typeClass + '">' + escapeHtml(typeLabels[s.type] || s.type || 'In Person') + '</span></td>' +
+        '<td><input type="number" class="input input-sm" value="' + num(s.duration) + '" step="0.25" min="0.25" data-field="duration" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
+        '<td><input type="number" class="input input-sm" value="' + num(s.amount) + '" step="0.01" min="0" data-field="amount" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
+        '<td>' + splitDisplay + '</td>' +
+        '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
+        '<td><select class="input input-sm" data-field="payment" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
+          '<option value="paid"' + (s.paid ? ' selected' : '') + '>Paid</option>' +
+          '<option value="unpaid"' + (!s.paid && s.payment !== 'waived' ? ' selected' : '') + '>Unpaid</option>' +
+          '<option value="waived"' + (s.payment === 'waived' ? ' selected' : '') + '>Waived</option>' +
+        '</select></td>' +
+        '<td><select class="input input-sm" data-field="status" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
+          '<option value="completed"' + (s.status === 'completed' ? ' selected' : '') + '>Completed</option>' +
+          '<option value="scheduled"' + (s.status === 'scheduled' ? ' selected' : '') + '>Scheduled</option>' +
+          '<option value="cancelled"' + (s.status === 'cancelled' ? ' selected' : '') + '>Cancelled</option>' +
+          '<option value="no-show"' + (s.status === 'no-show' ? ' selected' : '') + '>No Show</option>' +
+        '</select></td>' +
+        '<td class="col-actions"><button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>' +
+      '</tr>';
+    }
+
+    return '<tr class="session-row" data-id="' + escapeHtml(s.id) + '">' +
+      '<td>' + escapeHtml(formatDate(s.date)) + '</td>' +
+      '<td>' + escapeHtml(s.time || '-') + '</td>' +
+      '<td>' + escapeHtml(clientNames || '-') + '</td>' +
+      '<td><span class="' + typeClass + '">' + escapeHtml(typeLabels[s.type] || s.type || 'In Person') + '</span></td>' +
+      '<td>' + formatDuration(s.duration) + '</td>' +
+      '<td>' + amountDisplay + '</td>' +
+      '<td>' + splitDisplay + '</td>' +
+      '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
+      '<td><span class="payment-badge ' + paymentClass + '">' + paymentLabel + '</span></td>' +
+      '<td><span class="' + statusClass + '">' + escapeHtml(s.status || 'completed') + '</span></td>' +
+      '<td class="col-actions">' +
+        '<button class="btn btn-sm btn-icon" data-action="edit-session" data-id="' + escapeHtml(s.id) + '" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
+        '<button class="btn btn-sm btn-icon" data-action="duplicate-session" data-id="' + escapeHtml(s.id) + '" title="Duplicate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
+        '<button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
+      '</td>' +
+    '</tr>';
+  }
+
+  function populateClientFilter() {
+    const clients = App.state.clients;
+    const select = $('filter-client');
+    if (!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">All Clients</option>' +
+      clients.sort((a, b) => clientName(a).localeCompare(clientName(b)))
+        .map((c) => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c)) + '</option>')
+        .join('');
+    select.value = currentVal;
+  }
+
+  function applySessionFilters() {
+    let filtered = [...App.state.sessions];
+
+    const dateStart = $('filter-date-start') ? $('filter-date-start').value : '';
+    const dateEnd = $('filter-date-end') ? $('filter-date-end').value : '';
+    const clientId = $('filter-client') ? $('filter-client').value : '';
+    const payment = $('filter-payment') ? $('filter-payment').value : '';
+    const status = $('filter-status') ? $('filter-status').value : '';
+
+    if (dateStart) filtered = filtered.filter((s) => s.date >= dateStart);
+    if (dateEnd) filtered = filtered.filter((s) => s.date <= dateEnd);
+    if (clientId) filtered = filtered.filter((s) => (s.clientIds || []).some((cid) => String(cid) === String(clientId)));
+    if (payment === 'paid') filtered = filtered.filter((s) => s.paid === true);
+    else if (payment === 'unpaid') filtered = filtered.filter((s) => !s.paid && s.payment !== 'waived');
+    else if (payment === 'waived') filtered = filtered.filter((s) => s.payment === 'waived');
+    if (status) filtered = filtered.filter((s) => s.status === status);
+
+    return filtered;
+  }
+
+  function sortSessions(arr) {
+    const clients = App.state.clients;
+    const { field, dir } = sessionSort;
+    const mult = dir === 'asc' ? 1 : -1;
+
+    return arr.sort((a, b) => {
+      let va, vb;
+      switch (field) {
+        case 'date':
+          va = a.date || '';
+          vb = b.date || '';
+          return va < vb ? -1 * mult : va > vb ? 1 * mult : 0;
+        case 'time':
+          va = a.time || '';
+          vb = b.time || '';
+          return va < vb ? -1 * mult : va > vb ? 1 * mult : 0;
+        case 'client':
+          va = (a.clientIds || []).map((id) => { const c = clients.find((cl) => String(cl.id) === String(id)); return c ? clientName(c) : ''; }).join('');
+          vb = (b.clientIds || []).map((id) => { const c = clients.find((cl) => String(cl.id) === String(id)); return c ? clientName(c) : ''; }).join('');
+          return va.localeCompare(vb) * mult;
+        case 'duration':
+          return (num(a.duration) - num(b.duration)) * mult;
+        case 'amount':
+          return (num(a.amount) - num(b.amount)) * mult;
+        case 'payment':
+          va = a.paid ? 'a' : 'b';
+          vb = b.paid ? 'a' : 'b';
+          return va < vb ? -1 * mult : va > vb ? 1 * mult : 0;
+        case 'status':
+          return (a.status || '').localeCompare(b.status || '') * mult;
+        default:
+          return 0;
+      }
+    });
+  }
+
+  function updateSessionTotals(filtered) {
+    const completed = filtered.filter((s) => s.status === 'completed');
+    const totalDur = completed.reduce((sum, s) => sum + num(s.duration), 0);
+    const totalAmt = completed.reduce((sum, s) => sum + num(s.amount), 0);
+    const totalMiles = completed.reduce((sum, s) => sum + num(s.mileage), 0);
+
+    const durEl = $('total-duration');
+    if (durEl) durEl.textContent = formatDuration(totalDur);
+    const amtEl = $('total-amount');
+    if (amtEl) amtEl.textContent = formatCurrency(totalAmt);
+    const miEl = $('total-mileage');
+    if (miEl) miEl.textContent = totalMiles.toFixed(1) + ' mi';
+  }
+
+  function renderMonthlySummary() {
+    const sessions = App.state.sessions;
+    const clients = App.state.clients;
+
+    const now = new Date();
+    const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const dateEl = $('monthly-summary-date');
+    if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const content = $('monthly-summary-content');
+    if (!content) return;
+
+    const monthSessions = sessions.filter((s) => s.date && s.date.startsWith(monthStr) && s.status === 'completed');
+
+    if (monthSessions.length === 0) {
+      content.innerHTML = '<p class="empty-state">No completed sessions this month</p>';
+      return;
+    }
+
+    const totalSessions = monthSessions.length;
+    const totalHours = monthSessions.reduce((sum, s) => sum + num(s.duration), 0);
+    const totalRevenue = monthSessions.reduce((sum, s) => sum + num(s.amount), 0);
+    const totalSplit = monthSessions.reduce((sum, s) => sum + num(s.companyAmount), 0);
+    const totalMiles = monthSessions.reduce((sum, s) => sum + num(s.mileage), 0);
+    const unpaidCount = sessions.filter((s) => s.date && s.date.startsWith(monthStr) && !s.paid && s.payment !== 'waived').length;
+
+    content.innerHTML =
+      '<div class="monthly-stats">' +
+        '<div class="monthly-stat"><span class="monthly-stat-value">' + totalSessions + '</span><span class="monthly-stat-label">Sessions</span></div>' +
+        '<div class="monthly-stat"><span class="monthly-stat-value">' + formatDuration(totalHours) + '</span><span class="monthly-stat-label">Hours</span></div>' +
+        '<div class="monthly-stat"><span class="monthly-stat-value">' + formatCurrency(totalRevenue) + '</span><span class="monthly-stat-label">Revenue</span></div>' +
+        (totalSplit > 0 ? '<div class="monthly-stat"><span class="monthly-stat-value">' + formatCurrency(totalSplit) + '</span><span class="monthly-stat-label">Co. Split</span></div>' : '') +
+        (totalMiles > 0 ? '<div class="monthly-stat"><span class="monthly-stat-value">' + totalMiles.toFixed(1) + ' mi</span><span class="monthly-stat-label">Mileage</span></div>' : '') +
+        (unpaidCount > 0 ? '<div class="monthly-stat monthly-stat-alert"><span class="monthly-stat-value">' + unpaidCount + '</span><span class="monthly-stat-label">Unpaid</span></div>' : '') +
+      '</div>';
+  }
+
+  function openSessionForm(id, prefillDate) {
+    const sessions = App.state.sessions;
+    const clients = App.state.clients;
+    const settings = App.state.settings;
+
+    const modal = $('modal-session');
+    const title = $('modal-session-title');
+    const form = $('session-form');
+    if (!modal || !form) return;
+
+    form.reset();
+    $('session-id').value = '';
+
+    // Populate client dropdown
+    const clientSelect = $('session-clients');
+    if (clientSelect) {
+      clientSelect.innerHTML = clients
+        .filter((c) => c.status === 'active')
+        .sort((a, b) => clientName(a).localeCompare(clientName(b)))
+        .map((c) => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c)) +
+          ' (' + formatCurrency(c.rate) + '/hr)</option>')
+        .join('');
+    }
+
+    if (id) {
+      const s = sessions.find((ses) => String(ses.id) === String(id));
+      if (!s) return;
+      if (title) title.textContent = 'Edit Session';
+      $('session-id').value = s.id;
+      $('session-date').value = s.date || '';
+      $('session-time').value = s.time || '';
+      $('session-type').value = s.type || 'in-person';
+      $('session-duration').value = s.duration || 1;
+      $('session-amount').value = s.amount || '';
+      $('session-mileage').value = s.mileage || '';
+      $('session-payment').value = s.paid ? 'paid' : (s.payment === 'waived' ? 'waived' : 'unpaid');
+      $('session-status').value = s.status || 'completed';
+      $('session-notes').value = s.notes || '';
+
+      // Select clients
+      if (clientSelect && s.clientIds) {
+        Array.from(clientSelect.options).forEach((opt) => {
+          opt.selected = s.clientIds.some((cid) => String(cid) === String(opt.value));
+        });
+      }
+    } else {
+      if (title) title.textContent = 'Add Session';
+      $('session-date').value = prefillDate || todayISO();
+      $('session-duration').value = settings.defaultDuration || 1;
+      $('session-status').value = 'completed';
+    }
+
+    App.openModal('modal-session');
+    updateSessionPrefill();
+  }
+
+  /** Most recent completed session for a single client (by date, then createdAt). */
+  function lastSessionForClient(clientId) {
+    const sessions = App.state.sessions;
+    const editingId = $('session-id').value;
+    const matches = sessions.filter((s) =>
+      String(s.id) !== String(editingId) &&
+      s.status === 'completed' &&
+      (s.clientIds || []).some((cid) => String(cid) === String(clientId))
+    );
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => {
+      const d = (b.date || '').localeCompare(a.date || '');
+      if (d !== 0) return d;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+    return matches[0];
+  }
+
+  /**
+   * Refresh the live amount placeholder (rate x duration) and the
+   * "Repeat last session" banner based on the currently selected client(s).
+   * Only fires for brand-new sessions, not when editing an existing one.
+   */
+  function updateSessionPrefill() {
+    const clients = App.state.clients;
+    const clientSelect = $('session-clients');
+    const amountEl = $('session-amount');
+    const banner = $('repeat-last-banner');
+    const isEditing = !!$('session-id').value;
+
+    const selected = clientSelect ? Array.from(clientSelect.selectedOptions).map((o) => o.value) : [];
+
+    // Live amount placeholder = avg rate x duration
+    if (amountEl) {
+      const duration = num($('session-duration').value) || 0;
+      const rates = selected.map((cid) => {
+        const c = clients.find((cl) => String(cl.id) === String(cid));
+        return c ? num(c.rate) : 0;
+      }).filter((r) => r > 0);
+      if (rates.length > 0 && duration > 0) {
+        const avg = rates.reduce((s, r) => s + r, 0) / rates.length;
+        amountEl.placeholder = formatCurrency(avg * duration) + ' (auto)';
+      } else {
+        amountEl.placeholder = 'Auto-calculated';
+      }
+    }
+
+    // Repeat-last banner: only for a single selected client on a new session
+    if (banner) {
+      const textEl = $('repeat-last-text');
+      if (!isEditing && selected.length === 1) {
+        const last = lastSessionForClient(selected[0]);
+        if (last) {
+          banner.hidden = false;
+          if (textEl) {
+            textEl.textContent = 'Repeat last session (' +
+              formatDate(last.date) + ' · ' + formatDuration(last.duration) + ' · ' +
+              formatCurrency(last.amount) + ')';
+          }
+          banner.dataset.lastId = last.id;
+        } else {
+          banner.hidden = true;
+          banner.dataset.lastId = '';
+        }
+      } else {
+        banner.hidden = true;
+        banner.dataset.lastId = '';
+      }
+    }
+  }
+
+  /** Fill the open session form from a client's most recent session. */
+  function repeatLastSession() {
+    const banner = $('repeat-last-banner');
+    if (!banner || !banner.dataset.lastId) return;
+    const sessions = App.state.sessions;
+    const last = sessions.find((s) => String(s.id) === String(banner.dataset.lastId));
+    if (!last) return;
+
+    // Copy the "shape" of the session, but keep today's date and unpaid status.
+    // NOTE: mileage is intentionally NOT copied — it varies per trip (other
+    // families, multi-stop days) and a stale value would skew the deduction.
+    $('session-time').value = last.time || '';
+    $('session-type').value = last.type || 'in-person';
+    $('session-duration').value = num(last.duration) || 1;
+    $('session-amount').value = num(last.amount) || '';
+    if (last.notes) $('session-notes').value = last.notes;
+
+    App.showToast('Filled from ' + formatDate(last.date) + ' session (mileage left blank)', 'success');
+    updateSessionPrefill();
+  }
+
+  function saveSession() {
+    const sessions = App.state.sessions;
+    const clients = App.state.clients;
+
+    const date = $('session-date').value;
+    const clientSelect = $('session-clients');
+    const selectedClients = clientSelect
+      ? Array.from(clientSelect.selectedOptions).map((o) => isNaN(o.value) ? o.value : Number(o.value))
+      : [];
+    const duration = num($('session-duration').value);
+
+    if (!date) {
+      App.showToast('Date is required', 'error');
+      $('session-date').focus();
+      return;
+    }
+    if (selectedClients.length === 0) {
+      App.showToast('Select at least one client', 'error');
+      return;
+    }
+    if (duration <= 0) {
+      App.showToast('Duration must be greater than 0', 'error');
+      $('session-duration').focus();
+      return;
+    }
+
+    // Auto-calculate amount if blank
+    let amount = num($('session-amount').value);
+    if (!$('session-amount').value || amount === 0) {
+      const rates = selectedClients.map((cid) => {
+        const c = clients.find((cl) => String(cl.id) === String(cid));
+        return c ? num(c.rate) : 0;
+      }).filter((r) => r > 0);
+      const avgRate = rates.length > 0 ? rates.reduce((s, r) => s + r, 0) / rates.length : 0;
+      amount = avgRate * duration;
+    }
+
+    // Calculate company split
+    let companySplit = 0;
+    let companyAmount = 0;
+    const primaryClient = clients.find((c) => String(c.id) === String(selectedClients[0]));
+    if (primaryClient && primaryClient.companySplit > 0) {
+      companySplit = primaryClient.companySplit;
+      companyAmount = amount * (companySplit / 100);
+    }
+
+    const paymentVal = $('session-payment').value;
+    const paid = paymentVal === 'paid';
+
+    const id = $('session-id').value;
+    const isNew = !id;
+
+    const sessionData = {
+      id: id || generateId(),
+      date,
+      time: $('session-time').value || '',
+      clientIds: selectedClients,
+      type: $('session-type').value || 'in-person',
+      duration,
+      amount,
+      companySplit,
+      companyAmount,
+      paid,
+      payment: paymentVal,
+      paymentDate: paid ? todayISO() : null,
+      status: $('session-status').value || 'completed',
+      mileage: num($('session-mileage').value),
+      mileageDetails: '',
+      address: primaryClient ? primaryClient.address : '',
+      notes: ($('session-notes').value || '').trim(),
+      recurring: null,
+      createdAt: isNew ? new Date().toISOString() : undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (isNew) {
+      sessions.push(sessionData);
+    } else {
+      const idx = sessions.findIndex((s) => String(s.id) === String(id));
+      if (idx === -1) return;
+      sessionData.createdAt = sessions[idx].createdAt;
+      sessions[idx] = sessionData;
+    }
+
+    App.closeModal('modal-session');
+    App.saveAndRender();
+    App.showToast(isNew ? 'Session added' : 'Session updated', 'success');
+  }
+
+  function duplicateSession(id) {
+    const sessions = App.state.sessions;
+    const s = sessions.find((ses) => String(ses.id) === String(id));
+    if (!s) return;
+
+    const dup = { ...s };
+    dup.id = generateId();
+    dup.date = todayISO();
+    dup.paid = false;
+    dup.payment = 'unpaid';
+    dup.paymentDate = null;
+    dup.status = 'scheduled';
+    dup.createdAt = new Date().toISOString();
+    dup.updatedAt = new Date().toISOString();
+
+    sessions.push(dup);
+    App.saveAndRender();
+    App.showToast('Session duplicated', 'success');
+  }
+
+  function deleteSession(id) {
+    const sessions = App.state.sessions;
+    const s = sessions.find((ses) => String(ses.id) === String(id));
+    if (!s) return;
+
+    App.showConfirm('Delete Session', 'Delete this session from ' + formatDate(s.date) + '?', () => {
+      App.state.sessions = sessions.filter((ses) => String(ses.id) !== String(id));
+      App.state.selectedSessions.delete(id);
+      App.saveAndRender();
+      App.showToast('Session deleted', 'success');
+    });
+  }
+
+  function handleInlineEdit(el) {
+    const sessions = App.state.sessions;
+    const id = el.getAttribute('data-id');
+    const field = el.getAttribute('data-field');
+    const s = sessions.find((ses) => String(ses.id) === String(id));
+    if (!s) return;
+
+    switch (field) {
+      case 'date': s.date = el.value; break;
+      case 'time': s.time = el.value; break;
+      case 'duration': s.duration = num(el.value); break;
+      case 'amount': s.amount = num(el.value); break;
+      case 'payment':
+        s.paid = el.value === 'paid';
+        s.payment = el.value;
+        if (s.paid && !s.paymentDate) s.paymentDate = todayISO();
+        break;
+      case 'status': s.status = el.value; break;
+    }
+    s.updatedAt = new Date().toISOString();
+    App.saveData();
+    updateSessionTotals(applySessionFilters());
+    App.updateHeaderStats();
+    App.scheduleSave();
+  }
+
+  function updateBulkBar() {
+    const selectedSessions = App.state.selectedSessions;
+    const bar = $('bulk-actions');
+    if (!bar) return;
+    const count = selectedSessions.size;
+    bar.hidden = count === 0;
+    const countEl = $('bulk-selected-count');
+    if (countEl) countEl.textContent = count;
+  }
+
+  /* ==========================================================
+     MILEAGE CALCULATION
+     ========================================================== */
+
+  async function geocode(address) {
+    const settings = App.state.settings;
+    if (!address || !settings.orsApiKey) return null;
+    try {
+      const url = 'https://api.openrouteservice.org/geocode/search?api_key=' +
+        encodeURIComponent(settings.orsApiKey) +
+        '&text=' + encodeURIComponent(address) +
+        '&size=1&boundary.country=US';
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (data.features && data.features.length > 0) {
+        const coords = data.features[0].geometry.coordinates;
+        return [coords[0], coords[1]]; // [lng, lat]
+      }
+    } catch (e) {
+      console.error('Geocode error:', e);
+    }
+    return null;
+  }
+
+  async function routeDist(coords1, coords2) {
+    const settings = App.state.settings;
+    if (!settings.orsApiKey) return null;
+    try {
+      const resp = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
+        method: 'POST',
+        headers: {
+          Authorization: settings.orsApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          coordinates: [coords1, coords2],
+        }),
+      });
+      const data = await resp.json();
+      if (data.routes && data.routes.length > 0) {
+        return data.routes[0].summary.distance / 1609.34; // meters to miles
+      }
+    } catch (e) {
+      console.error('Route error:', e);
+    }
+    return null;
+  }
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 3958.8; // Earth radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function fallbackDist(addr1, addr2) {
+    if (!addr1 || !addr2) return 0;
+    const city1 = (addr1.split(',')[1] || '').trim().toLowerCase();
+    const city2 = (addr2.split(',')[1] || '').trim().toLowerCase();
+    if (city1 && city2 && city1 === city2) return 3;
+    return 8;
+  }
+
+  async function calculateMileage(address) {
+    const settings = App.state.settings;
+    if (!address) return 0;
+    const homeAddr = settings.businessAddress;
+    if (!homeAddr) return 0;
+
+    // Try ORS API first
+    if (settings.orsApiKey) {
+      try {
+        const homeCoords = await geocode(homeAddr);
+        const destCoords = await geocode(address);
+        if (homeCoords && destCoords) {
+          const dist = await routeDist(homeCoords, destCoords);
+          if (dist != null) return Math.round(dist * 2 * 10) / 10; // Round trip
+
+          // Fallback to haversine
+          const hvDist = haversine(homeCoords[1], homeCoords[0], destCoords[1], destCoords[0]);
+          return Math.round(hvDist * 1.3 * 2 * 10) / 10; // *1.3 road factor, round trip
+        }
+      } catch (e) {
+        console.error('Mileage calc error:', e);
+      }
+    }
+
+    // Crude fallback
+    return fallbackDist(homeAddr, address) * 2;
+  }
+
+  async function recalcDayMileage(date) {
+    const sessions = App.state.sessions;
+    const settings = App.state.settings;
+
+    const daySessions = sessions
+      .filter((s) => s.date === date && s.status === 'completed' && s.type === 'in-person')
+      .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    if (daySessions.length === 0) return;
+
+    const homeAddr = settings.businessAddress;
+    if (!homeAddr) return;
+
+    if (daySessions.length === 1) {
+      const addr = daySessions[0].address || '';
+      if (addr) {
+        daySessions[0].mileage = await calculateMileage(addr);
+        daySessions[0].mileageDetails = 'Round trip: home -> ' + addr + ' -> home';
+      }
+      return;
+    }
+
+    // Multi-stop: home -> stop1 -> stop2 -> ... -> home
+    const addresses = [homeAddr];
+    daySessions.forEach((s) => {
+      if (s.address) addresses.push(s.address);
+    });
+    addresses.push(homeAddr);
+
+    // Calculate segment distances
+    let totalMiles = 0;
+    for (let i = 0; i < addresses.length - 1; i++) {
+      if (settings.orsApiKey) {
+        const c1 = await geocode(addresses[i]);
+        const c2 = await geocode(addresses[i + 1]);
+        if (c1 && c2) {
+          const dist = await routeDist(c1, c2);
+          totalMiles += dist != null ? dist : haversine(c1[1], c1[0], c2[1], c2[0]) * 1.3;
+          continue;
+        }
+      }
+      totalMiles += fallbackDist(addresses[i], addresses[i + 1]);
+    }
+
+    // Distribute miles across sessions
+    const perSession = totalMiles / daySessions.length;
+    daySessions.forEach((s) => {
+      s.mileage = Math.round(perSession * 10) / 10;
+      s.mileageDetails = 'Multi-stop day, ' + (addresses.length - 2) + ' stops';
+    });
+  }
+
+  async function recalculateAllMileage() {
+    const sessions = App.state.sessions;
+    App.showToast('Recalculating all mileage...', 'info');
+    const dates = [...new Set(sessions.filter((s) => s.status === 'completed' && s.type === 'in-person').map((s) => s.date))];
+    for (const date of dates) {
+      await recalcDayMileage(date);
+    }
+    App.saveAndRender();
+    App.showToast('Mileage recalculation complete', 'success');
+  }
+
+  // Expose to App namespace
+  App.renderSessions = renderSessions;
+  App.openSessionForm = openSessionForm;
+  App.saveSession = saveSession;
+  App.duplicateSession = duplicateSession;
+  App.deleteSession = deleteSession;
+  App.handleInlineEdit = handleInlineEdit;
+  App.updateBulkBar = updateBulkBar;
+  App.applySessionFilters = applySessionFilters;
+  App.calculateMileage = calculateMileage;
+  App.recalculateAllMileage = recalculateAllMileage;
+  App.sessionSort = sessionSort;
+  App.populateClientFilter = populateClientFilter;
+  App.updateSessionPrefill = updateSessionPrefill;
+  App.repeatLastSession = repeatLastSession;
+
+})();

@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://api.openrouteservice.org https://cdn.jsdelivr.net;">
+  <meta name="description" content="Tutoring Tracker Pro — track clients, sessions, expenses, mileage, and taxes for your tutoring business.">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tutoring Tracker">
+
+  <title>Tutoring Tracker Pro</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+
+  <!-- jsPDF for tax export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>
+
+  <!-- App styles -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon.svg">
+</head>
+
+<body>
+  <!-- ===================== SKIP LINK ===================== -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- ===================== BACKUP REMINDER BANNER ===================== -->
+  <div id="backup-banner" class="backup-banner" role="alert" aria-live="polite" hidden>
+    <span class="backup-banner-icon" aria-hidden="true">💾</span>
+    <span class="backup-banner-msg" id="backup-banner-msg">Time to back up your data!</span>
+    <div class="backup-banner-actions">
+      <button class="btn btn-sm backup-banner-btn" data-action="backup-data">Download Backup Now</button>
+      <button class="btn btn-sm btn-ghost backup-banner-dismiss" data-action="dismiss-backup-banner">Remind me later</button>
+    </div>
+  </div>
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="app-header" role="banner">
+    <div class="header-left">
+      <h1 class="app-logo">
+        <span class="logo-icon" aria-hidden="true">&#x1F4DA;</span>
+        <span class="logo-text">Tutoring Tracker <span class="logo-pro">Pro</span></span>
+      </h1>
+    </div>
+
+    <div class="header-center">
+      <div class="live-stats" aria-label="Quick stats">
+        <div class="stat-pill" data-stat="revenue">
+          <span class="stat-label">Revenue</span>
+          <span class="stat-value" id="header-revenue">$0</span>
+        </div>
+        <div class="stat-pill" data-stat="sessions">
+          <span class="stat-label">Sessions</span>
+          <span class="stat-value" id="header-sessions">0</span>
+        </div>
+        <div class="stat-pill" data-stat="clients">
+          <span class="stat-label">Clients</span>
+          <span class="stat-value" id="header-clients">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button class="header-btn" data-action="global-search" aria-label="Search (Ctrl+K)" title="Search (Ctrl+K)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <kbd class="kbd-hint">Ctrl+K</kbd>
+      </button>
+
+      <button class="header-btn" data-action="toggle-theme" aria-label="Toggle dark/light theme" title="Toggle theme">
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+
+      <button class="header-btn" data-action="open-settings" aria-label="Settings" title="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.32 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+
+      <div class="sync-indicator" id="sync-indicator" aria-live="polite" title="Sync status">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span class="sync-text">Not synced</span>
+        <a class="sync-gist-link" href="#" target="_blank" rel="noopener" style="display:none" title="Open Gist">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== NAVIGATION ===================== -->
+  <nav class="tab-nav" role="tablist" aria-label="Main navigation">
+    <button class="tab-btn active" role="tab" data-tab="dashboard" aria-selected="true" aria-controls="panel-dashboard" id="tab-dashboard">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
+      <span>Dashboard</span>
+    </button>
+<button class="tab-btn" role="tab" data-tab="clients" aria-selected="false" aria-controls="panel-clients" id="tab-clients">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      <span>Clients</span>
+    </button>
+    <button class="tab-btn" role="tab" data-tab="sessions" aria-selected="false" aria-controls="panel-sessions" id="tab-sessions">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      <span>Sessions</span>
+    </button>
+    <button class="tab-btn" role="tab" data-tab="expenses" aria-selected="false" aria-controls="panel-expenses" id="tab-expenses">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="12" y1="1" x2="12" y2="23"></line>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+      </svg>
+      <span>Expenses</span>
+    </button>
+    <button class="tab-btn" role="tab" data-tab="reports" aria-selected="false" aria-controls="panel-reports" id="tab-reports">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+      <span>Reports</span>
+    </button>
+    <button class="tab-btn" role="tab" data-tab="tax" aria-selected="false" aria-controls="panel-tax" id="tab-tax">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+      <span>Tax Summary</span>
+    </button>
+  </nav>
+
+  <!-- ===================== MAIN CONTENT ===================== -->
+  <main id="main-content" class="main-content">
+
+    <!-- ==================== DASHBOARD TAB ==================== -->
+    <section class="tab-panel active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+
+      <!-- Summary Cards -->
+      <div class="summary-cards">
+        <article class="summary-card card-net" aria-label="Net revenue">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <div class="card-data">
+            <span class="card-value" id="dash-net">$0</span>
+            <span class="card-label">Net Revenue</span>
+            <span class="card-sub" id="dash-gross-split">Gross: $0 | Split: $0</span>
+            <span class="card-trend" id="dash-revenue-trend" aria-label="Trend"></span>
+          </div>
+        </article>
+
+        <article class="summary-card card-sessions" aria-label="Sessions this month">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div class="card-data">
+            <span class="card-value" id="dash-sessions">0</span>
+            <span class="card-label">Sessions This Month</span>
+            <span class="card-trend" id="dash-sessions-trend" aria-label="Trend"></span>
+          </div>
+        </article>
+
+        <article class="summary-card card-clients" aria-label="Active clients">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+          </div>
+          <div class="card-data">
+            <span class="card-value" id="dash-clients">0</span>
+            <span class="card-label">Active Clients</span>
+          </div>
+        </article>
+
+        <article class="summary-card card-rate" aria-label="Average hourly rate">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          </div>
+          <div class="card-data">
+            <span class="card-value" id="dash-avg-rate">$0/hr</span>
+            <span class="card-label">Avg Rate</span>
+          </div>
+        </article>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-row">
+        <article class="chart-card chart-card-full" aria-label="Income trend chart">
+          <header class="chart-header">
+            <h2 class="chart-title">Income Trend</h2>
+            <div class="chart-controls">
+              <select class="chart-range-select" data-action="income-chart-range" aria-label="Time range">
+                <option value="6">Last 6 Months</option>
+                <option value="12" selected>Last 12 Months</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+          </header>
+          <div class="chart-body">
+            <canvas id="income-chart" aria-label="Income trend line chart" role="img"></canvas>
+          </div>
+        </article>
+
+      </div>
+
+      <!-- Top Clients + Outstanding -->
+      <div class="dashboard-bottom-row">
+        <article class="dash-card" aria-label="Top clients by revenue">
+          <header class="dash-card-header">
+            <h2>Top Clients</h2>
+          </header>
+          <div class="dash-card-body">
+            <ol class="top-clients-list" id="top-clients-list" aria-label="Top clients ranked by revenue">
+              <li class="empty-state">No session data yet</li>
+            </ol>
+          </div>
+        </article>
+
+        <article class="dash-card" aria-label="Outstanding payments">
+          <header class="dash-card-header dash-card-header-split">
+            <h2>Outstanding</h2>
+            <span class="outstanding-total" id="outstanding-total">$0</span>
+          </header>
+          <div class="dash-card-body">
+            <ul class="outstanding-list" id="outstanding-list" aria-label="Unpaid balances by client">
+              <li class="empty-state">All caught up &#10003;</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+
+      <!-- Year-over-Year Comparison -->
+      <div class="charts-row">
+        <article class="chart-card chart-card-full" aria-label="Year over year revenue comparison">
+          <header class="chart-header">
+            <h2 class="chart-title">Year-over-Year Revenue</h2>
+          </header>
+          <div class="chart-body">
+            <canvas id="yoy-chart" aria-label="Year over year revenue bar chart" role="img"></canvas>
+          </div>
+        </article>
+      </div>
+    </section>
+
+
+<!-- ==================== CLIENTS TAB ==================== -->
+    <section class="tab-panel" id="panel-clients" role="tabpanel" aria-labelledby="tab-clients" hidden>
+
+      <div class="panel-toolbar">
+        <div class="toolbar-left">
+          <h2 class="panel-title">Clients</h2>
+          <span class="badge" id="client-count">0</span>
+        </div>
+        <div class="toolbar-right">
+          <div class="search-input-wrapper">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="search" class="search-input" placeholder="Search clients..." data-action="search-clients" aria-label="Search clients">
+          </div>
+          <button class="btn btn-primary" data-action="add-client" aria-label="Add new client">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Client
+          </button>
+        </div>
+      </div>
+
+      <div class="clients-grid" id="clients-grid" aria-label="Client cards">
+        <div class="empty-state-block">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <p>No clients yet. Click <strong>Add Client</strong> to get started.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SESSIONS TAB ==================== -->
+    <section class="tab-panel" id="panel-sessions" role="tabpanel" aria-labelledby="tab-sessions" hidden>
+
+      <div class="panel-toolbar">
+        <div class="toolbar-left">
+          <h2 class="panel-title">Sessions</h2>
+          <span class="badge" id="session-count">0</span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-sm" data-action="toggle-filters" aria-expanded="false" aria-controls="session-filters">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            Filters
+          </button>
+          <button class="btn btn-sm" data-action="toggle-edit-mode" aria-pressed="false">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Edit Mode
+          </button>
+          <button class="btn btn-sm" data-action="export-sessions-csv" aria-label="Export sessions to CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            CSV
+          </button>
+          <button class="btn btn-primary" data-action="add-session" aria-label="Add new session">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Session
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Panel -->
+      <aside class="filter-panel" id="session-filters" hidden aria-label="Session filters">
+        <div class="filter-row">
+          <div class="filter-group">
+            <label for="filter-date-start">From</label>
+            <input type="date" id="filter-date-start" class="input" data-action="filter-sessions">
+          </div>
+          <div class="filter-group">
+            <label for="filter-date-end">To</label>
+            <input type="date" id="filter-date-end" class="input" data-action="filter-sessions">
+          </div>
+          <div class="filter-group">
+            <label for="filter-client">Client</label>
+            <select id="filter-client" class="input" data-action="filter-sessions">
+              <option value="">All Clients</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-payment">Payment</label>
+            <select id="filter-payment" class="input" data-action="filter-sessions">
+              <option value="">All</option>
+              <option value="paid">Paid</option>
+              <option value="unpaid">Unpaid</option>
+              <option value="waived">Waived</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="filter-status">Status</label>
+            <select id="filter-status" class="input" data-action="filter-sessions">
+              <option value="">All</option>
+              <option value="completed">Completed</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="no-show">No Show</option>
+            </select>
+          </div>
+          <button class="btn btn-sm" data-action="clear-filters">Clear</button>
+        </div>
+      </aside>
+
+      <!-- Bulk Actions Bar -->
+      <div class="bulk-actions-bar" id="bulk-actions" hidden aria-label="Bulk actions">
+        <span class="bulk-count"><span id="bulk-selected-count">0</span> selected</span>
+        <button class="btn btn-sm" data-action="bulk-mark-paid">Mark Paid</button>
+        <button class="btn btn-sm" data-action="bulk-mark-unpaid">Mark Unpaid</button>
+        <button class="btn btn-sm btn-danger" data-action="bulk-delete">Delete</button>
+        <button class="btn btn-sm" data-action="bulk-deselect">Deselect All</button>
+      </div>
+
+      <!-- Monthly Summary -->
+      <aside class="monthly-summary" id="monthly-summary" aria-label="Monthly summary">
+        <header class="schedule-header">
+          <h3>Monthly Summary</h3>
+          <time id="monthly-summary-date"></time>
+        </header>
+        <div id="monthly-summary-content">
+          <p class="empty-state">No sessions this month</p>
+        </div>
+      </aside>
+
+      <!-- Sessions Table -->
+      <div class="table-wrapper" role="region" aria-label="Sessions table" tabindex="0">
+        <table class="data-table" id="sessions-table">
+          <thead>
+            <tr>
+              <th class="col-check" hidden><input type="checkbox" data-action="select-all-sessions" aria-label="Select all sessions"></th>
+              <th data-sort="date" class="sortable" aria-sort="none">Date</th>
+              <th data-sort="time" class="sortable" aria-sort="none">Time</th>
+              <th data-sort="client" class="sortable" aria-sort="none">Client(s)</th>
+              <th data-sort="type">Type</th>
+              <th data-sort="duration" class="sortable" aria-sort="none">Duration</th>
+              <th data-sort="amount" class="sortable" aria-sort="none">Amount</th>
+              <th data-sort="split">Split</th>
+              <th data-sort="mileage">Mileage</th>
+              <th data-sort="payment" class="sortable" aria-sort="none">Payment</th>
+              <th data-sort="status" class="sortable" aria-sort="none">Status</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sessions-tbody">
+            <tr class="empty-row">
+              <td colspan="11">No sessions recorded yet</td>
+            </tr>
+          </tbody>
+          <tfoot id="sessions-tfoot">
+            <tr>
+              <td colspan="5"><strong>Totals</strong></td>
+              <td id="total-duration">0h</td>
+              <td id="total-amount">$0</td>
+              <td id="total-mileage">0 mi</td>
+              <td colspan="3"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== EXPENSES TAB ==================== -->
+    <section class="tab-panel" id="panel-expenses" role="tabpanel" aria-labelledby="tab-expenses" hidden>
+
+      <div class="panel-toolbar">
+        <div class="toolbar-left">
+          <h2 class="panel-title">Expenses</h2>
+          <span class="badge" id="expense-count">0</span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn btn-sm" data-action="export-expenses-csv" aria-label="Export expenses to CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            CSV
+          </button>
+          <button class="btn btn-primary" data-action="add-expense" aria-label="Add new expense">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Add Expense
+          </button>
+        </div>
+      </div>
+
+      <!-- Receipt Drop Zone -->
+      <div class="receipt-drop-zone" id="receipt-drop-zone" data-action="receipt-drop" role="button" tabindex="0" aria-label="Drop receipts here or click to upload">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        <p class="drop-text"><strong>Drop receipts here</strong> or click to upload</p>
+        <p class="drop-hint">Supports JPEG, PNG, PDF up to 5MB</p>
+        <input type="file" id="receipt-file-input" accept="image/*,.pdf" multiple hidden aria-hidden="true">
+      </div>
+
+      <!-- Expenses Table -->
+      <div class="table-wrapper" role="region" aria-label="Expenses table" tabindex="0">
+        <table class="data-table" id="expenses-table">
+          <thead>
+            <tr>
+              <th data-sort="date" class="sortable" aria-sort="none">Date</th>
+              <th data-sort="category" class="sortable" aria-sort="none">Category</th>
+              <th data-sort="description">Description</th>
+              <th data-sort="amount" class="sortable" aria-sort="none">Amount</th>
+              <th>Receipt</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="expenses-tbody">
+            <tr class="empty-row">
+              <td colspan="6">No expenses recorded yet</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3"><strong>Total Expenses</strong></td>
+              <td id="total-expenses"><strong>$0</strong></td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- ==================== REPORTS TAB ==================== -->
+    <section class="tab-panel" id="panel-reports" role="tabpanel" aria-labelledby="tab-reports" hidden>
+
+      <div class="panel-toolbar">
+        <div class="toolbar-left">
+          <h2 class="panel-title">Reports</h2>
+        </div>
+        <div class="toolbar-right">
+          <div class="filter-group">
+            <label for="report-year">Year</label>
+            <select id="report-year" class="input" data-action="change-report-year">
+              <option value="2026" selected>2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+          </div>
+          <button class="btn btn-sm" data-action="export-report-csv" aria-label="Export report to CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Report Summary Cards -->
+      <div class="report-summary-cards">
+        <article class="summary-card">
+          <div class="card-data">
+            <span class="card-value" id="report-total-income">$0</span>
+            <span class="card-label">Total Income</span>
+          </div>
+        </article>
+        <article class="summary-card">
+          <div class="card-data">
+            <span class="card-value" id="report-company-split">$0</span>
+            <span class="card-label">Company Split</span>
+          </div>
+        </article>
+        <article class="summary-card">
+          <div class="card-data">
+            <span class="card-value" id="report-total-expenses">$0</span>
+            <span class="card-label">Total Expenses</span>
+          </div>
+        </article>
+        <article class="summary-card">
+          <div class="card-data">
+            <span class="card-value" id="report-net-profit">$0</span>
+            <span class="card-label">Net Profit</span>
+          </div>
+        </article>
+        <article class="summary-card">
+          <div class="card-data">
+            <span class="card-value" id="report-total-sessions">0</span>
+            <span class="card-label">Total Sessions</span>
+          </div>
+        </article>
+        <article class="summary-card">
+          <div class="card-data">
+            <span class="card-value" id="report-total-miles">0</span>
+            <span class="card-label">Total Miles</span>
+          </div>
+        </article>
+      </div>
+
+      <!-- Monthly Breakdown Table -->
+      <div class="table-wrapper" role="region" aria-label="Monthly breakdown" tabindex="0">
+        <table class="data-table" id="report-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Sessions</th>
+              <th>Hours</th>
+              <th>Income</th>
+              <th>Company Split</th>
+              <th>Expenses</th>
+              <th>Net</th>
+              <th>Miles</th>
+              <th>Mileage Deduction</th>
+            </tr>
+          </thead>
+          <tbody id="report-tbody">
+            <!-- Populated by JS -->
+          </tbody>
+          <tfoot id="report-tfoot">
+            <tr>
+              <td><strong>Totals</strong></td>
+              <td id="report-foot-sessions">0</td>
+              <td id="report-foot-hours">0</td>
+              <td id="report-foot-income">$0</td>
+              <td id="report-foot-split">$0</td>
+              <td id="report-foot-expenses">$0</td>
+              <td id="report-foot-net">$0</td>
+              <td id="report-foot-miles">0</td>
+              <td id="report-foot-mileage-ded">$0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Per-Client Stats -->
+      <article class="report-section">
+        <h3 class="section-title">Per-Client Statistics</h3>
+        <div class="table-wrapper" role="region" aria-label="Per-client statistics" tabindex="0">
+          <table class="data-table" id="client-stats-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Sessions</th>
+                <th>Hours</th>
+                <th>Revenue</th>
+                <th>Avg Rate</th>
+                <th>Last Session</th>
+              </tr>
+            </thead>
+            <tbody id="client-stats-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- ==================== TAX SUMMARY TAB ==================== -->
+    <section class="tab-panel" id="panel-tax" role="tabpanel" aria-labelledby="tab-tax" hidden>
+
+      <div class="panel-toolbar">
+        <div class="toolbar-left">
+          <h2 class="panel-title">Tax Summary (Schedule C)</h2>
+        </div>
+        <div class="toolbar-right">
+          <div class="filter-group">
+            <label for="tax-year">Tax Year</label>
+            <select id="tax-year" class="input" data-action="change-tax-year">
+              <option value="2026" selected>2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+          </div>
+          <button class="btn btn-sm" data-action="export-tax-pdf" aria-label="Export tax summary as PDF">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            Export PDF
+          </button>
+          <button class="btn btn-sm" data-action="export-tax-csv" aria-label="Export tax summary as CSV">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Schedule C Format -->
+      <div class="tax-form">
+        <article class="tax-section">
+          <h3 class="section-title">Part I &mdash; Income</h3>
+          <div class="tax-line">
+            <span class="line-num">Line 1</span>
+            <span class="line-desc">Gross receipts or sales (tutoring income)</span>
+            <span class="line-value" id="tax-line1">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 3</span>
+            <span class="line-desc">Cost of goods sold (N/A for services)</span>
+            <span class="line-value">$0</span>
+          </div>
+          <div class="tax-line tax-line-total">
+            <span class="line-num">Line 5</span>
+            <span class="line-desc">Gross profit</span>
+            <span class="line-value" id="tax-line5">$0</span>
+          </div>
+          <div class="tax-line tax-line-total">
+            <span class="line-num">Line 7</span>
+            <span class="line-desc">Gross income</span>
+            <span class="line-value" id="tax-line7">$0</span>
+          </div>
+        </article>
+
+        <article class="tax-section">
+          <h3 class="section-title">Part II &mdash; Expenses</h3>
+          <div class="tax-line">
+            <span class="line-num">Line 9</span>
+            <span class="line-desc">Car and truck expenses (mileage deduction)</span>
+            <span class="line-value" id="tax-line9">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 10</span>
+            <span class="line-desc">Commissions and fees</span>
+            <span class="line-value" id="tax-line10">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 15</span>
+            <span class="line-desc">Insurance</span>
+            <span class="line-value" id="tax-line15">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 17</span>
+            <span class="line-desc">Legal and professional services</span>
+            <span class="line-value" id="tax-line17">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 18</span>
+            <span class="line-desc">Office expenses</span>
+            <span class="line-value" id="tax-line18">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 22</span>
+            <span class="line-desc">Supplies</span>
+            <span class="line-value" id="tax-line22">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 25</span>
+            <span class="line-desc">Utilities</span>
+            <span class="line-value" id="tax-line25">$0</span>
+          </div>
+          <div class="tax-line">
+            <span class="line-num">Line 27a</span>
+            <span class="line-desc">Other expenses (see detail below)</span>
+            <span class="line-value" id="tax-line27a">$0</span>
+          </div>
+          <div class="tax-line tax-line-total">
+            <span class="line-num">Line 28</span>
+            <span class="line-desc">Total expenses before home use</span>
+            <span class="line-value" id="tax-line28">$0</span>
+          </div>
+        </article>
+
+        <article class="tax-section">
+          <h3 class="section-title">Net Profit</h3>
+          <div class="tax-line tax-line-total tax-line-profit">
+            <span class="line-num">Line 31</span>
+            <span class="line-desc">Net profit (or loss)</span>
+            <span class="line-value" id="tax-line31">$0</span>
+          </div>
+        </article>
+
+        <!-- Mileage Detail -->
+        <article class="tax-section">
+          <h3 class="section-title">Mileage Detail</h3>
+          <div class="tax-detail-grid">
+            <div class="tax-detail-item">
+              <span class="detail-label">Total business miles</span>
+              <span class="detail-value" id="tax-total-miles">0</span>
+            </div>
+            <div class="tax-detail-item">
+              <span class="detail-label">IRS standard rate</span>
+              <span class="detail-value" id="tax-irs-rate">$0.70/mi</span>
+            </div>
+            <div class="tax-detail-item">
+              <span class="detail-label">Mileage deduction</span>
+              <span class="detail-value" id="tax-mileage-deduction">$0</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Other Expenses Detail -->
+        <article class="tax-section">
+          <h3 class="section-title">Other Expenses Detail (Line 27a)</h3>
+          <div class="table-wrapper" role="region" aria-label="Other expenses breakdown" tabindex="0">
+            <table class="data-table" id="tax-other-expenses-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody id="tax-other-expenses-tbody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== MODALS ===================== -->
+
+  <!-- Client Modal -->
+  <div class="modal-overlay" id="modal-client" role="dialog" aria-modal="true" aria-labelledby="modal-client-title" hidden>
+    <div class="modal" data-modal="client">
+      <header class="modal-header">
+        <h2 id="modal-client-title">Add Client</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <form class="modal-body" id="client-form" novalidate>
+        <div class="form-grid">
+          <div class="form-group form-group-full">
+            <label for="client-name">Client Name <span class="required" aria-label="required">*</span></label>
+            <input type="text" id="client-name" class="input" required autocomplete="name" placeholder="e.g., John Smith">
+          </div>
+
+          <div class="form-group">
+            <label for="client-email">Email</label>
+            <input type="email" id="client-email" class="input" autocomplete="email" placeholder="email@example.com">
+          </div>
+          <div class="form-group">
+            <label for="client-phone">Phone</label>
+            <input type="tel" id="client-phone" class="input" autocomplete="tel" placeholder="(555) 123-4567">
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="client-address">Address</label>
+            <input type="text" id="client-address" class="input" autocomplete="street-address" placeholder="123 Main St, City, ST 12345">
+          </div>
+
+          <div class="form-group">
+            <label for="client-rate">Hourly Rate ($) <span class="required" aria-label="required">*</span></label>
+            <input type="number" id="client-rate" class="input" required min="0" step="0.01" placeholder="75.00">
+          </div>
+          <div class="form-group">
+            <label for="client-subjects">Subjects</label>
+            <input type="text" id="client-subjects" class="input" placeholder="Math, Science, English">
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="client-goals">Learning Goals</label>
+            <textarea id="client-goals" class="input textarea" rows="2" placeholder="Goals, notes, IEP details..."></textarea>
+          </div>
+
+          <!-- Parent / Guardian Info -->
+          <fieldset class="form-fieldset form-group-full">
+            <legend>Parent / Guardian</legend>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="client-parent-name">Parent Name</label>
+                <input type="text" id="client-parent-name" class="input" placeholder="Parent name">
+              </div>
+              <div class="form-group">
+                <label for="client-parent-email">Parent Email</label>
+                <input type="email" id="client-parent-email" class="input" placeholder="parent@email.com">
+              </div>
+              <div class="form-group">
+                <label for="client-parent-phone">Parent Phone</label>
+                <input type="tel" id="client-parent-phone" class="input" placeholder="(555) 987-6543">
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Family Group -->
+          <div class="form-group">
+            <label for="client-family">Family Group</label>
+            <input type="text" id="client-family" class="input" placeholder="e.g., Smith Family" list="family-list">
+            <datalist id="family-list"></datalist>
+            <small class="family-suggest" id="client-family-suggest" hidden></small>
+          </div>
+
+          <!-- Company Split -->
+          <fieldset class="form-fieldset form-group-full">
+            <legend>Company Split</legend>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="client-company-name">Company Name</label>
+                <input type="text" id="client-company-name" class="input" placeholder="e.g., Tutor Corp">
+              </div>
+              <div class="form-group">
+                <label for="client-company-pct">Company % (they keep)</label>
+                <input type="number" id="client-company-pct" class="input" min="0" max="100" step="1" placeholder="30">
+              </div>
+              <div class="form-group">
+                <label for="client-split-effective">Start Date</label>
+                <input type="date" id="client-split-effective" class="input">
+              </div>
+              <div class="form-group">
+                <label for="client-split-stop">Stop Date <small>(optional)</small></label>
+                <input type="date" id="client-split-stop" class="input" placeholder="Leave blank for ongoing">
+              </div>
+            </div>
+            <div class="split-history-section">
+              <button type="button" class="btn btn-sm btn-link" data-action="toggle-split-history" aria-expanded="false">Show Split History</button>
+              <div class="split-history" id="split-history" hidden>
+                <table class="data-table data-table-sm">
+                  <thead>
+                    <tr><th>Start Date</th><th>Stop Date</th><th>Company</th><th>%</th></tr>
+                  </thead>
+                  <tbody id="split-history-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </fieldset>
+
+          <div class="form-group">
+            <label for="client-status">Status</label>
+            <select id="client-status" class="input">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="paused">Paused</option>
+            </select>
+          </div>
+        </div>
+
+        <input type="hidden" id="client-id">
+      </form>
+      <footer class="modal-footer">
+        <button class="btn" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="save-client">Save Client</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Session Modal -->
+  <div class="modal-overlay" id="modal-session" role="dialog" aria-modal="true" aria-labelledby="modal-session-title" hidden>
+    <div class="modal" data-modal="session">
+      <header class="modal-header">
+        <h2 id="modal-session-title">Add Session</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <form class="modal-body" id="session-form" novalidate>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="session-date">Date <span class="required" aria-label="required">*</span></label>
+            <input type="date" id="session-date" class="input" required>
+          </div>
+          <div class="form-group">
+            <label for="session-time">Time</label>
+            <input type="time" id="session-time" class="input">
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="session-clients">Client(s) <span class="required" aria-label="required">*</span></label>
+            <select id="session-clients" class="input" multiple required aria-describedby="session-clients-hint">
+              <!-- Populated by JS -->
+            </select>
+            <small id="session-clients-hint" class="form-hint">Hold Ctrl/Cmd to select multiple clients (family sessions)</small>
+            <div class="repeat-last" id="repeat-last-banner" hidden>
+              <button type="button" class="btn btn-sm btn-repeat" data-action="repeat-last-session">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                <span id="repeat-last-text">Repeat last session</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="session-type">Session Type</label>
+            <select id="session-type" class="input">
+              <option value="in-person">In Person</option>
+              <option value="online">Online</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="group">Group</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="session-duration">Duration (hours) <span class="required" aria-label="required">*</span></label>
+            <input type="number" id="session-duration" class="input" required min="0.25" step="0.25" value="1" placeholder="1.0">
+          </div>
+
+          <div class="form-group">
+            <label for="session-amount">Amount ($)</label>
+            <input type="number" id="session-amount" class="input" min="0" step="0.01" placeholder="Auto-calculated">
+            <small class="form-hint">Leave blank to auto-calculate from rate x duration</small>
+          </div>
+          <div class="form-group">
+            <label for="session-mileage">Mileage (mi)</label>
+            <div class="input-with-btn">
+              <input type="number" id="session-mileage" class="input" min="0" step="0.1" placeholder="0">
+              <button type="button" class="btn btn-sm" data-action="calc-mileage" aria-label="Auto-calculate mileage" title="Calculate mileage from addresses">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="session-payment">Payment Status</label>
+            <select id="session-payment" class="input">
+              <option value="unpaid">Unpaid</option>
+              <option value="paid">Paid</option>
+              <option value="waived">Waived</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="session-status">Session Status</label>
+            <select id="session-status" class="input">
+              <option value="completed">Completed</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="no-show">No Show</option>
+            </select>
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="session-notes">Notes</label>
+            <textarea id="session-notes" class="input textarea" rows="3" placeholder="Session notes, topics covered, homework assigned..."></textarea>
+          </div>
+        </div>
+
+        <input type="hidden" id="session-id">
+      </form>
+      <footer class="modal-footer">
+        <button class="btn" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="save-session">Save Session</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Expense Modal -->
+  <div class="modal-overlay" id="modal-expense" role="dialog" aria-modal="true" aria-labelledby="modal-expense-title" hidden>
+    <div class="modal" data-modal="expense">
+      <header class="modal-header">
+        <h2 id="modal-expense-title">Add Expense</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <form class="modal-body" id="expense-form" novalidate>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="expense-date">Date <span class="required" aria-label="required">*</span></label>
+            <input type="date" id="expense-date" class="input" required>
+          </div>
+          <div class="form-group">
+            <label for="expense-category">Category <span class="required" aria-label="required">*</span></label>
+            <select id="expense-category" class="input" required>
+              <option value="">Select category...</option>
+              <option value="supplies">Supplies</option>
+              <option value="software">Software / Subscriptions</option>
+              <option value="books">Books / Materials</option>
+              <option value="office">Office Expenses</option>
+              <option value="insurance">Insurance</option>
+              <option value="professional">Professional Services</option>
+              <option value="advertising">Advertising</option>
+              <option value="utilities">Utilities</option>
+              <option value="equipment">Equipment</option>
+              <option value="training">Training / PD</option>
+              <option value="travel">Travel (non-mileage)</option>
+              <option value="meals">Meals (business)</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group form-group-full">
+            <label for="expense-description">Description <span class="required" aria-label="required">*</span></label>
+            <input type="text" id="expense-description" class="input" required placeholder="Describe the expense">
+          </div>
+
+          <div class="form-group">
+            <label for="expense-amount">Amount ($) <span class="required" aria-label="required">*</span></label>
+            <input type="number" id="expense-amount" class="input" required min="0" step="0.01" placeholder="0.00">
+          </div>
+
+          <!-- Receipt Upload -->
+          <div class="form-group form-group-full">
+            <label>Receipt</label>
+            <div class="receipt-upload-area" id="modal-receipt-drop" data-action="modal-receipt-drop" role="button" tabindex="0">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+              <span>Drop receipt or click to upload</span>
+              <input type="file" id="expense-receipt-input" accept="image/*,.pdf" hidden aria-hidden="true">
+            </div>
+            <div class="receipt-preview" id="expense-receipt-preview" hidden>
+              <img id="expense-receipt-thumb" alt="Receipt preview" class="receipt-thumb">
+              <button type="button" class="btn btn-sm btn-danger" data-action="remove-receipt" aria-label="Remove receipt">&times; Remove</button>
+            </div>
+          </div>
+        </div>
+
+        <input type="hidden" id="expense-id">
+        <input type="hidden" id="expense-receipt-data">
+      </form>
+      <footer class="modal-footer">
+        <button class="btn" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="save-expense">Save Expense</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title" hidden>
+    <div class="modal modal-lg" data-modal="settings">
+      <header class="modal-header">
+        <h2 id="modal-settings-title">Settings</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div class="settings-sections">
+
+          <!-- Business Info -->
+          <fieldset class="settings-section">
+            <legend>Business Information</legend>
+            <div class="form-grid">
+              <div class="form-group form-group-full">
+                <label for="settings-business-name">Business Name</label>
+                <input type="text" id="settings-business-name" class="input" placeholder="Your Tutoring Business">
+              </div>
+              <div class="form-group form-group-full">
+                <label for="settings-business-address">Business Address (home base for mileage)</label>
+                <input type="text" id="settings-business-address" class="input" placeholder="Your home base address (for mileage)">
+              </div>
+              <div class="form-group">
+                <label for="settings-irs-rate">IRS Mileage Rate ($/mile)</label>
+                <input type="number" id="settings-irs-rate" class="input" min="0" step="0.005" value="0.70" placeholder="0.70">
+              </div>
+              <div class="form-group">
+                <label for="settings-default-duration">Default Session Duration (hours)</label>
+                <input type="number" id="settings-default-duration" class="input" min="0.25" step="0.25" value="1" placeholder="1.0">
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- Mileage API -->
+          <fieldset class="settings-section">
+            <legend>Mileage Calculation (OpenRouteService)</legend>
+            <div class="form-grid">
+              <div class="form-group form-group-full">
+                <label for="settings-ors-key">API Key</label>
+                <input type="password" id="settings-ors-key" class="input" placeholder="Paste your OpenRouteService API key">
+                <small class="form-hint">Free at <a href="https://openrouteservice.org" target="_blank" rel="noopener">openrouteservice.org</a> &mdash; enables automatic mileage calculation</small>
+              </div>
+            </div>
+          </fieldset>
+
+          <!-- GitHub Gist Sync -->
+          <fieldset class="settings-section">
+            <legend>Cloud Sync (GitHub Gist)</legend>
+            <div class="form-grid">
+              <div class="form-group form-group-full">
+                <label for="settings-gist-token">GitHub Personal Access Token</label>
+                <input type="password" id="settings-gist-token" class="input" placeholder="ghp_...">
+                <small class="form-hint">Requires <code>gist</code> scope. Data is stored in a private Gist.</small>
+              </div>
+              <div class="form-group">
+                <label for="settings-gist-id">Gist ID (leave blank to create new)</label>
+                <input type="text" id="settings-gist-id" class="input" placeholder="Auto-created on first sync">
+              </div>
+              <div class="form-group">
+                <label for="settings-auto-sync">Auto-sync</label>
+                <select id="settings-auto-sync" class="input">
+                  <option value="off">Off</option>
+                  <option value="save">On every save</option>
+                  <option value="5min">Every 5 minutes</option>
+                  <option value="15min">Every 15 minutes</option>
+                </select>
+              </div>
+            </div>
+            <div class="sync-actions">
+              <button class="btn btn-sm" data-action="sync-push" aria-label="Push data to Gist">Push to Gist</button>
+              <button class="btn btn-sm" data-action="sync-pull" aria-label="Pull data from Gist">Pull from Gist</button>
+              <span class="sync-status" id="sync-status" aria-live="polite"></span>
+            </div>
+          </fieldset>
+
+          <!-- Historical Data Import -->
+          <fieldset class="settings-section">
+            <legend>Historical Data (Private — Device Only)</legend>
+            <p class="form-hint" style="margin-bottom:0.75rem;">Historical session data is stored only in this browser. It is never uploaded, synced, or committed to GitHub.</p>
+            <div class="backup-actions">
+              <button class="btn" data-action="import-historical" aria-label="Load historical sessions from JSON file">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg>
+                Load Historical Data
+              </button>
+              <button class="btn btn-danger btn-sm" data-action="clear-historical" aria-label="Clear historical data from this device">
+                Clear Historical Data
+              </button>
+              <input type="file" id="historical-file-input" accept=".json" hidden aria-hidden="true">
+            </div>
+            <p class="form-hint" id="historical-status" style="margin-top:0.5rem;"></p>
+          </fieldset>
+
+          <!-- Backup / Restore -->
+          <fieldset class="settings-section">
+            <legend>Backup &amp; Restore</legend>
+            <div class="backup-actions">
+              <button class="btn" data-action="backup-data" aria-label="Download data backup">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Download Backup (JSON)
+              </button>
+              <div class="restore-area">
+                <button class="btn" data-action="restore-data" aria-label="Restore data from backup">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg>
+                  Restore from Backup
+                </button>
+                <input type="file" id="restore-file-input" accept=".json" hidden aria-hidden="true">
+              </div>
+            </div>
+            <div class="danger-zone">
+              <button class="btn btn-danger btn-sm" data-action="clear-all-data" aria-label="Clear all data">Clear All Data</button>
+            </div>
+          </fieldset>
+
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="save-settings">Save Settings</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Receipt Viewer Modal -->
+  <div class="modal-overlay" id="modal-receipt-viewer" role="dialog" aria-modal="true" aria-labelledby="modal-receipt-title" hidden>
+    <div class="modal modal-receipt" data-modal="receipt-viewer">
+      <header class="modal-header">
+        <h2 id="modal-receipt-title">Receipt</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body receipt-viewer-body">
+        <img id="receipt-viewer-img" alt="Receipt image" class="receipt-full-img">
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Search Modal -->
+  <div class="modal-overlay" id="modal-search" role="dialog" aria-modal="true" aria-labelledby="modal-search-title" hidden>
+    <div class="modal modal-search" data-modal="search">
+      <header class="search-modal-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="search" id="global-search-input" class="search-modal-input" placeholder="Search clients, sessions, expenses..." aria-label="Global search" autocomplete="off">
+        <kbd class="kbd-hint">Esc</kbd>
+      </header>
+      <div class="search-results" id="search-results" role="listbox" aria-label="Search results">
+        <div class="search-empty">Type to search across all your data</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="modal-overlay" id="modal-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message" hidden>
+    <div class="modal modal-sm" data-modal="confirm">
+      <header class="modal-header">
+        <h2 id="confirm-title">Confirm</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p id="confirm-message">Are you sure?</p>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn" data-action="confirm-cancel">Cancel</button>
+        <button class="btn btn-danger" data-action="confirm-ok">Confirm</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ===================== TOAST CONTAINER ===================== -->
+  <div class="toast-container" id="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="app-footer" role="contentinfo">
+    <div class="footer-left">
+      <span>Tutoring Tracker Pro</span>
+      <span class="footer-sep" aria-hidden="true">&middot;</span>
+      <span class="footer-hint">
+        <kbd>Ctrl+K</kbd> Search
+        <span class="footer-sep" aria-hidden="true">&middot;</span>
+        <kbd>Ctrl+N</kbd> New
+        <span class="footer-sep" aria-hidden="true">&middot;</span>
+        <kbd>Esc</kbd> Close
+      </span>
+    </div>
+    <div class="footer-right">
+      <span id="last-saved" aria-live="polite">Not saved yet</span>
+    </div>
+  </footer>
+
+  <!-- ===================== SERVICE WORKER ===================== -->
+  <script src="js/sw-register.js"></script>
+
+  <!-- Local-only private config (gitignored; optional — absent on public deploys) -->
+  <script src="local-config.js" defer></script>
+
+  <!-- App JS (modular) -->
+  <script src="js/app-core.js" defer></script>
+  <script src="js/sync.js" defer></script>
+  <script src="js/dashboard.js" defer></script>
+  <script src="js/historical.js?v=2" defer></script>
+  <script src="js/clients.js" defer></script>
+  <script src="js/sessions.js" defer></script>
+  <script src="js/expenses.js" defer></script>
+  <script src="js/reports.js" defer></script>
+  <script src="js/ui.js" defer></script>
+</body>
+</html>
