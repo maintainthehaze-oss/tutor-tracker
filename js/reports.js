@@ -216,14 +216,29 @@
     const settings = App.state.settings;
 
     const yearStr = String(year);
+
+    // CASH BASIS: income counts in the year the payment was RECEIVED, not the
+    // year the session happened. paymentDate is used when present (older
+    // records fall back to the session date). Unpaid and waived sessions are
+    // excluded entirely — money never received is not income.
+    const cashSessions = sessions.filter((s) =>
+      s.status === 'completed' && s.paid === true &&
+      ((s.paymentDate || s.date || '').slice(0, 4) === yearStr)
+    );
+
+    // Mileage stays keyed to the SESSION date — the driving expense is
+    // incurred when the trip happens, regardless of when payment arrives.
     const yearSessions = sessions.filter((s) =>
       s.date && s.date.slice(0, 4) === yearStr && s.status === 'completed'
     );
     const yearExpenses = expenses.filter((e) => e.date && e.date.slice(0, 4) === yearStr);
 
-    const grossIncome = yearSessions.reduce((s, x) => s + num(x.amount), 0);
-    const companyTotal = yearSessions.reduce((s, x) => s + num(x.companyAmount), 0);
-    const netIncome = grossIncome; // Company split is reported separately
+    const grossIncome = cashSessions.reduce((s, x) => s + num(x.amount), 0);
+    const companyTotal = cashSessions.reduce((s, x) => s + num(x.companyAmount), 0);
+    // Earned this year but not (yet) collected — shown for visibility so
+    // year-end unpaid sessions can be chased; NOT part of gross receipts.
+    const unpaidEarned = yearSessions.reduce((s, x) =>
+      (!x.paid && x.payment !== 'waived') ? s + num(x.amount) : s, 0);
     const totalMiles = yearSessions.reduce((s, x) => s + num(x.mileage), 0);
     const mileageDeduction = totalMiles * settings.mileageRate;
 
@@ -260,7 +275,7 @@
     const line31 = grossIncome - line28;
 
     return {
-      grossIncome, companyTotal, netIncome, totalMiles, mileageDeduction,
+      grossIncome, companyTotal, unpaidEarned, totalMiles, mileageDeduction,
       line9, line10, line15, line17, line18, line22, line25, line27a, line28, line31,
       otherExpenses, expByCategory,
     };
@@ -273,10 +288,16 @@
     const year = yearSelect ? parseInt(yearSelect.value) : new Date().getFullYear();
     const data = getTaxData(year);
 
-    // Part I - Income
+    // Part I - Income (cash basis: counted when payment received)
     const l1 = $('tax-line1'); if (l1) l1.textContent = formatCurrency(data.grossIncome);
     const l5 = $('tax-line5'); if (l5) l5.textContent = formatCurrency(data.grossIncome);
     const l7 = $('tax-line7'); if (l7) l7.textContent = formatCurrency(data.grossIncome);
+
+    // Earned-but-uncollected (excluded from gross) — visibility for year end
+    const lu = $('tax-unpaid-earned');
+    if (lu) lu.textContent = formatCurrency(data.unpaidEarned);
+    const luRow = $('tax-unpaid-row');
+    if (luRow) luRow.hidden = data.unpaidEarned <= 0;
 
     // Part II - Expenses
     const l9 = $('tax-line9'); if (l9) l9.textContent = formatCurrency(data.line9);

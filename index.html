@@ -734,10 +734,16 @@
       <div class="tax-form">
         <article class="tax-section">
           <h3 class="section-title">Part I &mdash; Income</h3>
+          <p class="tax-flag-note">Cash basis: income counts in the year payment was <strong>received</strong>. Unpaid and waived sessions are excluded from gross receipts.</p>
           <div class="tax-line">
             <span class="line-num">Line 1</span>
-            <span class="line-desc">Gross receipts or sales (tutoring income)</span>
+            <span class="line-desc">Gross receipts or sales (tutoring income received)</span>
             <span class="line-value" id="tax-line1">$0</span>
+          </div>
+          <div class="tax-line" id="tax-unpaid-row" hidden>
+            <span class="line-num">&mdash;</span>
+            <span class="line-desc">Earned this year, not yet collected (excluded above)</span>
+            <span class="line-value" id="tax-unpaid-earned">$0</span>
           </div>
           <div class="tax-line">
             <span class="line-num">Line 3</span>
