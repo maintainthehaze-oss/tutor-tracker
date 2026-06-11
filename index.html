@@ -839,6 +839,30 @@
           </div>
         </article>
 
+        <!-- State Source Detail (NY physical presence) -->
+        <article class="tax-section">
+          <h3 class="section-title">State Source Detail (NY / CT)</h3>
+          <p class="tax-flag-note">NY-source = <strong>in-person</strong> sessions at NY addresses (physical presence). Online sessions count as CT (worked from home office). Figures are separated for NY nonresident filing (IT-203) and the CT resident credit &mdash; confirm the apportionment method with your accountant.</p>
+          <div class="tax-detail-grid">
+            <div class="tax-detail-item">
+              <span class="detail-label">NY-source gross received</span>
+              <span class="detail-value" id="tax-ny-gross">$0</span>
+            </div>
+            <div class="tax-detail-item">
+              <span class="detail-label">NY in-person sessions</span>
+              <span class="detail-value" id="tax-ny-sessions">0</span>
+            </div>
+            <div class="tax-detail-item">
+              <span class="detail-label">NY-day miles</span>
+              <span class="detail-value" id="tax-ny-miles">0</span>
+            </div>
+            <div class="tax-detail-item">
+              <span class="detail-label">CT / other gross received</span>
+              <span class="detail-value" id="tax-ct-gross">$0</span>
+            </div>
+          </div>
+        </article>
+
         <!-- Other Expenses Detail -->
         <article class="tax-section">
           <h3 class="section-title">Other Expenses Detail (Line 27a)</h3>
@@ -864,7 +888,7 @@
             <h3 class="section-title">Estimated Tax Payments <span class="section-sub">— what you've paid in</span></h3>
             <button class="btn btn-sm btn-primary" data-action="add-tax-payment">+ Add Payment</button>
           </div>
-          <p class="tax-flag-note">These are estimated tax payments YOU sent to the IRS / CT (record-keeping only). They are NOT a business expense and do not appear on Schedule C.</p>
+          <p class="tax-flag-note">These are estimated tax payments YOU sent to the IRS / CT / NY (record-keeping only). They are NOT a business expense and do not appear on Schedule C.</p>
           <div class="table-wrapper" role="region" aria-label="Estimated tax payments" tabindex="0">
             <table class="data-table" id="tax-payments-table">
               <thead>
@@ -909,6 +933,7 @@
             <select id="tax-payment-agency" class="input">
               <option value="IRS">IRS (Federal)</option>
               <option value="CT-DRS">CT-DRS (Connecticut)</option>
+              <option value="NY-DTF">NY-DTF (New York)</option>
               <option value="Other">Other</option>
             </select>
           </div>
@@ -1393,17 +1418,4 @@
   <script src="js/sw-register.js"></script>
 
   <!-- Local-only private config (gitignored; optional — absent on public deploys) -->
-  <script src="local-config.js" defer></script>
-
-  <!-- App JS (modular) -->
-  <script src="js/app-core.js" defer></script>
-  <script src="js/sync.js" defer></script>
-  <script src="js/dashboard.js" defer></script>
-  <script src="js/historical.js?v=2" defer></script>
-  <script src="js/clients.js" defer></script>
-  <script src="js/sessions.js" defer></script>
-  <script src="js/expenses.js" defer></script>
-  <script src="js/reports.js" defer></script>
-  <script src="js/ui.js" defer></script>
-</body>
-</html>
+  <script src="local-config.js" 

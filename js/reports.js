@@ -210,6 +210,45 @@
      TAX SUMMARY
      ========================================================== */
 
+  /* ---------- State sourcing (physical presence) ----------
+     A session is NY-source only if it was performed IN PERSON at a NY
+     address. Online/hybrid work is performed from the home office (CT),
+     so it stays CT-source regardless of where the student lives. */
+
+  /** Parse a 2-letter state from a US address string ('' if not found). */
+  function addrState(addr) {
+    if (!addr) return '';
+    const a = String(addr);
+    // "..., NY 10509" / "... NY 10509-1234" — state code before trailing zip
+    const m = a.match(/\b([A-Za-z]{2})\s+\d{5}(?:-\d{4})?\s*$/);
+    if (m) return m[1].toUpperCase();
+    // "..., NY" / "..., New York" / "..., Connecticut" without zip
+    const m2 = a.match(/,\s*(NY|New York|CT|Connecticut)\s*$/i);
+    if (m2) {
+      const s = m2[1].toUpperCase();
+      if (s === 'NEW YORK') return 'NY';
+      if (s === 'CONNECTICUT') return 'CT';
+      return s;
+    }
+    return '';
+  }
+
+  /** Work state for a session: in-person uses the session address (falling
+   *  back to a client's address on file); anything else is home/CT. */
+  function sessionWorkState(s) {
+    if (s.type !== 'in-person') return 'CT';
+    let addr = (s.address || '').trim();
+    if (!addr) {
+      const clients = App.state.clients;
+      for (const cid of (s.clientIds || [])) {
+        const c = clients.find((cl) => String(cl.id) === String(cid));
+        if (c && c.address && c.address.trim()) { addr = c.address.trim(); break; }
+      }
+    }
+    const st = addrState(addr);
+    return st || 'CT'; // unknown address — assume home state
+  }
+
   function getTaxData(year) {
     const sessions = App.state.sessions;
     const expenses = App.state.expenses;
@@ -241,6 +280,15 @@
       (!x.paid && x.payment !== 'waived') ? s + num(x.amount) : s, 0);
     const totalMiles = yearSessions.reduce((s, x) => s + num(x.mileage), 0);
     const mileageDeduction = totalMiles * settings.mileageRate;
+
+    // NY-source rollup (physical presence). Income side is cash-basis like
+    // gross above; session count / miles are keyed to the session date.
+    const nyCash = cashSessions.filter((s) => sessionWorkState(s) === 'NY');
+    const nyYear = yearSessions.filter((s) => sessionWorkState(s) === 'NY');
+    const nyGross = nyCash.reduce((s, x) => s + num(x.amount), 0);
+    const nySplit = nyCash.reduce((s, x) => s + num(x.companyAmount), 0);
+    const nyMiles = nyYear.reduce((s, x) => s + num(x.mileage), 0);
+    const nySessionCount = nyYear.length;
 
     // Categorize expenses
     const expByCategory = {};
@@ -276,6 +324,7 @@
 
     return {
       grossIncome, companyTotal, unpaidEarned, totalMiles, mileageDeduction,
+      nyGross, nySplit, nyMiles, nySessionCount,
       line9, line10, line15, line17, line18, line22, line25, line27a, line28, line31,
       otherExpenses, expByCategory,
     };
@@ -317,6 +366,12 @@
     const tmEl = $('tax-total-miles'); if (tmEl) tmEl.textContent = data.totalMiles.toFixed(1);
     const trEl = $('tax-irs-rate'); if (trEl) trEl.textContent = '$' + settings.mileageRate.toFixed(3) + '/mi';
     const tdEl = $('tax-mileage-deduction'); if (tdEl) tdEl.textContent = formatCurrency(data.mileageDeduction);
+
+    // State source detail (NY = in-person physical presence)
+    const nyG = $('tax-ny-gross'); if (nyG) nyG.textContent = formatCurrency(data.nyGross);
+    const nyS = $('tax-ny-sessions'); if (nyS) nyS.textContent = data.nySessionCount;
+    const nyM = $('tax-ny-miles'); if (nyM) nyM.textContent = data.nyMiles.toFixed(1);
+    const ctG = $('tax-ct-gross'); if (ctG) ctG.textContent = formatCurrency(data.grossIncome - data.nyGross);
 
     // Estimated tax payments log (record-keeping)
     renderTaxPayments(year);
