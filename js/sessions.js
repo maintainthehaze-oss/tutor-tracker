@@ -393,6 +393,24 @@
     updateSessionPrefill();
   }
 
+  /**
+   * Recompute a session's company-split snapshot from its clients' split
+   * HISTORY on the SESSION's date (not the clients' current split). Uses the
+   * highest split among the session's clients — same rule as migrateData().
+   * This means editing or backdating a session can never re-stamp it with
+   * today's percentage.
+   */
+  function applySplitSnapshot(s) {
+    const clients = App.state.clients;
+    const cs = (s.clientIds || [])
+      .map((cid) => clients.find((c) => String(c.id) === String(cid)))
+      .filter(Boolean);
+    s.companySplit = cs.length > 0
+      ? Math.max(0, ...cs.map((c) => App.getEffectiveSplit(c, s.date)))
+      : 0;
+    s.companyAmount = num(s.amount) * (num(s.companySplit) / 100);
+  }
+
   function saveSession() {
     const sessions = App.state.sessions;
     const clients = App.state.clients;
@@ -430,14 +448,8 @@
       amount = avgRate * duration;
     }
 
-    // Calculate company split
-    let companySplit = 0;
-    let companyAmount = 0;
+    // Company split is computed date-aware via applySplitSnapshot() below.
     const primaryClient = clients.find((c) => String(c.id) === String(selectedClients[0]));
-    if (primaryClient && primaryClient.companySplit > 0) {
-      companySplit = primaryClient.companySplit;
-      companyAmount = amount * (companySplit / 100);
-    }
 
     const paymentVal = $('session-payment').value;
     const paid = paymentVal === 'paid';
@@ -453,8 +465,8 @@
       type: $('session-type').value || 'in-person',
       duration,
       amount,
-      companySplit,
-      companyAmount,
+      companySplit: 0,   // set by applySplitSnapshot() below
+      companyAmount: 0,  // set by applySplitSnapshot() below
       paid,
       payment: paymentVal,
       paymentDate: paid ? todayISO() : null,
@@ -470,6 +482,9 @@
       createdAt: isNew ? new Date().toISOString() : undefined,
       updatedAt: new Date().toISOString(),
     };
+
+    // Date-aware split snapshot (uses split history for the session's date)
+    applySplitSnapshot(sessionData);
 
     // Capture whether mileage was hand-entered BEFORE the modal/form resets.
     const mileageEnteredManually = num($('session-mileage').value) > 0;
@@ -536,10 +551,10 @@
     if (!s) return;
 
     switch (field) {
-      case 'date': s.date = el.value; break;
+      case 'date': s.date = el.value; applySplitSnapshot(s); break;
       case 'time': s.time = el.value; break;
       case 'duration': s.duration = num(el.value); break;
-      case 'amount': s.amount = num(el.value); break;
+      case 'amount': s.amount = num(el.value); applySplitSnapshot(s); break;
       case 'payment':
         s.paid = el.value === 'paid';
         s.payment = el.value;
