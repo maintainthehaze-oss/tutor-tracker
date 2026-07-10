@@ -62,17 +62,34 @@
         if (imported.expenses) {
           imported.expenses = imported.expenses.filter((e) => e && typeof e === 'object' && e.id != null);
         }
-        if (imported.clients) App.state.clients = imported.clients;
-        if (imported.sessions) App.state.sessions = imported.sessions;
-        if (imported.expenses) App.state.expenses = imported.expenses;
-        if (imported.settings) App.state.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
-        if (imported.receipts) App.state.receipts = imported.receipts;
-        if (Array.isArray(imported.taxPayments)) App.state.taxPayments = imported.taxPayments;
-        App.migrateData();
-        App.saveData();
-        App.renderTab(App.state.activeTab);
-        App.updateHeaderStats();
-        showToast('Data restored successfully', 'success');
+
+        // Confirm before overwriting live data — one wrong file pick
+        // shouldn't silently roll everything back.
+        const cur = App.state;
+        const backupDate = imported.exportedAt ? formatDate(imported.exportedAt.slice(0, 10)) : 'unknown date';
+        const incoming = (imported.clients ? imported.clients.length : 0) + ' clients, ' +
+          (imported.sessions ? imported.sessions.length : 0) + ' sessions, ' +
+          (imported.expenses ? imported.expenses.length : 0) + ' expenses';
+        const current = cur.clients.length + ' clients, ' + cur.sessions.length + ' sessions, ' +
+          cur.expenses.length + ' expenses';
+        showConfirm(
+          'Restore Backup?',
+          'Replace the data on this device (' + current + ') with the backup from ' +
+            backupDate + ' (' + incoming + ')? This cannot be undone.',
+          () => {
+            if (imported.clients) App.state.clients = imported.clients;
+            if (imported.sessions) App.state.sessions = imported.sessions;
+            if (imported.expenses) App.state.expenses = imported.expenses;
+            if (imported.settings) App.state.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
+            if (imported.receipts) App.state.receipts = imported.receipts;
+            if (Array.isArray(imported.taxPayments)) App.state.taxPayments = imported.taxPayments;
+            App.migrateData();
+            App.saveData();
+            App.renderTab(App.state.activeTab);
+            App.updateHeaderStats();
+            showToast('Data restored successfully', 'success');
+          }
+        );
       } catch (err) {
         showToast('Invalid backup file: ' + err.message, 'error');
       }
@@ -126,19 +143,21 @@
         break;
 
       case 'report': {
+        // Same shared metrics model as the on-screen Reports table, so the
+        // exported numbers (incl. company split and net) match what's shown.
         const yearSelect = $('report-year');
         const year = yearSelect ? parseInt(yearSelect.value) : new Date().getFullYear();
-        csv = 'Month,Sessions,Hours,Income,Expenses,Net,Miles,Mileage Deduction\n';
+        const yearRate = App.mileageRateFor(year);
+        csv = 'Month,Sessions,Hours,Gross Income,Company Split,Your Cut,Expenses,Net,Miles,Mileage Deduction\n';
         for (let m = 0; m < 12; m++) {
           const monthKey = year + '-' + String(m + 1).padStart(2, '0');
-          const mSessions = sessions.filter((s) => s.date && s.date.slice(0, 7) === monthKey && s.status === 'completed');
-          const mExpenses = expenses.filter((e) => e.date && e.date.slice(0, 7) === monthKey);
-          const income = mSessions.reduce((s, x) => s + num(x.amount), 0);
-          const exp = mExpenses.reduce((s, x) => s + num(x.amount), 0);
-          const miles = mSessions.reduce((s, x) => s + num(x.mileage), 0);
-          const hours = mSessions.reduce((s, x) => s + num(x.duration), 0);
+          const mm = App.computeMetrics({ month: monthKey });
+          const exp = expenses
+            .filter((e) => e.date && e.date.slice(0, 7) === monthKey)
+            .reduce((s, x) => s + num(x.amount), 0);
           const monthName = new Date(year, m, 1).toLocaleDateString('en-US', { month: 'long' });
-          csv += csvRow([monthName, mSessions.length, hours, income, exp, income - exp, miles, miles * settings.mileageRate]);
+          csv += csvRow([monthName, mm.sessionCount, mm.hours, mm.gross, mm.companySplit,
+            mm.yourCut, exp, mm.yourCut - exp, mm.miles, mm.miles * yearRate]);
         }
         filename = 'report-' + year + '.csv';
         break;
@@ -242,6 +261,7 @@
         App.state.sessions = [];
         App.state.expenses = [];
         App.state.receipts = {};
+        App.state.taxPayments = [];
         App.state.settings = { ...DEFAULT_SETTINGS };
         App.saveData();
         App.renderTab(App.state.activeTab);
@@ -410,6 +430,8 @@
   }
 
   function trapFocus(el) {
+    // Drop the previous trap so repeated opens don't stack listeners
+    if (el._focusTrap) el.removeEventListener('keydown', el._focusTrap);
     const focusable = el.querySelectorAll(
       'button:not([disabled]):not([hidden]), input:not([hidden]):not([type="hidden"]), select:not([hidden]), textarea:not([hidden]), [tabindex]:not([tabindex="-1"])'
     );
@@ -719,8 +741,14 @@
         case 'export-tax-csv': exportCSV('tax'); break;
 
         case 'save-settings': saveSettings(); break;
-        case 'sync-push': App.saveToGist(); break;
-        case 'sync-pull': App.loadFromGist(); break;
+        case 'sync-push': App.saveToGist({ interactive: true }); break;
+        case 'sync-pull':
+          showConfirm(
+            'Pull from Gist?',
+            'This replaces the data on this device with the Gist copy. Continue?',
+            () => App.loadFromGist()
+          );
+          break;
         case 'backup-data': {
           backupData();
           const bb = $('backup-banner');

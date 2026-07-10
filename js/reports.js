@@ -68,7 +68,8 @@
     let yearExpenses = expenses.filter((e) => e.date && e.date.slice(0, 4) === String(year));
     if (filter.month) yearExpenses = yearExpenses.filter((e) => e.date.slice(0, 7) === filter.month);
     const totalExpenses = yearExpenses.reduce((s, x) => s + num(x.amount), 0);
-    const mileageDed = M.miles * settings.mileageRate;
+    const yearRate = App.mileageRateFor(year);
+    const mileageDed = M.miles * yearRate;
 
     // Net profit = your cut (gross - company split) - expenses - mileage deduction
     const netProfit = M.yourCut - totalExpenses - mileageDed;
@@ -107,7 +108,7 @@
             '<td>' + formatCurrency(mExp) + '</td>' +
             '<td>' + formatCurrency(mm.yourCut - mExp) + '</td>' +
             '<td>' + mm.miles.toFixed(1) + '</td>' +
-            '<td>' + formatCurrency(mm.miles * settings.mileageRate) + '</td>' +
+            '<td>' + formatCurrency(mm.miles * yearRate) + '</td>' +
           '</tr>';
       }
       tbody.innerHTML = rows || '<tr><td colspan="9">No data for this selection</td></tr>';
@@ -279,7 +280,8 @@
     const unpaidEarned = yearSessions.reduce((s, x) =>
       (!x.paid && x.payment !== 'waived') ? s + num(x.amount) : s, 0);
     const totalMiles = yearSessions.reduce((s, x) => s + num(x.mileage), 0);
-    const mileageDeduction = totalMiles * settings.mileageRate;
+    const mileageRate = App.mileageRateFor(year);
+    const mileageDeduction = totalMiles * mileageRate;
 
     // NY-source rollup (physical presence). Income side is cash-basis like
     // gross above; session count / miles are keyed to the session date.
@@ -323,7 +325,7 @@
     const line31 = grossIncome - line28;
 
     return {
-      grossIncome, companyTotal, unpaidEarned, totalMiles, mileageDeduction,
+      grossIncome, companyTotal, unpaidEarned, totalMiles, mileageRate, mileageDeduction,
       nyGross, nySplit, nyMiles, nySessionCount,
       line9, line10, line15, line17, line18, line22, line25, line27a, line28, line31,
       otherExpenses, expByCategory,
@@ -364,7 +366,7 @@
 
     // Mileage detail
     const tmEl = $('tax-total-miles'); if (tmEl) tmEl.textContent = data.totalMiles.toFixed(1);
-    const trEl = $('tax-irs-rate'); if (trEl) trEl.textContent = '$' + settings.mileageRate.toFixed(3) + '/mi';
+    const trEl = $('tax-irs-rate'); if (trEl) trEl.textContent = '$' + data.mileageRate.toFixed(3) + '/mi (' + year + ')';
     const tdEl = $('tax-mileage-deduction'); if (tdEl) tdEl.textContent = formatCurrency(data.mileageDeduction);
 
     // State source detail (NY = in-person physical presence)
@@ -458,7 +460,7 @@
     doc.text('Mileage Detail', 14, afterExp + 12);
     doc.setFontSize(10);
     doc.text('Total miles: ' + data.totalMiles.toFixed(1), 14, afterExp + 20);
-    doc.text('IRS rate: $' + settings.mileageRate.toFixed(3) + '/mi', 14, afterExp + 26);
+    doc.text('IRS rate (' + year + '): $' + data.mileageRate.toFixed(3) + '/mi', 14, afterExp + 26);
     doc.text('Deduction: ' + formatCurrency(data.mileageDeduction), 14, afterExp + 32);
 
     doc.save('TaxSummary_' + year + '.pdf');

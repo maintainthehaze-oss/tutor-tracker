@@ -132,7 +132,7 @@
     if (!select) return;
     const currentVal = select.value;
     select.innerHTML = '<option value="">All Clients</option>' +
-      clients.sort((a, b) => clientName(a).localeCompare(clientName(b)))
+      [...clients].sort((a, b) => clientName(a).localeCompare(clientName(b)))
         .map((c) => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c)) + '</option>')
         .join('');
     select.value = currentVal;

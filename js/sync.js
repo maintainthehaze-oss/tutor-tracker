@@ -22,19 +22,79 @@
     return !!(cfg.token);
   }
 
-  async function saveToGist() {
+  /** Settings copy safe to store in the Gist: secrets and device-local
+   *  values (the PAT itself, ORS key, home address, sync timestamp) stay
+   *  on this device only. */
+  function sanitizedSettings() {
+    const s = { ...App.state.settings };
+    delete s.gistToken;
+    delete s.orsApiKey;
+    delete s.businessAddress;
+    delete s.lastSyncAt;
+    return s;
+  }
+
+  /** Fetch the Gist's updated_at timestamp (null on any failure). */
+  async function fetchGistUpdatedAt(cfg) {
+    try {
+      const resp = await fetch('https://api.github.com/gists/' + cfg.gistId, {
+        headers: {
+          Authorization: 'Bearer ' + cfg.token,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      return data.updated_at || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Push to Gist. Last-writer-wins is guarded: if the Gist changed since this
+   * device last synced (another device pushed), a manual push asks before
+   * overwriting and auto-sync aborts with a warning instead of clobbering.
+   * opts.interactive — true for a user-initiated push (may show a confirm)
+   * opts.force       — skip the freshness check (set after the user confirms)
+   */
+  async function saveToGist(opts) {
+    opts = opts || {};
     const cfg = getSyncConfig();
     if (!cfg.token) {
       App.showToast('No GitHub token configured', 'warning');
       return;
     }
     updateSyncUI('syncing');
+
+    // Freshness guard — only meaningful when updating an existing gist
+    if (cfg.gistId && !opts.force) {
+      const remoteUpdatedAt = await fetchGistUpdatedAt(cfg);
+      const lastSyncAt = App.state.settings.lastSyncAt;
+      const remoteIsNewer = remoteUpdatedAt &&
+        (!lastSyncAt || new Date(remoteUpdatedAt).getTime() > new Date(lastSyncAt).getTime());
+      if (remoteIsNewer) {
+        updateSyncUI(null);
+        if (opts.interactive) {
+          App.showConfirm(
+            'Gist Has Newer Data',
+            'The Gist was updated after this device last synced (possibly from another device). Overwrite it with this device\'s data?',
+            () => saveToGist({ interactive: true, force: true })
+          );
+        } else {
+          App.showToast('Auto-sync skipped: Gist has newer data. Use Pull or Push in Settings to resolve.', 'warning');
+          updateSyncUI('error');
+        }
+        return;
+      }
+    }
+
     try {
       const clients = App.state.clients;
       const sessions = App.state.sessions;
       const expenses = App.state.expenses;
-      const settings = App.state.settings;
       const receipts = App.state.receipts;
+      const taxPayments = App.state.taxPayments;
 
       const payload = {
         description: 'Tutoring Tracker Pro Backup',
@@ -44,8 +104,9 @@
               clients,
               sessions,
               expenses,
-              settings,
+              settings: sanitizedSettings(),
               receipts,
+              taxPayments,
               exportedAt: new Date().toISOString(),
             }, null, 2),
           },
@@ -79,8 +140,9 @@
         App.state.settings.gistId = data.id;
         const el = $('settings-gist-id');
         if (el) el.value = data.id;
-        App.saveData();
       }
+      App.state.settings.lastSyncAt = data.updated_at || new Date().toISOString();
+      App.saveData();
 
       updateSyncUI('synced');
       App.showToast('Data pushed to Gist', 'success');
@@ -115,8 +177,23 @@
       if (imported.clients) App.state.clients = imported.clients;
       if (imported.sessions) App.state.sessions = imported.sessions;
       if (imported.expenses) App.state.expenses = imported.expenses;
-      if (imported.settings) App.state.settings = { ...App.DEFAULT_SETTINGS, ...imported.settings };
+      if (imported.settings) {
+        // Device-local values always win over whatever the Gist holds
+        // (older gists may still contain a token/key/address — ignore them).
+        const local = App.state.settings;
+        App.state.settings = {
+          ...App.DEFAULT_SETTINGS,
+          ...imported.settings,
+          gistToken: local.gistToken,
+          gistId: local.gistId,
+          orsApiKey: local.orsApiKey,
+          businessAddress: local.businessAddress,
+          lastSyncAt: local.lastSyncAt,
+        };
+      }
       if (imported.receipts) App.state.receipts = imported.receipts;
+      if (Array.isArray(imported.taxPayments)) App.state.taxPayments = imported.taxPayments;
+      App.state.settings.lastSyncAt = data.updated_at || new Date().toISOString();
 
       App.migrateData();
       App.saveData();

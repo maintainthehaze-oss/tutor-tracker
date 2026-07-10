@@ -339,7 +339,8 @@
     const sessions = App.state.sessions;
     const clients = App.state.clients;
 
-    const completed = sessions.filter((s) => s.status !== 'cancelled');
+    // Completed only — scheduled/no-show sessions aren't realized revenue
+    const completed = sessions.filter((s) => s.status === 'completed');
     const revenueByClient = {};
 
     completed.forEach((s) => {

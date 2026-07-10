@@ -140,6 +140,7 @@
     autoSync: 'off',
     autoBackupDays: 7,
     lastBackup: null,
+    lastSyncAt: null,
   };
 
   const EXPENSE_CATEGORIES = [
@@ -157,6 +158,19 @@
     { value: 'meals', label: 'Meals (business)' },
     { value: 'other', label: 'Other' },
   ];
+
+  /** IRS standard business mileage rates by tax year (IRS-published figures:
+   *  2024 = 67c, 2025 = 70c, 2026 = 72.5c). Years not listed fall back to the
+   *  user-set settings.mileageRate so future years work before this table is
+   *  updated. */
+  const MILEAGE_RATES = { 2024: 0.67, 2025: 0.70, 2026: 0.725 };
+
+  /** Mileage deduction rate for a given tax year. */
+  function mileageRateFor(year) {
+    const y = parseInt(year, 10);
+    if (MILEAGE_RATES[y] != null) return MILEAGE_RATES[y];
+    return num(settings.mileageRate) || 0.725;
+  }
 
   /** Application state */
   let clients = [];
@@ -576,6 +590,8 @@
   App.STORAGE_KEYS = STORAGE_KEYS;
   App.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
   App.EXPENSE_CATEGORIES = EXPENSE_CATEGORIES;
+  App.MILEAGE_RATES = MILEAGE_RATES;
+  App.mileageRateFor = mileageRateFor;
 
   // Data functions
   App.loadData = loadData;

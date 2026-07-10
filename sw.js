@@ -3,7 +3,7 @@
    Cache-first with network fallback
    ======================================== */
 
-const CACHE_NAME = 'tutor-tracker-v22';
+const CACHE_NAME = 'tutor-tracker-v24';
 const ASSETS = [
   './',
   './index.html',
