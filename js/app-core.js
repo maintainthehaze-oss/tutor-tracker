@@ -262,6 +262,11 @@
       taxPayments = [];
     }
 
+    // Security cleanup: legacy sync keys from an old storage scheme held the
+    // GitHub PAT and gist ID in plaintext. Nothing reads them anymore.
+    localStorage.removeItem('tutor-gist-pat');
+    localStorage.removeItem('tutor-gist-id');
+
     // Migrations
     migrateData();
   }
