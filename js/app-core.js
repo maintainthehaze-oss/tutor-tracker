@@ -379,8 +379,8 @@
 
   /**
    * A "group key" for rollups: the family name if the client belongs to one,
-   * otherwise the individual client's own name. So Cal/Chase/Daisy (no family)
-   * each become their own group, and the three Ventorinos roll into one.
+   * otherwise the individual client's own name. Clients with no family each
+   * become their own group; siblings sharing a family roll into one.
    */
   function groupKeyForClient(c) {
     const fam = clientFamily(c);

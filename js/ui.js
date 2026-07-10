@@ -254,6 +254,16 @@
     showToast('Settings saved', 'success');
   }
 
+  /** True if the token / gist ID fields differ from saved settings — the
+   *  sync buttons read SAVED settings, not the raw fields. */
+  function syncFieldsDirty() {
+    const s = App.state.settings;
+    const tok = $('settings-gist-token');
+    const gid = $('settings-gist-id');
+    return !!((tok && tok.value.trim() !== (s.gistToken || '')) ||
+              (gid && gid.value.trim() !== (s.gistId || '')));
+  }
+
   function clearAllData() {
     showConfirm('Clear All Data', 'This will permanently delete ALL clients, sessions, expenses, and settings. This cannot be undone!', () => {
       showConfirm('Are you absolutely sure?', 'Type is irreversible. All data will be lost forever.', () => {
@@ -741,14 +751,26 @@
         case 'export-tax-csv': exportCSV('tax'); break;
 
         case 'save-settings': saveSettings(); break;
-        case 'sync-push': App.saveToGist({ interactive: true }); break;
-        case 'sync-pull':
+        case 'sync-push': {
+          if (syncFieldsDirty()) {
+            showToast('Unsaved settings — click Save Settings first', 'warning');
+            break;
+          }
+          App.saveToGist({ interactive: true });
+          break;
+        }
+        case 'sync-pull': {
+          if (syncFieldsDirty()) {
+            showToast('Unsaved settings — click Save Settings first', 'warning');
+            break;
+          }
           showConfirm(
             'Pull from Gist?',
             'This replaces the data on this device with the Gist copy. Continue?',
             () => App.loadFromGist()
           );
           break;
+        }
         case 'backup-data': {
           backupData();
           const bb = $('backup-banner');

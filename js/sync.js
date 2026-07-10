@@ -22,15 +22,20 @@
     return !!(cfg.token);
   }
 
-  /** Settings copy safe to store in the Gist: secrets and device-local
-   *  values (the PAT itself, ORS key, home address, sync timestamp) stay
-   *  on this device only. */
+  /** Settings keys allowed into the Gist — explicit ALLOWLIST. Secrets,
+   *  device-local values, personal contact info, and anything unknown
+   *  (legacy fields, future keys) never leave the device. */
+  const GIST_SETTINGS_ALLOWLIST = [
+    'businessName', 'mileageRate', 'defaultDuration',
+    'autoSync', 'autoBackupDays', 'lastBackup', 'darkMode',
+    'invoiceBusinessName', 'invoiceNotes',
+  ];
+
   function sanitizedSettings() {
-    const s = { ...App.state.settings };
-    delete s.gistToken;
-    delete s.orsApiKey;
-    delete s.businessAddress;
-    delete s.lastSyncAt;
+    const s = {};
+    GIST_SETTINGS_ALLOWLIST.forEach((k) => {
+      if (App.state.settings[k] !== undefined) s[k] = App.state.settings[k];
+    });
     return s;
   }
 
@@ -189,6 +194,10 @@
           orsApiKey: local.orsApiKey,
           businessAddress: local.businessAddress,
           lastSyncAt: local.lastSyncAt,
+          // Personal contact info is local-only (never pushed), so a pull
+          // must not wipe it either.
+          invoiceEmail: local.invoiceEmail,
+          invoicePhone: local.invoicePhone,
         };
       }
       if (imported.receipts) App.state.receipts = imported.receipts;
