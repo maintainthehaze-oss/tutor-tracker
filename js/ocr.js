@@ -36,6 +36,9 @@
           corePath: VENDOR_DIR,
           langPath: VENDOR_DIR,
           gzip: true,
+          // Spawn the worker directly from our same-origin file. The default
+          // (a blob: URL wrapper) is blocked by this app's CSP.
+          workerBlobURL: false,
         })
       ).catch((e) => { workerPromise = null; throw e; });
     }
