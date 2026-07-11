@@ -152,6 +152,51 @@
     };
   }
 
+  /* --------------------- PDF → image (pdf.js) --------------------- */
+
+  const PDFJS_DIR = new URL('vendor/pdfjs/', window.location.href).href;
+
+  /** Inject self-hosted pdf.js on first use (same-origin, on-device). */
+  function loadPdfJs() {
+    return new Promise((resolve, reject) => {
+      if (window.pdfjsLib) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = PDFJS_DIR + 'pdf.min.js';
+      s.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_DIR + 'pdf.worker.min.js';
+        resolve();
+      };
+      s.onerror = () => reject(new Error('Could not load PDF renderer'));
+      document.head.appendChild(s);
+    });
+  }
+
+  /**
+   * Render page 1 of a PDF (dataURL) to a JPEG dataURL, entirely on-device
+   * (isEvalSupported:false keeps pdf.js CSP-safe). Returns null on failure.
+   */
+  async function pdfToImage(dataUrl) {
+    try {
+      await loadPdfJs();
+      const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), (c) => c.charCodeAt(0));
+      const doc = await window.pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+      const page = await doc.getPage(1);
+      const base = page.getViewport({ scale: 1 });
+      const scale = Math.min(3, 1600 / base.width); // target ~1600px wide, cap 3x
+      const viewport = page.getViewport({ scale: scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+      const out = canvas.toDataURL('image/jpeg', 0.85);
+      doc.destroy();
+      return out;
+    } catch (e) {
+      console.error('PDF render failed:', e);
+      return null;
+    }
+  }
+
   /* ------------------------- public API ------------------------- */
 
   /**
@@ -173,6 +218,7 @@
   }
 
   App.extractReceiptFields = extractReceiptFields;
+  App.pdfToImage = pdfToImage;
   App.__parseReceiptText = parseFields; // exposed for testing only
 
 })();

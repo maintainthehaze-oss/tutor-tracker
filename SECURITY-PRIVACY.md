@@ -5,7 +5,7 @@ lives, what leaves the device, and the current status of every security
 finding. Update it whenever a data flow or finding changes.
 
 **Last full audit:** 2026-07-10 (code + full git history + live-app state)
-**Last updated:** 2026-07-10 (round 3: on-device receipt OCR added)
+**Last updated:** 2026-07-11 (round 4: on-device PDF receipt support added)
 
 ---
 
@@ -46,7 +46,10 @@ finding. Update it whenever a data flow or finding changes.
    from self-hosted files (`vendor/tesseract/`, same-origin, ~11MB,
    lazy-loaded on first use). Receipt images are never uploaded anywhere;
    an OCR run makes zero network requests beyond fetching the app's own
-   engine files.
+   engine files (verified live 2026-07-10: two same-origin GETs, nothing else).
+   PDF receipts are likewise rendered to an image on-device by self-hosted
+   pdf.js (`vendor/pdfjs/`, ~1.4MB, lazy-loaded, isEvalSupported:false for
+   CSP safety) before the same local OCR — the PDF never leaves the device.
 4. **GitHub Pages repo (public!)** — code only. `.gitignore` blocks
    `historical_sessions.json`, `tutoring-backup-*.json`, `local-config.js`,
    `*.bat`. Anything committed here is world-readable, including history.

@@ -184,6 +184,24 @@
     reader.onload = function (e) {
       let dataUrl = e.target.result;
 
+      // PDFs: render page 1 to an image on-device (pdf.js), then continue
+      // down the normal image path (compress + OCR + preview thumbnail).
+      if (file.type === 'application/pdf' && typeof App.pdfToImage === 'function') {
+        App.showToast('Converting PDF on this device…', 'info');
+        App.pdfToImage(dataUrl).then((img) => {
+          if (!img) {
+            App.showToast('Could not read this PDF — enter details manually', 'warning');
+            setReceiptPreview(dataUrl);
+            return;
+          }
+          compressImage(img, (compressed) => {
+            setReceiptPreview(compressed);
+            runOcrPrefill(compressed);
+          });
+        });
+        return;
+      }
+
       // Images: always compress on intake (storage + faster OCR), then
       // run on-device OCR to prefill empty fields. Other files: as-is.
       if (file.type.startsWith('image/')) {
