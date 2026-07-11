@@ -179,10 +179,12 @@
     try {
       await loadPdfJs();
       const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), (c) => c.charCodeAt(0));
+      // Note: FontFace from binary data does not hit CSP font-src (no URL
+      // fetch), so fonts stay enabled. disableFontFace breaks glyph paths
+      // under print intent in pdf.js 3.11 ("ignoring character" → blank page).
       const doc = await window.pdfjsLib.getDocument({
         data: bytes,
         isEvalSupported: false, // CSP-safe: no eval on the main thread
-        disableFontFace: true,  // CSP-safe: no FontFace injection; glyphs drawn as paths
       }).promise;
       const page = await doc.getPage(1);
       const base = page.getViewport({ scale: 1 });
