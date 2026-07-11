@@ -5,7 +5,7 @@ lives, what leaves the device, and the current status of every security
 finding. Update it whenever a data flow or finding changes.
 
 **Last full audit:** 2026-07-10 (code + full git history + live-app state)
-**Last updated:** 2026-07-10 (round 2: F4/F5/F8/F9 fixes)
+**Last updated:** 2026-07-10 (round 3: on-device receipt OCR added)
 
 ---
 
@@ -42,6 +42,11 @@ finding. Update it whenever a data flow or finding changes.
 3. **CDNs (inbound only)** — chart.js, jsPDF, jspdf-autotable, all from
    cdn.jsdelivr.net with SRI integrity hashes; Google Fonts. No app data is
    sent; scripts/fonts are fetched.
+   **Receipt OCR is NOT a data path**: Tesseract.js runs entirely on-device
+   from self-hosted files (`vendor/tesseract/`, same-origin, ~11MB,
+   lazy-loaded on first use). Receipt images are never uploaded anywhere;
+   an OCR run makes zero network requests beyond fetching the app's own
+   engine files.
 4. **GitHub Pages repo (public!)** — code only. `.gitignore` blocks
    `historical_sessions.json`, `tutoring-backup-*.json`, `local-config.js`,
    `*.bat`. Anything committed here is world-readable, including history.
@@ -64,6 +69,11 @@ blocks any script from sending data anywhere else.
 - Historical module has no network code at all (by design, header comment).
 - Settings fields for keys are masked in the UI.
 - Legacy plaintext PAT keys deleted on app load.
+- Receipt OCR (js/ocr.js) is fully on-device: self-hosted engine, no new
+  CSP hosts, no API keys, no uploads. Extraction only prefills empty form
+  fields; the user reviews and saves manually.
+- Receipt images are downscaled to ≤1200px JPEG on intake (smaller
+  localStorage footprint and gist payload).
 
 ## 4. Findings log
 

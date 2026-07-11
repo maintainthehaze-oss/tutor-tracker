@@ -184,10 +184,12 @@
     reader.onload = function (e) {
       let dataUrl = e.target.result;
 
-      // Compress large images
-      if (file.type.startsWith('image/') && file.size > 500 * 1024) {
+      // Images: always compress on intake (storage + faster OCR), then
+      // run on-device OCR to prefill empty fields. Other files: as-is.
+      if (file.type.startsWith('image/')) {
         compressImage(dataUrl, (compressed) => {
           setReceiptPreview(compressed);
+          runOcrPrefill(compressed);
         });
       } else {
         setReceiptPreview(dataUrl);
@@ -215,6 +217,41 @@
       callback(canvas.toDataURL('image/jpeg', 0.7));
     };
     img.src = dataUrl;
+  }
+
+  /** On-device OCR (js/ocr.js): prefill EMPTY expense fields from the
+   *  attached receipt. Never overwrites anything the user typed; the user
+   *  always reviews and saves manually. The image never leaves the device. */
+  function runOcrPrefill(dataUrl) {
+    if (typeof App.extractReceiptFields !== 'function') return;
+    App.showToast('Reading receipt on this device…', 'info');
+    App.extractReceiptFields(dataUrl).then((fields) => {
+      if (!fields || (!fields.vendor && !fields.date && fields.total == null)) {
+        App.showToast('Could not read receipt — please enter details manually', 'warning');
+        return;
+      }
+      const dateEl = $('expense-date');
+      const descEl = $('expense-description');
+      const amtEl = $('expense-amount');
+      const filled = [];
+      // Date: the form defaults to today for new expenses; a receipt date
+      // is more accurate, so it may replace that untouched default.
+      if (fields.date && dateEl && (!dateEl.value || dateEl.value === todayISO())) {
+        dateEl.value = fields.date;
+        filled.push('date');
+      }
+      if (fields.vendor && descEl && !descEl.value.trim()) {
+        descEl.value = fields.vendor;
+        filled.push('vendor');
+      }
+      if (fields.total != null && amtEl && !amtEl.value) {
+        amtEl.value = fields.total.toFixed(2);
+        filled.push('total');
+      }
+      App.showToast(filled.length
+        ? 'Extracted ' + filled.join(', ') + ' — please check before saving'
+        : 'Receipt read — fields already filled, nothing changed', 'success');
+    });
   }
 
   function setReceiptPreview(dataUrl) {

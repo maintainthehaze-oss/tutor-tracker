@@ -3,7 +3,7 @@
    Cache-first with network fallback
    ======================================== */
 
-const CACHE_NAME = 'tutor-tracker-v26';
+const CACHE_NAME = 'tutor-tracker-v27';
 const ASSETS = [
   './',
   './index.html',
@@ -16,8 +16,11 @@ const ASSETS = [
   './js/clients.js',
   './js/sessions.js',
   './js/expenses.js',
+  './js/ocr.js',
   './js/reports.js',
   './js/ui.js',
+  // OCR engine (vendor/tesseract/*, ~11MB) is intentionally NOT precached —
+  // the runtime fetch handler caches it after first use.
   './manifest.json',
   './icon.svg'
 ];
