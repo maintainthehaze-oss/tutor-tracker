@@ -11,3 +11,6 @@ local-config.js
 # OS files
 .DS_Store
 Thumbs.db
+
+# Audit tooling — keep out of the public repo
+CODEX-AUDIT-PROMPT.md

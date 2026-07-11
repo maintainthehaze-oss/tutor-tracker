@@ -179,7 +179,11 @@
     try {
       await loadPdfJs();
       const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]), (c) => c.charCodeAt(0));
-      const doc = await window.pdfjsLib.getDocument({ data: bytes, isEvalSupported: false }).promise;
+      const doc = await window.pdfjsLib.getDocument({
+        data: bytes,
+        isEvalSupported: false, // CSP-safe: no eval on the main thread
+        disableFontFace: true,  // CSP-safe: no FontFace injection; glyphs drawn as paths
+      }).promise;
       const page = await doc.getPage(1);
       const base = page.getViewport({ scale: 1 });
       const scale = Math.min(3, 1600 / base.width); // target ~1600px wide, cap 3x
@@ -187,7 +191,13 @@
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(viewport.width);
       canvas.height = Math.round(viewport.height);
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+      // intent:'print' renders via setTimeout, not requestAnimationFrame —
+      // rAF never fires in background tabs, which hangs 'display' renders.
+      // Timeout guard: a PDF must never silently hang the attach flow.
+      await Promise.race([
+        page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport, intent: 'print' }).promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('PDF render timed out')), 30000)),
+      ]);
       const out = canvas.toDataURL('image/jpeg', 0.85);
       doc.destroy();
       return out;
