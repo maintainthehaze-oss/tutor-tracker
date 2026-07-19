@@ -93,7 +93,10 @@
     const monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
     const thisMonthCount = completedForClient.filter((s) => s.date && s.date.slice(0, 7) === monthKey).length;
 
-    return '<article class="client-card" data-action="edit-client" data-id="' + escapeHtml(c.id) + '" role="button" tabindex="0">' +
+    // No role="button"/tabindex here: the card holds real Edit/View/Delete buttons,
+    // and a role="button" must not contain focusable descendants. The card stays
+    // mouse-clickable via data-action; keyboard users use the labelled Edit button.
+    return '<article class="client-card" data-action="edit-client" data-id="' + escapeHtml(c.id) + '">' +
       '<div class="client-avatar">' + escapeHtml(initials(c)) + '</div>' +
       '<div class="client-info">' +
         '<div class="client-name-row">' +

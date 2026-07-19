@@ -19,6 +19,8 @@
   const EXPENSE_CATEGORIES = App.EXPENSE_CATEGORIES;
   const DEFAULT_SETTINGS = App.DEFAULT_SETTINGS;
 
+  const validTabs = ['dashboard', 'clients', 'sessions', 'expenses', 'reports', 'tax'];
+
   /* ==========================================================
      IMPORT / EXPORT
      ========================================================== */
@@ -84,10 +86,10 @@
             if (imported.receipts) App.state.receipts = imported.receipts;
             if (Array.isArray(imported.taxPayments)) App.state.taxPayments = imported.taxPayments;
             App.migrateData();
-            App.saveData();
+            const ok = App.saveData();
             App.renderTab(App.state.activeTab);
             App.updateHeaderStats();
-            showToast('Data restored successfully', 'success');
+            if (ok) showToast('Data restored successfully', 'success');
           }
         );
       } catch (err) {
@@ -175,8 +177,9 @@
         csv += csvRow(['17', 'Professional services', data.line17]);
         csv += csvRow(['18', 'Office expenses', data.line18]);
         csv += csvRow(['22', 'Supplies', data.line22]);
+        csv += csvRow(['24b', 'Deductible meals (50%)', data.line24b]);
         csv += csvRow(['25', 'Utilities', data.line25]);
-        csv += csvRow(['27a', 'Other expenses', data.line27a]);
+        csv += csvRow(['27b', 'Other expenses', data.line27b]);
         csv += csvRow(['28', 'Total expenses', data.line28]);
         csv += csvRow(['31', 'Net profit', data.line31]);
         filename = 'tax-summary-' + taxYear + '.csv';
@@ -247,11 +250,20 @@
       sessionStorage.setItem('gist-token', settings.gistToken);
     }
 
-    App.saveData();
+    const ok = App.saveData();
     App.startAutoSync();
-    App.updateSyncUI(App.hasSyncConfig() ? 'synced' : null);
+    // Saving settings is not a sync — show the honest state, not 'Synced'.
+    if (!App.hasSyncConfig()) {
+      App.updateSyncUI(null);
+    } else if (navigator.onLine === false) {
+      App.updateSyncUI('offline');
+    } else if (App.state.settings.lastSyncAt) {
+      App.updateSyncUI('synced');
+    } else {
+      App.updateSyncUI('not-synced');
+    }
     closeModal('modal-settings');
-    showToast('Settings saved', 'success');
+    if (ok) showToast('Settings saved', 'success');
   }
 
   /** True if the token / gist ID fields differ from saved settings — the
@@ -273,10 +285,10 @@
         App.state.receipts = {};
         App.state.taxPayments = [];
         App.state.settings = { ...DEFAULT_SETTINGS };
-        App.saveData();
+        const ok = App.saveData();
         App.renderTab(App.state.activeTab);
         App.updateHeaderStats();
-        showToast('All data cleared', 'success');
+        if (ok) showToast('All data cleared', 'success');
       });
     });
   }
@@ -415,21 +427,45 @@
      MODALS
      ========================================================== */
 
+  // Bumped on every modal open/close so async work started while a modal was
+  // open (mileage lookup, OCR) can detect that the modal was closed/reopened
+  // in the meantime and discard its result instead of writing into a
+  // different, later form.
+  let modalGeneration = 0;
+
+  // Element that had focus before a modal opened, keyed by modal id, so
+  // closeModal can restore it instead of leaving focus stranded on <body>.
+  const modalReturnFocus = {};
+
   function openModal(id) {
     const overlay = $(id);
     if (!overlay) return;
+    modalGeneration++;
+    modalReturnFocus[id] = document.activeElement;
     overlay.hidden = false;
     requestAnimationFrame(() => overlay.classList.add('modal-active'));
-    const firstInput = overlay.querySelector('input:not([hidden]):not([type="hidden"]), select:not([hidden]), textarea:not([hidden])');
-    if (firstInput) setTimeout(() => firstInput.focus(), 100);
+    // Move focus into the modal. Prefer the first form field; for button-only
+    // dialogs (confirm, receipt viewer) fall back to the first action button
+    // that isn't the header close (×), so focus is never left stranded outside.
+    const firstFocusable = overlay.querySelector('input:not([hidden]):not([type="hidden"]), select:not([hidden]), textarea:not([hidden])')
+      || overlay.querySelector('button:not([disabled]):not([hidden]):not(.modal-close)')
+      || overlay.querySelector('button:not([disabled]):not([hidden])');
+    if (firstFocusable) setTimeout(() => firstFocusable.focus(), 100);
     trapFocus(overlay);
   }
 
   function closeModal(id) {
     const overlay = $(id);
     if (!overlay) return;
+    if (id === 'modal-confirm') App.state.confirmCallback = null;
+    modalGeneration++;
     overlay.classList.remove('modal-active');
-    setTimeout(() => { overlay.hidden = true; }, 200);
+    // Guard the delayed hide: if this same overlay was reopened within the
+    // 200ms transition (e.g. clear-all's second confirm), don't hide it.
+    setTimeout(() => { if (!overlay.classList.contains('modal-active')) overlay.hidden = true; }, 200);
+    const returnEl = modalReturnFocus[id];
+    delete modalReturnFocus[id];
+    if (returnEl && document.contains(returnEl)) returnEl.focus();
   }
 
   function closeAllModals() {
@@ -484,6 +520,12 @@
         if (files.length > 0) { App.openExpenseForm(); App.processReceiptFile(files[0]); }
       });
       dropZone.addEventListener('click', () => { $('receipt-file-input').click(); });
+      dropZone.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          $('receipt-file-input').click();
+        }
+      });
     }
 
     const fileInput = $('receipt-file-input');
@@ -503,6 +545,12 @@
         if (e.dataTransfer.files.length > 0) { App.processReceiptFile(e.dataTransfer.files[0]); }
       });
       modalDrop.addEventListener('click', () => { $('expense-receipt-input').click(); });
+      modalDrop.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          $('expense-receipt-input').click();
+        }
+      });
     }
 
     const modalFileInput = $('expense-receipt-input');
@@ -517,6 +565,16 @@
      EVENT DELEGATION & KEYBOARD SHORTCUTS
      ========================================================== */
 
+  function applySessionSort(field) {
+    if (App.sessionSort.field === field) {
+      App.sessionSort.dir = App.sessionSort.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      App.sessionSort.field = field;
+      App.sessionSort.dir = 'desc';
+    }
+    App.renderSessions();
+  }
+
   function setupEventDelegation() {
     document.body.addEventListener('click', (e) => {
       const target = e.target.closest('[data-action]');
@@ -525,19 +583,11 @@
         if (tabBtn) { e.preventDefault(); App.switchTab(tabBtn.getAttribute('data-tab')); return; }
         const sortHeader = e.target.closest('[data-sort]');
         if (sortHeader && sortHeader.closest('#sessions-table')) {
-          const field = sortHeader.getAttribute('data-sort');
-          if (App.sessionSort.field === field) {
-            App.sessionSort.dir = App.sessionSort.dir === 'asc' ? 'desc' : 'asc';
-          } else {
-            App.sessionSort.field = field;
-            App.sessionSort.dir = 'desc';
-          }
-          App.renderSessions();
+          applySessionSort(sortHeader.getAttribute('data-sort'));
           return;
         }
         if (e.target.classList.contains('modal-overlay')) {
-          e.target.classList.remove('modal-active');
-          e.target.hidden = true;
+          closeModal(e.target.id);
           return;
         }
         return;
@@ -573,7 +623,7 @@
           const name = c ? clientName(c) : 'this client';
           showConfirm('Mark Paid', 'Mark ' + owed.length + ' unpaid session' + (owed.length === 1 ? '' : 's') + ' for ' + name + ' as paid?', () => {
             owed.forEach((s) => { s.paid = true; s.payment = 'paid'; s.paymentDate = todayISO(); s.updatedAt = new Date().toISOString(); });
-            App.saveAndRender();
+            if (!App.saveAndRender()) return;
             showToast('Marked ' + owed.length + ' session' + (owed.length === 1 ? '' : 's') + ' paid', 'success');
           });
           break;
@@ -647,11 +697,12 @@
           const sess = App.state.sessions;
           sel.forEach((sid) => {
             const s = sess.find((ses) => String(ses.id) === String(sid));
-            if (s) { s.paid = true; s.payment = 'paid'; s.paymentDate = todayISO(); }
+            // Only stamp a payment date on the unpaid -> paid transition;
+            // re-marking an already-paid session must not move its tax year.
+            if (s && !s.paid) { s.paid = true; s.payment = 'paid'; s.paymentDate = todayISO(); }
           });
           sel.clear();
-          App.saveAndRender();
-          showToast('Sessions marked as paid', 'success');
+          if (App.saveAndRender()) showToast('Sessions marked as paid', 'success');
           break;
         }
         case 'bulk-mark-unpaid': {
@@ -662,16 +713,14 @@
             if (s) { s.paid = false; s.payment = 'unpaid'; s.paymentDate = null; }
           });
           sel2.clear();
-          App.saveAndRender();
-          showToast('Sessions marked as unpaid', 'success');
+          if (App.saveAndRender()) showToast('Sessions marked as unpaid', 'success');
           break;
         }
         case 'bulk-delete':
           showConfirm('Delete Sessions', 'Delete ' + App.state.selectedSessions.size + ' selected session(s)?', () => {
             App.state.sessions = App.state.sessions.filter((s) => !App.state.selectedSessions.has(s.id));
             App.state.selectedSessions.clear();
-            App.saveAndRender();
-            showToast('Sessions deleted', 'success');
+            if (App.saveAndRender()) showToast('Sessions deleted', 'success');
           });
           break;
         case 'bulk-deselect':
@@ -681,15 +730,13 @@
         case 'quick-complete': {
           const qs = App.state.sessions.find((s) => String(s.id) === String(id));
           if (qs) { qs.status = 'completed'; qs.updatedAt = new Date().toISOString(); }
-          App.saveAndRender();
-          showToast('Session completed', 'success');
+          if (App.saveAndRender()) showToast('Session completed', 'success');
           break;
         }
         case 'quick-noshow': {
           const ns = App.state.sessions.find((s) => String(s.id) === String(id));
           if (ns) { ns.status = 'no-show'; ns.updatedAt = new Date().toISOString(); }
-          App.saveAndRender();
-          showToast('Session marked as no-show', 'success');
+          if (App.saveAndRender()) showToast('Session marked as no-show', 'success');
           break;
         }
         case 'calc-mileage': {
@@ -701,7 +748,9 @@
           const client = App.state.clients.find((c) => String(c.id) === String(cid));
           if (!client || !client.address) { showToast('Client has no address set', 'warning'); break; }
           showToast('Calculating mileage...', 'info');
+          const mileageGen = App.getModalGeneration();
           App.calculateMileage(client.address).then((miles) => {
+            if (App.getModalGeneration() !== mileageGen) return; // modal closed/reopened since request started
             $('session-mileage').value = miles;
             showToast('Mileage calculated: ' + miles + ' mi', 'success');
           }).catch(() => { showToast('Could not calculate mileage', 'error'); });
@@ -766,7 +815,9 @@
           }
           showConfirm(
             'Pull from Gist?',
-            'This replaces the data on this device with the Gist copy. Continue?',
+            (App.hasUnsyncedChanges && App.hasUnsyncedChanges())
+              ? 'You have local changes not yet pushed — pulling will overwrite them with the Gist copy. Continue?'
+              : 'This replaces the data on this device with the Gist copy. Continue?',
             () => App.loadFromGist()
           );
           break;
@@ -820,14 +871,13 @@
           App.state.confirmCallback = null;
           closeModal('modal-confirm');
           break;
-        case 'confirm-ok':
+        case 'confirm-ok': {
+          const cb = App.state.confirmCallback;
+          App.state.confirmCallback = null;
           closeModal('modal-confirm');
-          if (App.state.confirmCallback) {
-            const cb = App.state.confirmCallback;
-            App.state.confirmCallback = null;
-            cb();
-          }
+          if (cb) cb();
           break;
+        }
       }
     });
 
@@ -870,6 +920,14 @@
     }
 
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        const sortHeader = e.target.closest && e.target.closest('[data-sort]');
+        if (sortHeader && sortHeader.closest('#sessions-table')) {
+          e.preventDefault();
+          applySessionSort(sortHeader.getAttribute('data-sort'));
+          return;
+        }
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         openModal('modal-search');
@@ -888,10 +946,7 @@
       }
       if (e.key === 'Escape') {
         const openModalEl = document.querySelector('.modal-overlay:not([hidden])');
-        if (openModalEl) {
-          if (openModalEl.id === 'modal-confirm') App.state.confirmCallback = null;
-          closeModal(openModalEl.id);
-        }
+        if (openModalEl) closeModal(openModalEl.id);
         return;
       }
     });
@@ -916,11 +971,20 @@
     App.loadData();
     setupEventDelegation();
     setupReceiptDragDrop();
-    App.renderTab('dashboard');
+
+    const hashTab = (location.hash || '').replace('#', '');
+    App.switchTab(validTabs.includes(hashTab) ? hashTab : 'dashboard');
+
     App.updateHeaderStats();
 
     if (App.hasSyncConfig()) {
-      App.updateSyncUI('synced');
+      if (navigator.onLine === false) {
+        App.updateSyncUI('offline');
+      } else if (App.state.settings.lastSyncAt) {
+        App.updateSyncUI('synced');
+      } else {
+        App.updateSyncUI('not-synced');
+      }
       App.startAutoSync();
     }
 
@@ -965,19 +1029,18 @@
     console.log('Tutoring Tracker Pro initialized');
   }
 
+  // Listen for hash changes to support bookmark shortcuts
+  window.addEventListener('hashchange', () => {
+    const t = (location.hash || '').replace('#', '');
+    if (validTabs.includes(t)) App.switchTab(t);
+  });
+
   // Expose to App namespace
   App.showToast = showToast;
   App.showConfirm = showConfirm;
   App.openModal = openModal;
   App.closeModal = closeModal;
-  App.closeAllModals = closeAllModals;
-  App.exportCSV = exportCSV;
-  App.backupData = backupData;
-  App.restoreData = restoreData;
-  App.openSettings = openSettings;
-  App.saveSettings = saveSettings;
-  App.clearAllData = clearAllData;
-  App.performGlobalSearch = performGlobalSearch;
+  App.getModalGeneration = () => modalGeneration;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

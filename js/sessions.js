@@ -55,6 +55,22 @@
     tbody.innerHTML = filtered.map((s) => renderSessionRow(s)).join('');
     updateSessionTotals(filtered);
     updateBulkBar();
+    updateSortHeaders();
+  }
+
+  /** Reflect current sessionSort state as aria-sort on the sessions table's
+   *  sortable headers so screen readers announce the active sort column. */
+  function updateSortHeaders() {
+    const table = $('sessions-table');
+    if (!table) return;
+    table.querySelectorAll('th[data-sort]').forEach((th) => {
+      const field = th.getAttribute('data-sort');
+      if (field === sessionSort.field) {
+        th.setAttribute('aria-sort', sessionSort.dir === 'asc' ? 'ascending' : 'descending');
+      } else {
+        th.setAttribute('aria-sort', 'none');
+      }
+    });
   }
 
   function renderSessionRow(s) {
@@ -476,6 +492,8 @@
       // If the user typed a mileage by hand, respect it (treat as final). If
       // they left it blank/0, the auto-calc below will fill it in.
       mileageCalculated: num($('session-mileage').value) > 0,
+      // Hand-entered mileage is FINAL: day recalcs must never overwrite it.
+      mileageManual: num($('session-mileage').value) > 0,
       address: primaryClient ? primaryClient.address : '',
       notes: ($('session-notes').value || '').trim(),
       recurring: null,
@@ -494,13 +512,27 @@
     } else {
       const idx = sessions.findIndex((s) => String(s.id) === String(id));
       if (idx === -1) return;
-      sessionData.createdAt = sessions[idx].createdAt;
+      const prev = sessions[idx];
+      sessionData.createdAt = prev.createdAt;
+      // The edit form pre-fills the mileage field with the stored value, so a
+      // non-zero value is NOT proof of manual entry. Only treat mileage as
+      // manual (frozen against day recalcs) if it was already manual, or the
+      // user actually CHANGED the value in this edit.
+      const mileageVal = num($('session-mileage').value);
+      sessionData.mileageManual = prev.mileageManual === true ||
+        (mileageVal > 0 && mileageVal !== num(prev.mileage));
+      // Cash-basis integrity: editing an ALREADY-paid session must not
+      // re-stamp its payment date (that would move income between tax years).
+      // Only an unpaid -> paid transition gets today's date.
+      if (paid && prev.paid && prev.paymentDate) {
+        sessionData.paymentDate = prev.paymentDate;
+      }
       sessions[idx] = sessionData;
     }
 
     App.closeModal('modal-session');
-    App.saveAndRender();
-    App.showToast(isNew ? 'Session added' : 'Session updated', 'success');
+    const saved = App.saveAndRender();
+    if (saved) App.showToast(isNew ? 'Session added' : 'Session updated', 'success');
 
     // Auto-calculate mileage in the BACKGROUND for in-person completed sessions
     // when the user didn't enter one manually. Recalculates the whole day so
@@ -526,8 +558,7 @@
     dup.updatedAt = new Date().toISOString();
 
     sessions.push(dup);
-    App.saveAndRender();
-    App.showToast('Session duplicated', 'success');
+    if (App.saveAndRender()) App.showToast('Session duplicated', 'success');
   }
 
   function deleteSession(id) {
@@ -538,8 +569,7 @@
     App.showConfirm('Delete Session', 'Delete this session from ' + formatDate(s.date) + '?', () => {
       App.state.sessions = sessions.filter((ses) => String(ses.id) !== String(id));
       App.state.selectedSessions.delete(id);
-      App.saveAndRender();
-      App.showToast('Session deleted', 'success');
+      if (App.saveAndRender()) App.showToast('Session deleted', 'success');
     });
   }
 
@@ -674,69 +704,6 @@
     return fallbackDist(homeAddr, address) * 2;
   }
 
-  async function recalcDayMileage(date) {
-    const sessions = App.state.sessions;
-    const settings = App.state.settings;
-
-    const daySessions = sessions
-      .filter((s) => s.date === date && s.status === 'completed' && s.type === 'in-person')
-      .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-
-    if (daySessions.length === 0) return;
-
-    const homeAddr = settings.businessAddress;
-    if (!homeAddr) return;
-
-    if (daySessions.length === 1) {
-      const addr = daySessions[0].address || '';
-      if (addr) {
-        daySessions[0].mileage = await calculateMileage(addr);
-        daySessions[0].mileageDetails = 'Round trip: home -> ' + addr + ' -> home';
-      }
-      return;
-    }
-
-    // Multi-stop: home -> stop1 -> stop2 -> ... -> home
-    const addresses = [homeAddr];
-    daySessions.forEach((s) => {
-      if (s.address) addresses.push(s.address);
-    });
-    addresses.push(homeAddr);
-
-    // Calculate segment distances
-    let totalMiles = 0;
-    for (let i = 0; i < addresses.length - 1; i++) {
-      if (settings.orsApiKey) {
-        const c1 = await geocode(addresses[i]);
-        const c2 = await geocode(addresses[i + 1]);
-        if (c1 && c2) {
-          const dist = await routeDist(c1, c2);
-          totalMiles += dist != null ? dist : haversine(c1[1], c1[0], c2[1], c2[0]) * 1.3;
-          continue;
-        }
-      }
-      totalMiles += fallbackDist(addresses[i], addresses[i + 1]);
-    }
-
-    // Distribute miles across sessions
-    const perSession = totalMiles / daySessions.length;
-    daySessions.forEach((s) => {
-      s.mileage = Math.round(perSession * 10) / 10;
-      s.mileageDetails = 'Multi-stop day, ' + (addresses.length - 2) + ' stops';
-    });
-  }
-
-  async function recalculateAllMileage() {
-    const sessions = App.state.sessions;
-    App.showToast('Recalculating all mileage...', 'info');
-    const dates = [...new Set(sessions.filter((s) => s.status === 'completed' && s.type === 'in-person').map((s) => s.date))];
-    for (const date of dates) {
-      await recalcDayMileage(date);
-    }
-    App.saveAndRender();
-    App.showToast('Mileage recalculation complete', 'success');
-  }
-
   /* ---- Throttled, cached, real-routes-only mileage (2026 recalc) ----
      The 2026 recalc must NEVER save a crude estimate over real data, and must
      stay under OpenRouteService rate limits. So: geocode each unique address
@@ -843,6 +810,11 @@
     }
 
     stops.forEach((x, i) => {
+      // Never overwrite hand-entered (manual) mileage — it is final. The stop
+      // still participates in the route above so other legs stay correct. If
+      // the LAST stop is manual, the return-home leg is intentionally not
+      // re-credited elsewhere (the manual value is taken as the user's total).
+      if (x.s.mileageManual) return;
       let m = legMilesArr[i];
       if (i === stops.length - 1) m += legMilesArr[legMilesArr.length - 1];
       x.s.mileage = Math.round(m * 10) / 10;
@@ -954,7 +926,6 @@
   App.updateBulkBar = updateBulkBar;
   App.applySessionFilters = applySessionFilters;
   App.calculateMileage = calculateMileage;
-  App.recalculateAllMileage = recalculateAllMileage;
   App.recalc2026Mileage = recalc2026Mileage;
   App.autoCalcDayMileage = autoCalcDayMileage;
   App.sessionSort = sessionSort;

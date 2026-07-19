@@ -308,8 +308,14 @@
     const line22 = expByCategory['supplies'] || 0;
     const line25 = expByCategory['utilities'] || 0;
 
-    // "Other" expenses for line 27a
-    const mapped = ['insurance', 'professional', 'office', 'supplies', 'utilities'];
+    // Meals: Schedule C line 24b, deductible at 50% (IRS default for business
+    // meals). Full amount is kept in expByCategory; only the 50% goes to taxes.
+    const mealsTotal = expByCategory['meals'] || 0;
+    const line24b = mealsTotal * 0.5;
+
+    // "Other" expenses for line 27b (2025 Schedule C: 27a is the energy-
+    // efficient buildings deduction; other expenses moved to 27b).
+    const mapped = ['insurance', 'professional', 'office', 'supplies', 'utilities', 'meals'];
     const otherExpenses = {};
     yearExpenses.forEach((e) => {
       const cat = e.category || 'other';
@@ -319,15 +325,15 @@
         otherExpenses[name] = (otherExpenses[name] || 0) + num(e.amount);
       }
     });
-    const line27a = Object.values(otherExpenses).reduce((s, v) => s + v, 0);
+    const line27b = Object.values(otherExpenses).reduce((s, v) => s + v, 0);
 
-    const line28 = line9 + line10 + line15 + line17 + line18 + line22 + line25 + line27a;
+    const line28 = line9 + line10 + line15 + line17 + line18 + line22 + line24b + line25 + line27b;
     const line31 = grossIncome - line28;
 
     return {
       grossIncome, companyTotal, unpaidEarned, totalMiles, mileageRate, mileageDeduction,
       nyGross, nySplit, nyMiles, nySessionCount,
-      line9, line10, line15, line17, line18, line22, line25, line27a, line28, line31,
+      line9, line10, line15, line17, line18, line22, line24b, mealsTotal, line25, line27b, line28, line31,
       otherExpenses, expByCategory,
     };
   }
@@ -357,8 +363,9 @@
     const l17 = $('tax-line17'); if (l17) l17.textContent = formatCurrency(data.line17);
     const l18 = $('tax-line18'); if (l18) l18.textContent = formatCurrency(data.line18);
     const l22 = $('tax-line22'); if (l22) l22.textContent = formatCurrency(data.line22);
+    const l24b = $('tax-line24b'); if (l24b) l24b.textContent = formatCurrency(data.line24b);
     const l25 = $('tax-line25'); if (l25) l25.textContent = formatCurrency(data.line25);
-    const l27a = $('tax-line27a'); if (l27a) l27a.textContent = formatCurrency(data.line27a);
+    const l27b = $('tax-line27b'); if (l27b) l27b.textContent = formatCurrency(data.line27b);
     const l28 = $('tax-line28'); if (l28) l28.textContent = formatCurrency(data.line28);
 
     // Net profit
@@ -442,8 +449,9 @@
         ['17', 'Professional services', formatCurrency(data.line17)],
         ['18', 'Office expenses', formatCurrency(data.line18)],
         ['22', 'Supplies', formatCurrency(data.line22)],
+        ['24b', 'Deductible meals (50% of ' + formatCurrency(data.mealsTotal) + ')', formatCurrency(data.line24b)],
         ['25', 'Utilities', formatCurrency(data.line25)],
-        ['27a', 'Other expenses', formatCurrency(data.line27a)],
+        ['27b', 'Other expenses', formatCurrency(data.line27b)],
         ['28', 'Total expenses', formatCurrency(data.line28)],
       ],
       theme: 'grid',
@@ -544,18 +552,18 @@
       payments.push(data);
     }
     App.state.taxPayments = payments;
-    App.saveData();
+    const ok = App.saveData();
     App.closeModal('modal-tax-payment');
     App.renderTaxSummary();
-    App.showToast(id ? 'Payment updated' : 'Payment added', 'success');
+    if (ok) App.showToast(id ? 'Payment updated' : 'Payment added', 'success');
   }
 
   function deleteTaxPayment(id) {
     App.showConfirm('Delete Payment', 'Remove this estimated tax payment from your records?', () => {
       App.state.taxPayments = (App.state.taxPayments || []).filter((p) => String(p.id) !== String(id));
-      App.saveData();
+      const ok = App.saveData();
       App.renderTaxSummary();
-      App.showToast('Payment deleted', 'success');
+      if (ok) App.showToast('Payment deleted', 'success');
     });
   }
 

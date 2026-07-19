@@ -70,6 +70,13 @@
       App.showToast('No GitHub token configured', 'warning');
       return;
     }
+    // Never push while a local store failed to load (corrupt) — the in-memory
+    // empty fallback must not propagate over the good remote copy.
+    if (App.hasCorruptStores && App.hasCorruptStores()) {
+      App.showToast('Sync paused: local data failed to load. Recover it before pushing.', 'error');
+      updateSyncUI('error');
+      return;
+    }
     updateSyncUI('syncing');
 
     // Freshness guard — only meaningful when updating an existing gist
@@ -128,6 +135,30 @@
         payload.public = false;
       }
 
+      // Narrow the check-then-write race further: re-check freshness
+      // immediately before the write, since time has passed since the
+      // earlier check (payload building, JSON.stringify, etc).
+      if (cfg.gistId && !opts.force) {
+        const remoteUpdatedAtNow = await fetchGistUpdatedAt(cfg);
+        const lastSyncAtNow = App.state.settings.lastSyncAt;
+        const remoteIsNewerNow = remoteUpdatedAtNow &&
+          (!lastSyncAtNow || new Date(remoteUpdatedAtNow).getTime() > new Date(lastSyncAtNow).getTime());
+        if (remoteIsNewerNow) {
+          updateSyncUI(null);
+          if (opts.interactive) {
+            App.showConfirm(
+              'Gist Has Newer Data',
+              'The Gist was updated after this device last synced (possibly from another device). Overwrite it with this device\'s data?',
+              () => saveToGist({ interactive: true, force: true })
+            );
+          } else {
+            App.showToast('Auto-sync skipped: Gist has newer data. Use Pull or Push in Settings to resolve.', 'warning');
+            updateSyncUI('error');
+          }
+          return;
+        }
+      }
+
       const resp = await fetch(url, {
         method,
         headers: {
@@ -148,6 +179,7 @@
       }
       App.state.settings.lastSyncAt = data.updated_at || new Date().toISOString();
       App.saveData();
+      try { localStorage.removeItem('tutor-sync-dirty'); } catch (_) { /* ignore */ }
 
       updateSyncUI('synced');
       App.showToast('Data pushed to Gist', 'success');
@@ -185,10 +217,17 @@
       if (imported.settings) {
         // Device-local values always win over whatever the Gist holds
         // (older gists may still contain a token/key/address — ignore them).
+        // Only allowlisted keys are accepted from the remote settings blob,
+        // mirroring the outbound allowlist — unknown/remote-only keys can
+        // never enter local settings.
         const local = App.state.settings;
+        const incoming = {};
+        GIST_SETTINGS_ALLOWLIST.forEach((k) => {
+          if (imported.settings[k] !== undefined) incoming[k] = imported.settings[k];
+        });
         App.state.settings = {
           ...App.DEFAULT_SETTINGS,
-          ...imported.settings,
+          ...incoming,
           gistToken: local.gistToken,
           gistId: local.gistId,
           orsApiKey: local.orsApiKey,
@@ -206,6 +245,9 @@
 
       App.migrateData();
       App.saveData();
+      // Local now equals remote — clear the unsynced-changes flag (saveData
+      // above re-set it; clear AFTER so the order is correct).
+      try { localStorage.removeItem('tutor-sync-dirty'); } catch (_) { /* ignore */ }
       App.renderTab(App.state.activeTab);
       App.updateHeaderStats();
       updateSyncUI('synced');
@@ -218,6 +260,10 @@
   }
 
   function scheduleSave() {
+    // Local data changed — mark unsynced regardless of whether auto-sync is
+    // configured, so a later manual Pull can warn about overwriting it.
+    try { localStorage.setItem('tutor-sync-dirty', '1'); } catch (_) { /* ignore */ }
+
     if (!hasSyncConfig()) return;
     const settings = App.state.settings;
     if (settings.autoSync === 'off') return;
@@ -225,6 +271,11 @@
       clearTimeout(App.state.syncDebounceTimer);
       App.state.syncDebounceTimer = setTimeout(() => saveToGist(), 5000);
     }
+  }
+
+  /** True if local data has changed since the last successful push. */
+  function hasUnsyncedChanges() {
+    try { return localStorage.getItem('tutor-sync-dirty') === '1'; } catch (_) { return false; }
   }
 
   function startAutoSync() {
@@ -259,9 +310,19 @@
     }
 
     switch (status) {
-      case 'synced':
+      case 'synced': {
         el.classList.add('sync-ok');
-        if (textEl) textEl.textContent = 'Synced';
+        const lastSyncAt = settings.lastSyncAt;
+        if (textEl) {
+          textEl.textContent = lastSyncAt
+            ? 'Synced · ' + new Date(lastSyncAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+            : 'Synced';
+        }
+        break;
+      }
+      case 'not-synced':
+        el.classList.add('sync-offline');
+        if (textEl) textEl.textContent = 'Not synced yet';
         break;
       case 'syncing':
         el.classList.add('sync-active');
@@ -286,6 +347,7 @@
   App.saveToGist = saveToGist;
   App.loadFromGist = loadFromGist;
   App.scheduleSave = scheduleSave;
+  App.hasUnsyncedChanges = hasUnsyncedChanges;
   App.startAutoSync = startAutoSync;
   App.updateSyncUI = updateSyncUI;
 

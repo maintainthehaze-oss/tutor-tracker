@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://api.openrouteservice.org https://cdn.jsdelivr.net;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://api.openrouteservice.org;">
   <meta name="description" content="Tutoring Tracker Pro — track clients, sessions, expenses, mileage, and taxes for your tutoring business.">
   <meta name="theme-color" content="#1a1a2e">
   <meta name="mobile-web-app-capable" content="yes">
@@ -21,8 +21,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC" crossorigin="anonymous" defer></script>
 
   <!-- jsPDF for tax export (moved to jsdelivr — the old cdnjs jspdf 2.5.2 URL 404s; SRI-pinned) -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js" integrity="sha384-Xl/CUCfJbzsngMp0CFxkmF0VW/8C160IsGujqeQlIhaGxKz2+JsIGORFqtCPeldF" crossorigin="anonymous" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js" integrity="sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3" crossorigin="anonymous" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@5.0.8/dist/jspdf.plugin.autotable.min.js" integrity="sha384-5jk55M0XWoAw7LyhlXJe19ErOr3doBAPzxw9vahPFbvolqWa2yDk4fhHa2zuYeOa" crossorigin="anonymous" defer></script>
 
   <!-- App styles -->
   <link rel="stylesheet" href="styles.css">
@@ -412,16 +412,16 @@
           <thead>
             <tr>
               <th class="col-check" hidden><input type="checkbox" data-action="select-all-sessions" aria-label="Select all sessions"></th>
-              <th data-sort="date" class="sortable" aria-sort="none">Date</th>
-              <th data-sort="time" class="sortable" aria-sort="none">Time</th>
-              <th data-sort="client" class="sortable" aria-sort="none">Client(s)</th>
+              <th data-sort="date" class="sortable" aria-sort="none" tabindex="0" role="button">Date</th>
+              <th data-sort="time" class="sortable" aria-sort="none" tabindex="0" role="button">Time</th>
+              <th data-sort="client" class="sortable" aria-sort="none" tabindex="0" role="button">Client(s)</th>
               <th data-sort="type">Type</th>
-              <th data-sort="duration" class="sortable" aria-sort="none">Duration</th>
-              <th data-sort="amount" class="sortable" aria-sort="none">Amount</th>
+              <th data-sort="duration" class="sortable" aria-sort="none" tabindex="0" role="button">Duration</th>
+              <th data-sort="amount" class="sortable" aria-sort="none" tabindex="0" role="button">Amount</th>
               <th data-sort="split">Split</th>
               <th data-sort="mileage">Mileage</th>
-              <th data-sort="payment" class="sortable" aria-sort="none">Payment</th>
-              <th data-sort="status" class="sortable" aria-sort="none">Status</th>
+              <th data-sort="payment" class="sortable" aria-sort="none" tabindex="0" role="button">Payment</th>
+              <th data-sort="status" class="sortable" aria-sort="none" tabindex="0" role="button">Status</th>
               <th class="col-actions">Actions</th>
             </tr>
           </thead>
@@ -480,10 +480,10 @@
         <table class="data-table" id="expenses-table">
           <thead>
             <tr>
-              <th data-sort="date" class="sortable" aria-sort="none">Date</th>
-              <th data-sort="category" class="sortable" aria-sort="none">Category</th>
+              <th data-sort="date">Date</th>
+              <th data-sort="category">Category</th>
               <th data-sort="description">Description</th>
-              <th data-sort="amount" class="sortable" aria-sort="none">Amount</th>
+              <th data-sort="amount">Amount</th>
               <th>Receipt</th>
               <th class="col-actions">Actions</th>
             </tr>
@@ -795,14 +795,19 @@
             <span class="line-value" id="tax-line22">$0</span>
           </div>
           <div class="tax-line">
+            <span class="line-num">Line 24b</span>
+            <span class="line-desc">Deductible meals (50% of business meals)</span>
+            <span class="line-value" id="tax-line24b">$0</span>
+          </div>
+          <div class="tax-line">
             <span class="line-num">Line 25</span>
             <span class="line-desc">Utilities</span>
             <span class="line-value" id="tax-line25">$0</span>
           </div>
           <div class="tax-line">
-            <span class="line-num">Line 27a</span>
+            <span class="line-num">Line 27b</span>
             <span class="line-desc">Other expenses (see detail below)</span>
-            <span class="line-value" id="tax-line27a">$0</span>
+            <span class="line-value" id="tax-line27b">$0</span>
           </div>
           <div class="tax-line tax-line-total">
             <span class="line-num">Line 28</span>
@@ -865,8 +870,8 @@
 
         <!-- Other Expenses Detail -->
         <article class="tax-section">
-          <h3 class="section-title">Other Expenses Detail (Line 27a)</h3>
-          <p class="tax-flag-note">⚠ Note: business <strong>meals</strong> are included here at 100%. The IRS generally allows only <strong>50%</strong> for meals — confirm the correct treatment with your accountant before filing.</p>
+          <h3 class="section-title">Other Expenses Detail (Line 27b)</h3>
+          <p class="tax-flag-note">Business <strong>meals</strong> are excluded from this detail and deducted at <strong>50%</strong> on line 24b, per IRS rules. Recorded meal amounts stay at 100% in the expense list.</p>
           <div class="table-wrapper" role="region" aria-label="Other expenses breakdown" tabindex="0">
             <table class="data-table" id="tax-other-expenses-table">
               <thead>
@@ -1201,7 +1206,7 @@
           <!-- Receipt Upload -->
           <div class="form-group form-group-full">
             <label>Receipt</label>
-            <div class="receipt-upload-area" id="modal-receipt-drop" data-action="modal-receipt-drop" role="button" tabindex="0">
+            <div class="receipt-upload-area" id="modal-receipt-drop" data-action="modal-receipt-drop" role="button" tabindex="0" aria-label="Attach receipt — browse files">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
               <span>Drop receipt or click to upload</span>
               <input type="file" id="expense-receipt-input" accept="image/*,.pdf" hidden aria-hidden="true">
