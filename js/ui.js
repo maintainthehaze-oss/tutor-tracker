@@ -25,14 +25,28 @@
      IMPORT / EXPORT
      ========================================================== */
 
+  // Credentials are re-issuable and grant access to other systems, so they never
+  // belong in a portable file — omitted from every backup we write.
+  const CREDENTIAL_SETTINGS_KEYS = ['gistToken', 'orsApiKey'];
+
+  // Sync-connection settings are device-local and are NEVER taken from an
+  // imported file: a tampered backup must not be able to point this device at
+  // someone else's gist, for push (exfiltration) or pull (data poisoning on
+  // every future sync). Costs nothing on a genuine restore, since the token is
+  // stripped anyway and the user has to revisit sync settings regardless.
+  // Everything else round-trips, so restores stay full-fidelity.
+  const DEVICE_LOCAL_SETTINGS_KEYS = ['gistToken', 'orsApiKey', 'gistId'];
+
   function backupData() {
+    const safeSettings = { ...App.state.settings };
+    CREDENTIAL_SETTINGS_KEYS.forEach((k) => { delete safeSettings[k]; });
     const backup = {
       version: 2,
       exportedAt: new Date().toISOString(),
       clients: App.state.clients,
       sessions: App.state.sessions,
       expenses: App.state.expenses,
-      settings: App.state.settings,
+      settings: safeSettings,
       receipts: App.state.receipts,
       taxPayments: App.state.taxPayments,
     };
@@ -41,7 +55,7 @@
     downloadFile(json, 'tutoring-backup-' + date + '.json', 'application/json');
     App.state.settings.lastBackup = new Date().toISOString();
     App.saveData();
-    showToast('Backup downloaded', 'success');
+    showToast('Backup downloaded — sync token and map key are not included', 'success');
   }
 
   function restoreData(file) {
@@ -82,7 +96,12 @@
             if (imported.clients) App.state.clients = imported.clients;
             if (imported.sessions) App.state.sessions = imported.sessions;
             if (imported.expenses) App.state.expenses = imported.expenses;
-            if (imported.settings) App.state.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
+            if (imported.settings) {
+              const merged = { ...DEFAULT_SETTINGS, ...imported.settings };
+              // Sync connection always comes from this device, never the file.
+              DEVICE_LOCAL_SETTINGS_KEYS.forEach((k) => { merged[k] = App.state.settings[k]; });
+              App.state.settings = merged;
+            }
             if (imported.receipts) App.state.receipts = imported.receipts;
             if (Array.isArray(imported.taxPayments)) App.state.taxPayments = imported.taxPayments;
             App.migrateData();
