@@ -63,24 +63,19 @@
     return hrs + 'h ' + mins + 'm';
   }
 
-  /** Get today's date as YYYY-MM-DD */
+  /** Get today's date as YYYY-MM-DD in the LOCAL timezone (not UTC — evening
+   *  entries in US timezones must not roll over to tomorrow's date). */
   function todayISO() {
-    return new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
   }
 
   /** Parse float safely */
   function num(v) {
     const n = parseFloat(v);
     return isNaN(n) ? 0 : n;
-  }
-
-  /** Debounce helper */
-  function debounce(fn, ms) {
-    let t;
-    return function (...args) {
-      clearTimeout(t);
-      t = setTimeout(() => fn.apply(this, args), ms);
-    };
   }
 
   /** Download a string as a file */
@@ -179,6 +174,11 @@
   let settings = { ...DEFAULT_SETTINGS };
   let receipts = {};
   let taxPayments = [];
+  // Receipts hold base64 image blobs (the largest store). Only re-serialize
+  // them to localStorage when they actually changed, so routine saves (e.g. an
+  // inline session edit) don't rewrite megabytes on every keystroke. Fail-safe:
+  // defaults true and every receipts mutation re-arms it ("when in doubt, write").
+  let receiptsDirty = true;
 
   let activeTab = 'dashboard';
   let editMode = false;
@@ -203,7 +203,7 @@
     get settings() { return settings; },
     set settings(v) { settings = v; },
     get receipts() { return receipts; },
-    set receipts(v) { receipts = v; },
+    set receipts(v) { receipts = v; receiptsDirty = true; },
     get taxPayments() { return taxPayments; },
     set taxPayments(v) { taxPayments = v; },
     get activeTab() { return activeTab; },
@@ -222,44 +222,58 @@
     set syncDebounceTimer(v) { syncDebounceTimer = v; },
   };
 
+  // Keys whose stored value was corrupt at load (backed up, never auto-overwritten)
+  let corruptKeys = [];
+
+  /** True if any localStorage store failed to load this session (sync pushes are blocked). */
+  function hasCorruptStores() { return corruptKeys.length > 0; }
+
+  /**
+   * Parse one store from localStorage with shape validation. If the value is
+   * unparseable OR the wrong shape, the RAW value is preserved to a
+   * `<key>-corrupt-<timestamp>` backup key before the fallback is used, so the
+   * original is always recoverable.
+   */
+  function loadStore(key, fallback, isValid) {
+    const raw = localStorage.getItem(key);
+    if (raw == null) return fallback;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+      if (isValid(parsed)) return parsed;
+    } catch (_) { /* fall through to backup */ }
+    try {
+      localStorage.setItem(key + '-corrupt-' + Date.now(), raw);
+    } catch (e) {
+      console.error('Could not back up corrupt store ' + key, e);
+    }
+    corruptKeys.push(key);
+    console.error('Corrupt or wrong-shaped data in ' + key + ' — backed up, using empty fallback. NOT auto-saving over it.');
+    return fallback;
+  }
+
   /** Load all data from localStorage */
   function loadData() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.clients);
-      clients = raw ? JSON.parse(raw) : [];
-    } catch (_) {
-      clients = [];
-    }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.sessions);
-      sessions = raw ? JSON.parse(raw) : [];
-    } catch (_) {
-      sessions = [];
-    }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.expenses);
-      expenses = raw ? JSON.parse(raw) : [];
-    } catch (_) {
-      expenses = [];
-    }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.settings);
-      settings = raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
-    } catch (_) {
-      settings = { ...DEFAULT_SETTINGS };
-    }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.receipts);
-      receipts = raw ? JSON.parse(raw) : {};
-    } catch (_) {
-      receipts = {};
-    }
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.taxPayments);
-      taxPayments = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(taxPayments)) taxPayments = [];
-    } catch (_) {
-      taxPayments = [];
+    corruptKeys = [];
+    const isArr = Array.isArray;
+    const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+    clients = loadStore(STORAGE_KEYS.clients, [], isArr);
+    sessions = loadStore(STORAGE_KEYS.sessions, [], isArr);
+    expenses = loadStore(STORAGE_KEYS.expenses, [], isArr);
+    const rawSettings = loadStore(STORAGE_KEYS.settings, {}, isObj);
+    settings = { ...DEFAULT_SETTINGS, ...rawSettings };
+    receipts = loadStore(STORAGE_KEYS.receipts, {}, isObj);
+    taxPayments = loadStore(STORAGE_KEYS.taxPayments, [], isArr);
+
+    if (corruptKeys.length > 0) {
+      // ui.js loads after app-core; surface the warning once the app is up.
+      const keys = corruptKeys.join(', ');
+      setTimeout(() => {
+        if (App.showToast) {
+          App.showToast('Some saved data was unreadable (' + keys + '). A backup copy was kept in browser storage — do not clear site data before recovering it.', 'error');
+        }
+      }, 500);
     }
 
     // Security cleanup: legacy sync keys from an old storage scheme held the
@@ -341,8 +355,9 @@
       }
     });
 
-    // Save migrated data
-    saveData();
+    // Save migrated data — but NEVER when a store loaded corrupt, so the
+    // original raw value in localStorage is not overwritten by empty state.
+    if (corruptKeys.length === 0) saveData();
   }
 
   /** Get the effective split % for a client on a given date */
@@ -489,24 +504,35 @@
       localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(sessions));
       localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
-      localStorage.setItem(STORAGE_KEYS.receipts, JSON.stringify(receipts));
+      // Skip the costly receipts re-serialization when nothing touched them.
+      if (receiptsDirty) {
+        localStorage.setItem(STORAGE_KEYS.receipts, JSON.stringify(receipts));
+        receiptsDirty = false;
+      }
       localStorage.setItem(STORAGE_KEYS.taxPayments, JSON.stringify(taxPayments));
       const now = new Date();
       const ts = now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       const el = $('last-saved');
       if (el) el.textContent = 'Saved ' + ts;
+      // Every successful local write marks data as unsynced; the sync module
+      // clears this after a confirmed push (and after a pull, when local ==
+      // remote by definition).
+      try { localStorage.setItem('tutor-sync-dirty', '1'); } catch (_) { /* ignore */ }
+      return true;
     } catch (e) {
       console.error('Failed to save data:', e);
       App.showToast('Failed to save data. Storage may be full.', 'error');
+      return false;
     }
   }
 
-  /** Save and re-render current tab */
+  /** Save and re-render current tab. Returns whether the save succeeded. */
   function saveAndRender() {
-    saveData();
+    const ok = saveData();
     App.renderTab(activeTab);
     App.updateHeaderStats();
     App.scheduleSave();
+    return ok;
   }
 
   /* ==========================================================
@@ -586,7 +612,6 @@
   App.formatDuration = formatDuration;
   App.todayISO = todayISO;
   App.num = num;
-  App.debounce = debounce;
   App.downloadFile = downloadFile;
   App.clientName = clientName;
   App.initials = initials;
@@ -606,7 +631,11 @@
   App.clientFamily = clientFamily;
   App.groupKeyForClient = groupKeyForClient;
   App.saveData = saveData;
+  App.hasCorruptStores = hasCorruptStores;
   App.saveAndRender = saveAndRender;
+  // In-place receipt mutations (expenses.js) must arm the dirty flag; reassigning
+  // App.state.receipts arms it automatically via the setter.
+  App.markReceiptsDirty = () => { receiptsDirty = true; };
 
   // Theme
   App.initTheme = initTheme;

@@ -151,10 +151,10 @@
     } else {
       delete receipts[expenseData.id];
     }
+    App.markReceiptsDirty();
 
     App.closeModal('modal-expense');
-    App.saveAndRender();
-    App.showToast(isNew ? 'Expense added' : 'Expense updated', 'success');
+    if (App.saveAndRender()) App.showToast(isNew ? 'Expense added' : 'Expense updated', 'success');
   }
 
   function deleteExpense(id) {
@@ -167,8 +167,8 @@
     App.showConfirm('Delete Expense', 'Delete this expense from ' + formatDate(e.date) + '?', () => {
       App.state.expenses = expenses.filter((ex) => String(ex.id) !== String(id));
       delete receipts[id];
-      App.saveAndRender();
-      App.showToast('Expense deleted', 'success');
+      App.markReceiptsDirty();
+      if (App.saveAndRender()) App.showToast('Expense deleted', 'success');
     });
   }
 
@@ -180,23 +180,33 @@
       return;
     }
 
+    // Capture which expense modal generation this file belongs to so async
+    // results (PDF render, OCR) landing after the modal was closed/reopened
+    // for a different expense can be discarded instead of overwriting the
+    // wrong form.
+    const gen = App.getModalGeneration ? App.getModalGeneration() : null;
+    const stale = () => gen != null && App.getModalGeneration && App.getModalGeneration() !== gen;
+
     const reader = new FileReader();
     reader.onload = function (e) {
       let dataUrl = e.target.result;
+      if (stale()) return;
 
       // PDFs: render page 1 to an image on-device (pdf.js), then continue
       // down the normal image path (compress + OCR + preview thumbnail).
       if (file.type === 'application/pdf' && typeof App.pdfToImage === 'function') {
         App.showToast('Converting PDF on this device…', 'info');
         App.pdfToImage(dataUrl).then((img) => {
+          if (stale()) return;
           if (!img) {
             App.showToast('Could not read this PDF — enter details manually', 'warning');
             setReceiptPreview(dataUrl);
             return;
           }
           compressImage(img, (compressed) => {
+            if (stale()) return;
             setReceiptPreview(compressed);
-            runOcrPrefill(compressed);
+            runOcrPrefill(compressed, gen);
           });
         });
         return;
@@ -206,8 +216,9 @@
       // run on-device OCR to prefill empty fields. Other files: as-is.
       if (file.type.startsWith('image/')) {
         compressImage(dataUrl, (compressed) => {
+          if (stale()) return;
           setReceiptPreview(compressed);
-          runOcrPrefill(compressed);
+          runOcrPrefill(compressed, gen);
         });
       } else {
         setReceiptPreview(dataUrl);
@@ -240,10 +251,11 @@
   /** On-device OCR (js/ocr.js): prefill EMPTY expense fields from the
    *  attached receipt. Never overwrites anything the user typed; the user
    *  always reviews and saves manually. The image never leaves the device. */
-  function runOcrPrefill(dataUrl) {
+  function runOcrPrefill(dataUrl, gen) {
     if (typeof App.extractReceiptFields !== 'function') return;
     App.showToast('Reading receipt on this device…', 'info');
     App.extractReceiptFields(dataUrl).then((fields) => {
+      if (gen != null && App.getModalGeneration && App.getModalGeneration() !== gen) return; // expense modal closed/reopened since request started
       if (!fields || (!fields.vendor && !fields.date && fields.total == null)) {
         App.showToast('Could not read receipt — please enter details manually', 'warning');
         return;
