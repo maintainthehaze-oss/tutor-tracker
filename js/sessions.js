@@ -617,11 +617,12 @@
     const settings = App.state.settings;
     if (!address || !settings.orsApiKey) return null;
     try {
-      const url = 'https://api.openrouteservice.org/geocode/search?api_key=' +
-        encodeURIComponent(settings.orsApiKey) +
-        '&text=' + encodeURIComponent(address) +
+      // Key goes in the Authorization header, never the query string: URLs leak
+      // into browser history, referrers and network logs. Matches routeDist().
+      const url = 'https://api.openrouteservice.org/geocode/search?text=' +
+        encodeURIComponent(address) +
         '&size=1&boundary.country=US';
-      const resp = await fetch(url);
+      const resp = await fetch(url, { headers: { Authorization: settings.orsApiKey } });
       const data = await resp.json();
       if (data.features && data.features.length > 0) {
         const coords = data.features[0].geometry.coordinates;
