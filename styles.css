@@ -1784,6 +1784,12 @@ select.input[multiple] {
   font-style: italic;
   font-size: 0.85rem;
 }
+.disclaimer {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
 
 .empty-state-block {
   display: flex;

@@ -248,7 +248,7 @@
     const totalRevenue = monthSessions.reduce((sum, s) => sum + num(s.amount), 0);
     const totalSplit = monthSessions.reduce((sum, s) => sum + num(s.companyAmount), 0);
     const totalMiles = monthSessions.reduce((sum, s) => sum + num(s.mileage), 0);
-    const unpaidCount = sessions.filter((s) => s.date && s.date.startsWith(monthStr) && !s.paid && s.payment !== 'waived').length;
+    const unpaidCount = monthSessions.filter((s) => !s.paid && s.payment !== 'waived').length;
 
     content.innerHTML =
       '<div class="monthly-stats">' +

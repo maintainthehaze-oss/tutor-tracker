@@ -159,12 +159,19 @@
    *  user-set settings.mileageRate so future years work before this table is
    *  updated. */
   const MILEAGE_RATES = { 2024: 0.67, 2025: 0.70, 2026: 0.725 };
+  const _mileageRateWarned = new Set();
 
-  /** Mileage deduction rate for a given tax year. */
   function mileageRateFor(year) {
     const y = parseInt(year, 10);
     if (MILEAGE_RATES[y] != null) return MILEAGE_RATES[y];
-    return num(settings.mileageRate) || 0.725;
+    const fallback = num(settings.mileageRate) || 0.725;
+    if (!_mileageRateWarned.has(y)) {
+      _mileageRateWarned.add(y);
+      setTimeout(() => {
+        if (App.showToast) App.showToast('No IRS mileage rate on file for ' + y + ' — using $' + fallback.toFixed(3) + '/mi. Update in Settings when the IRS publishes the rate.', 'warning');
+      }, 0);
+    }
+    return fallback;
   }
 
   /** Application state */

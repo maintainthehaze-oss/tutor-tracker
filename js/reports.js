@@ -84,6 +84,9 @@
     set('report-total-sessions', M.sessionCount);
     set('report-total-miles', M.miles.toFixed(1));
 
+    const disclaimerEl = $('report-expense-disclaimer');
+    if (disclaimerEl) disclaimerEl.hidden = !(filter.family || filter.clientId);
+
     // Monthly breakdown — each month recomputed via the shared model (respects family/client/paid filters)
     const tbody = $('report-tbody');
     if (tbody) {
@@ -106,7 +109,7 @@
             '<td>' + formatCurrency(mm.gross) + '</td>' +
             '<td>' + formatCurrency(mm.companySplit) + '</td>' +
             '<td>' + formatCurrency(mExp) + '</td>' +
-            '<td>' + formatCurrency(mm.yourCut - mExp) + '</td>' +
+            '<td>' + formatCurrency(mm.yourCut - mExp - (mm.miles * yearRate)) + '</td>' +
             '<td>' + mm.miles.toFixed(1) + '</td>' +
             '<td>' + formatCurrency(mm.miles * yearRate) + '</td>' +
           '</tr>';
@@ -120,7 +123,7 @@
     set('report-foot-income', formatCurrency(M.gross));
     set('report-foot-split', formatCurrency(M.companySplit));
     set('report-foot-expenses', formatCurrency(totalExpenses));
-    set('report-foot-net', formatCurrency(M.yourCut - totalExpenses));
+    set('report-foot-net', formatCurrency(netProfit));
     set('report-foot-miles', M.miles.toFixed(1));
     set('report-foot-mileage-ded', formatCurrency(mileageDed));
 

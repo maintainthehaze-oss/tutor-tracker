@@ -178,7 +178,7 @@
             .reduce((s, x) => s + num(x.amount), 0);
           const monthName = new Date(year, m, 1).toLocaleDateString('en-US', { month: 'long' });
           csv += csvRow([monthName, mm.sessionCount, mm.hours, mm.gross, mm.companySplit,
-            mm.yourCut, exp, mm.yourCut - exp, mm.miles, mm.miles * yearRate]);
+            mm.yourCut, exp, mm.yourCut - exp - (mm.miles * yearRate), mm.miles, mm.miles * yearRate]);
         }
         filename = 'report-' + year + '.csv';
         break;
@@ -978,11 +978,14 @@
   function autoCompletePastSessions() {
     const sessions = App.state.sessions;
     const today = todayISO();
-    let changed = false;
+    let count = 0;
     sessions.forEach((s) => {
-      if (s.status === 'scheduled' && s.date && s.date < today) { s.status = 'completed'; changed = true; }
+      if (s.status === 'scheduled' && s.date && s.date < today) { s.status = 'completed'; count++; }
     });
-    if (changed) App.saveData();
+    if (count > 0) {
+      App.saveData();
+      App.showToast(count + ' past session' + (count === 1 ? '' : 's') + ' marked completed', 'info');
+    }
   }
 
   function init() {
