@@ -4,7 +4,7 @@
 
 ## Task / State
 Close two known risks: receipts blowing the localStorage cap, and family names splitting on casing.
-UNCOMMITTED, verified locally in browser (python http.server on :8765). Not pushed. SW bumped to v39.
+DEPLOYED 2026-09-03 as b6549c9 (Pages build confirmed, live sw.js = v39, receipt-store.js serves 200).
 
 - Receipts now persist in IndexedDB (`tutor-tracker` / store `receipts`) via new `js/receipt-store.js`.
   `App.state.receipts` is unchanged for every renderer. Legacy `tutoring-receipts` localStorage
@@ -20,8 +20,8 @@ Migration, coalesced double save, reload persistence, delete, clear-all, mid-loa
 Real device with ~3.4 MB of receipts (only synthetic 1px images tested). Safari private mode.
 
 ## Next step
-MTH: "Ship it" to deploy, then on live site unregister SW + hard refresh, open Expenses and
-confirm thumbnails render and DevTools > Application > IndexedDB > tutor-tracker has rows.
+MTH: on the live site unregister SW + hard refresh, open Expenses and confirm thumbnails
+render and DevTools > Application > IndexedDB > tutor-tracker has rows.
 Branch protection on main is still OFF (checked via gh api) — MTH's call.
 
 ## Files touched
