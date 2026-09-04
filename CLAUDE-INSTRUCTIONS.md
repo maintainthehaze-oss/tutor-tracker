@@ -11,6 +11,7 @@ sw.js                   Service worker, cache-first (bump CACHE_NAME on deploy)
 manifest.json           PWA manifest
 app.js                  OLD monolith — NOT loaded, reference only
 js/app-core.js          Namespace (window.App), utils, state, data, theme, tabs
+js/receipt-store.js     IndexedDB persistence for receipt images (only app-core calls it)
 js/sync.js              GitHub Gist push/pull/auto-sync
 js/dashboard.js         Dashboard charts, top clients, NET revenue card
 js/clients.js           Client CRUD, cards, family groups, split history
@@ -29,7 +30,7 @@ Every file is an IIFE. `app-core.js` creates `window.App = {}`. Other modules re
 ## Known Issues
 
 - **SW caching hides deploys** — cache-first means stale files until new SW activates. Bump `CACHE_NAME` each deploy.
-- **localStorage ~5MB limit** — receipt base64 can exceed it. `saveData()` catches the error but can't prevent data loss.
+- **Receipts are async** — they live in IndexedDB and load after the localStorage stores. `App.receiptsReady` resolves when `App.state.receipts` is authoritative; Gist push awaits it. Legacy `tutoring-receipts` in localStorage is migrated on first load, then removed.
 - **Gist token in localStorage** — known tradeoff for a client-only app.
 
 ## Patterns to Preserve
@@ -57,4 +58,4 @@ Every file is an IIFE. `app-core.js` creates `window.App = {}`. Other modules re
 
 ## Data Keys
 
-`tutoring-clients`, `tutoring-sessions`, `tutoring-expenses`, `tutoring-settings` (includes Gist token), `tutoring-receipts` (base64), `tutoring-theme`
+localStorage: `tutoring-clients`, `tutoring-sessions`, `tutoring-expenses`, `tutoring-settings` (includes Gist token), `tutoring-tax-payments`, `tutoring-theme`. IndexedDB `tutor-tracker` / store `receipts` (expense id → base64). Family labels are normalised on save (`canonicalFamily`) and merged on load (`migrateData`).

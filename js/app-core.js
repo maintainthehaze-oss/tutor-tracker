@@ -181,11 +181,17 @@
   let settings = { ...DEFAULT_SETTINGS };
   let receipts = {};
   let taxPayments = [];
-  // Receipts hold base64 image blobs (the largest store). Only re-serialize
-  // them to localStorage when they actually changed, so routine saves (e.g. an
-  // inline session edit) don't rewrite megabytes on every keystroke. Fail-safe:
-  // defaults true and every receipts mutation re-arms it ("when in doubt, write").
-  let receiptsDirty = true;
+  // Receipts hold base64 image blobs (the largest store) and live in
+  // IndexedDB (js/receipt-store.js), not localStorage. They load
+  // asynchronously after the small stores; `receiptsLoaded` gates writes so a
+  // save that lands before the load finishes can never persist an empty map
+  // over the real one. `receiptsDirty` is armed by every receipts mutation and
+  // cleared once a write is handed to the store.
+  let receiptsDirty = false;
+  let receiptsLoaded = false;
+  let receiptsInIdb = false;      // false = IndexedDB unavailable, localStorage fallback
+  let receiptWriteInFlight = false;
+  let receiptWriteQueued = false;
 
   let activeTab = 'dashboard';
   let editMode = false;
@@ -270,8 +276,8 @@
     expenses = loadStore(STORAGE_KEYS.expenses, [], isArr);
     const rawSettings = loadStore(STORAGE_KEYS.settings, {}, isObj);
     settings = { ...DEFAULT_SETTINGS, ...rawSettings };
-    receipts = loadStore(STORAGE_KEYS.receipts, {}, isObj);
     taxPayments = loadStore(STORAGE_KEYS.taxPayments, [], isArr);
+    App.receiptsReady = loadReceipts(isObj);
 
     if (corruptKeys.length > 0) {
       // ui.js loads after app-core; surface the warning once the app is up.
@@ -290,6 +296,79 @@
 
     // Migrations
     migrateData();
+  }
+
+  /**
+   * Receipts load asynchronously from IndexedDB. Legacy installs kept them in
+   * localStorage under STORAGE_KEYS.receipts; that copy is migrated into
+   * IndexedDB on first load and removed only after the write is confirmed.
+   * Returns a promise (App.receiptsReady) that resolves once the in-memory
+   * map is authoritative — sync pushes await it so an empty map can never
+   * overwrite the remote copy.
+   */
+  function loadReceipts(isObj) {
+    receiptsLoaded = false;
+    receiptsInIdb = false;
+    const legacy = loadStore(STORAGE_KEYS.receipts, null, isObj);
+    receipts = legacy || {};
+    receiptsDirty = false;
+    const store = App.receiptStore;
+
+    const finish = () => {
+      receiptsLoaded = true;
+      // Something (a Gist pull, an import) replaced receipts mid-load: persist it.
+      if (receiptsDirty) persistReceipts();
+      if (activeTab === 'expenses' && App.renderTab) App.renderTab('expenses');
+    };
+    if (!store) { finish(); return Promise.resolve(); }
+
+    return store.readAll().then(async (stored) => {
+      receiptsInIdb = true;
+      // IndexedDB is authoritative. A legacy localStorage copy only fills
+      // gaps (it exists only if an earlier migration never completed).
+      if (!receiptsDirty) receipts = Object.assign({}, legacy || {}, stored);
+      if (legacy) {
+        await store.writeAll(receipts);
+        localStorage.removeItem(STORAGE_KEYS.receipts);
+        console.log('Receipts migrated from localStorage to IndexedDB');
+      }
+    }).catch((e) => {
+      console.error('Receipt store unavailable — using localStorage for this session:', e);
+      receiptsInIdb = false;
+      corruptKeys.push('receipts (IndexedDB)');
+      setTimeout(() => {
+        if (App.showToast) App.showToast('Receipt images could not be loaded from browser storage. Sync push is paused — reload to retry.', 'error');
+      }, 500);
+    }).then(finish);
+  }
+
+  /**
+   * Hand the current receipts map to the store: IndexedDB normally, or
+   * localStorage when IndexedDB is unavailable. IndexedDB writes are
+   * coalesced — one in flight at a time; a save arriving mid-write runs again
+   * once it finishes. Never writes before the initial load completes.
+   */
+  function persistReceipts() {
+    if (!receiptsLoaded || !receiptsDirty) return;
+    if (!receiptsInIdb) {
+      // Fallback: pre-IndexedDB behaviour. May throw on quota; saveData reports it.
+      localStorage.setItem(STORAGE_KEYS.receipts, JSON.stringify(receipts));
+      receiptsDirty = false;
+      return;
+    }
+    if (receiptWriteInFlight) { receiptWriteQueued = true; return; }
+    receiptWriteInFlight = true;
+    receiptsDirty = false; // mutations during the write re-arm it
+    App.receiptStore.writeAll(receipts)
+      .catch((e) => {
+        receiptsDirty = true;
+        console.error('Failed to save receipts:', e);
+        if (App.showToast) App.showToast('Receipt images could not be saved. Try again, or free up browser storage.', 'error');
+      })
+      .then(() => {
+        receiptWriteInFlight = false;
+        if (receiptWriteQueued) { receiptWriteQueued = false; persistReceipts(); }
+      });
   }
 
   /** Migrate old data formats */
@@ -327,6 +406,30 @@
         c.lastName = parts.slice(1).join(' ') || '';
       }
       if (c.status == null) c.status = 'active';
+    });
+
+    // Family labels: merge casing/whitespace variants ("Smith", "smith ",
+    // "SMITH") into one spelling — the one most clients use (ties: first
+    // seen). Before this, each variant rendered and rolled up as a separate
+    // family. New entries are normalised on save (canonicalFamily).
+    const spellings = {};
+    clients.forEach((c) => {
+      if (c.familyGroup == null) return;
+      const clean = String(c.familyGroup).trim().replace(/\s+/g, ' ');
+      c.familyGroup = clean;
+      if (!clean) return;
+      const key = clean.toLowerCase();
+      const counts = spellings[key] || (spellings[key] = new Map());
+      counts.set(clean, (counts.get(clean) || 0) + 1);
+    });
+    Object.keys(spellings).forEach((key) => {
+      const counts = spellings[key];
+      if (counts.size < 2) return;
+      let best = '', bestCount = 0;
+      counts.forEach((n, label) => { if (n > bestCount) { best = label; bestCount = n; } });
+      clients.forEach((c) => {
+        if (c.familyGroup && c.familyGroup.toLowerCase() === key) c.familyGroup = best;
+      });
     });
 
     sessions.forEach((s) => {
@@ -397,6 +500,27 @@
   /** Family group label for a client ('' if none). */
   function clientFamily(c) {
     return c && c.familyGroup ? String(c.familyGroup).trim() : '';
+  }
+
+  /** Case- and whitespace-insensitive key for a family label ('' if none). */
+  function familyKey(label) {
+    return String(label || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  /**
+   * Canonical spelling for a family label typed into a form: trimmed, inner
+   * whitespace collapsed, and if another client already uses the same name in
+   * different casing, THAT spelling wins — so "smith" joins "Smith" instead of
+   * founding a second family. `excludeId` is the client being edited, so the
+   * sole member of a family can still re-case it.
+   */
+  function canonicalFamily(label, excludeId) {
+    const clean = String(label || '').trim().replace(/\s+/g, ' ');
+    if (!clean) return '';
+    const key = clean.toLowerCase();
+    const existing = clients.find((c) =>
+      (excludeId == null || String(c.id) !== String(excludeId)) && familyKey(c.familyGroup) === key);
+    return existing ? clientFamily(existing) : clean;
   }
 
   /**
@@ -600,12 +724,9 @@
       localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(sessions));
       localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(expenses));
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
-      // Skip the costly receipts re-serialization when nothing touched them.
-      if (receiptsDirty) {
-        localStorage.setItem(STORAGE_KEYS.receipts, JSON.stringify(receipts));
-        receiptsDirty = false;
-      }
       localStorage.setItem(STORAGE_KEYS.taxPayments, JSON.stringify(taxPayments));
+      // Receipts go to IndexedDB (async, coalesced) — only when they changed.
+      persistReceipts();
       const now = new Date();
       const ts = now.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
       const el = $('last-saved');
@@ -725,6 +846,8 @@
   App.getEffectiveSplit = getEffectiveSplit;
   App.computeMetrics = computeMetrics;
   App.clientFamily = clientFamily;
+  App.familyKey = familyKey;
+  App.canonicalFamily = canonicalFamily;
   App.groupKeyForClient = groupKeyForClient;
   App.computeOwedByFamily = computeOwedByFamily;
   App.groupLabelForClient = groupLabelForClient;

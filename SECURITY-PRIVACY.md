@@ -16,7 +16,7 @@ finding. Update it whenever a data flow or finding changes.
 | `tutoring-clients` | Client names, contact info, addresses, rates, split history | HIGH |
 | `tutoring-sessions` | Session dates, clients, amounts, mileage | HIGH |
 | `tutoring-expenses` | Business expenses | MEDIUM |
-| `tutoring-receipts` | Receipt images (~3.4 MB, base64) | MEDIUM |
+| IndexedDB `tutor-tracker`/`receipts` | Receipt images (~3.4 MB, base64; was localStorage `tutoring-receipts`, migrated on first load) | MEDIUM |
 | `tutoring-tax-payments` | Estimated tax payment log | MEDIUM |
 | `tutoring-settings` | Business address, ORS API key, gist PAT/ID, invoice contact info | HIGH (secrets) |
 | `tutoring-historical` | 1,652 sessions 2019–2025 | HIGH — **never leaves device** |

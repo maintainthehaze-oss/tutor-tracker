@@ -3,13 +3,14 @@
    Cache-first with network fallback
    ======================================== */
 
-const CACHE_NAME = 'tutor-tracker-v38';
+const CACHE_NAME = 'tutor-tracker-v39';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './js/sw-register.js',
   './js/app-core.js',
+  './js/receipt-store.js',
   './js/sync.js',
   './js/dashboard.js',
   './js/historical.js',

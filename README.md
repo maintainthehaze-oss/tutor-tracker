@@ -103,7 +103,7 @@ All data is in localStorage under these keys:
 - `tutoring-sessions` — session array
 - `tutoring-expenses` — expense array
 - `tutoring-settings` — settings object
-- `tutoring-receipts` — receipt data (base64 images)
+- IndexedDB `tutor-tracker` / `receipts` — receipt images (base64), moved out of localStorage to escape its ~5 MB cap
 - `tutoring-theme` — `"dark"` or `"light"`
 
 Optional: configure a GitHub Personal Access Token and Gist ID in Settings for cloud backup/sync.

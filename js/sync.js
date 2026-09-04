@@ -77,6 +77,14 @@
       updateSyncUI('error');
       return;
     }
+    // Receipts load asynchronously (IndexedDB). Never build a payload before
+    // they are in — an empty receipts map would overwrite the remote copy.
+    if (App.receiptsReady) await App.receiptsReady;
+    if (App.hasCorruptStores && App.hasCorruptStores()) {
+      App.showToast('Sync paused: receipt images failed to load. Reload to retry before pushing.', 'error');
+      updateSyncUI('error');
+      return;
+    }
     updateSyncUI('syncing');
 
     // Freshness guard — only meaningful when updating an existing gist

@@ -171,7 +171,7 @@
     }
 
     if (hintEl) {
-      const filled = (familyEl.value || '').trim() === suggested;
+      const filled = App.familyKey(familyEl.value) === App.familyKey(suggested);
       hintEl.innerHTML = (filled ? '&#10003; Grouped with ' : 'Same family as ') +
         escapeHtml(relativeNames) +
         (filled ? '' : ' &mdash; <button type="button" class="btn-link-inline" data-action="apply-family-suggest" data-family="' +
@@ -280,7 +280,8 @@
       rate: num(rate),
       subjects: ($('client-subjects').value || '').trim(),
       goals: ($('client-goals').value || '').trim(),
-      familyGroup: ($('client-family').value || '').trim(),
+      // Joins an existing family's spelling if only casing/spacing differs.
+      familyGroup: App.canonicalFamily($('client-family').value, id || null),
       companyName: ($('client-company-name').value || '').trim(),
       companySplit: num($('client-company-pct').value),
       status: $('client-status').value || 'active',
@@ -334,7 +335,7 @@
       // Offer to propagate split to family members
       if (newSplit !== oldSplit && clientData.familyGroup) {
         const familyMembers = clients.filter((c) =>
-          String(c.id) !== String(id) && c.familyGroup === clientData.familyGroup
+          String(c.id) !== String(id) && App.familyKey(c.familyGroup) === App.familyKey(clientData.familyGroup)
         );
         if (familyMembers.length > 0) {
           App.showConfirm(
