@@ -22,7 +22,7 @@ Real device with ~3.4 MB of receipts (only synthetic 1px images tested). Safari 
 ## Next step
 MTH: on the live site unregister SW + hard refresh, open Expenses and confirm thumbnails
 render and DevTools > Application > IndexedDB > tutor-tracker has rows.
-Branch protection on main is still OFF (checked via gh api) — MTH's call.
+Branch protection on main is ON since 2026-09-03: force-push and deletion blocked, admins included, no PR requirement (direct push still works).
 
 ## Files touched
 js/receipt-store.js (new), js/app-core.js, js/sync.js, js/clients.js, index.html, sw.js,
