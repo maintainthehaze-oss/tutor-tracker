@@ -504,6 +504,75 @@
     };
   }
 
+  /**
+   * Money owed RIGHT NOW, grouped by family (siblings roll up; solo clients
+   * stand alone). ALL TIME — no month/date filter on purpose.
+   * Completed + unpaid + non-waived sessions only. Multi-client sessions
+   * split evenly, same rule as computeMetrics.
+   *
+   * Returns { total, count, groups: [{ key, family, amount, count, members: [{ client, amount, count }] }] }
+   * sorted by amount desc.
+   */
+  function computeOwedByFamily() {
+    const findClient = clientLookup();
+    const groups = {};
+    let total = 0, count = 0;
+    owedSessions().forEach((s) => {
+      const ids = s.clientIds || [];
+      if (ids.length === 0) return;
+      const share = num(s.amount) / ids.length;
+      const touched = new Set();
+      let counted = false;
+      ids.forEach((id) => {
+        const c = findClient(id);
+        if (!c) return;
+        const key = groupKeyForClient(c);
+        if (!groups[key]) groups[key] = { key, family: clientFamily(c), amount: 0, count: 0, members: {} };
+        const g = groups[key];
+        g.amount += share;
+        total += share;
+        if (!g.members[c.id]) g.members[c.id] = { client: c, amount: 0, count: 0 };
+        g.members[c.id].amount += share;
+        g.members[c.id].count++;
+        if (!touched.has(key)) { g.count++; touched.add(key); }
+        counted = true;
+      });
+      if (counted) count++;
+    });
+    const rows = Object.values(groups)
+      .map((g) => ({ ...g, members: Object.values(g.members).sort((a, b) => b.amount - a.amount) }))
+      .sort((a, b) => b.amount - a.amount);
+    return { total, count, groups: rows };
+  }
+
+  /** Sessions where money is actually owed: completed, unpaid, not waived. */
+  function owedSessions() {
+    return sessions.filter((s) => s.status === 'completed' && !s.paid && s.payment !== 'waived');
+  }
+
+  /** One Map build per call instead of a clients.find() per session id. */
+  function clientLookup() {
+    const map = new Map(clients.map((c) => [String(c.id), c]));
+    return (id) => map.get(String(id));
+  }
+
+  /**
+   * Owed sessions for a family/individual group key, split into:
+   *   own    — every known client on the session is in this group (safe to mark paid as a unit)
+   *   shared — the session also bills another group; marking it paid here would
+   *            silently clear the other family's balance, so callers must not.
+   */
+  function owedSessionsForGroup(key) {
+    const findClient = clientLookup();
+    const own = [], shared = [];
+    owedSessions().forEach((s) => {
+      const groupsOnSession = (s.clientIds || []).map(findClient).filter(Boolean).map(groupKeyForClient);
+      if (!groupsOnSession.includes(key)) return;
+      (groupsOnSession.every((k) => k === key) ? own : shared).push(s);
+    });
+    return { own, shared };
+  }
+
   /** Save all data to localStorage */
   function saveData() {
     try {
@@ -637,6 +706,8 @@
   App.computeMetrics = computeMetrics;
   App.clientFamily = clientFamily;
   App.groupKeyForClient = groupKeyForClient;
+  App.computeOwedByFamily = computeOwedByFamily;
+  App.owedSessionsForGroup = owedSessionsForGroup;
   App.saveData = saveData;
   App.hasCorruptStores = hasCorruptStores;
   App.saveAndRender = saveAndRender;

@@ -18,21 +18,86 @@
 
   let sessionSort = { field: 'date', dir: 'desc' };
 
+  /** Month shown in the Sessions tab ('YYYY-MM'), or '' for all time. Defaults to the current month. */
+  let sessionMonth = currentMonthStr();
+
+  function currentMonthStr() {
+    const now = new Date();
+    return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  }
+
+  function monthLabel(ym) {
+    if (!ym) return 'All time';
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  /**
+   * Change the month shown. v: 'prev' | 'next' | 'today' | 'all' | 'YYYY-MM'.
+   * Picking a month clears any custom From/To dates (they would fight).
+   */
+  function setSessionMonth(v, render) {
+    if (v === 'all') sessionMonth = '';
+    else if (v === 'today') sessionMonth = currentMonthStr();
+    else if (v === 'prev' || v === 'next') {
+      const base = sessionMonth || currentMonthStr();
+      const [y, m] = base.split('-').map(Number);
+      const d = new Date(y, m - 1 + (v === 'next' ? 1 : -1), 1);
+      sessionMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    } else sessionMonth = v || '';
+    if (v !== 'all') {
+      const fds = $('filter-date-start'); if (fds) fds.value = '';
+      const fde = $('filter-date-end'); if (fde) fde.value = '';
+    }
+    if (render !== false) renderSessions();
+  }
+
+  /** After a save, make sure the saved session is on screen (jump the month if needed). */
+  function showMonthOf(date) {
+    const ym = (date || '').slice(0, 7);
+    if (sessionMonth && ym && ym !== sessionMonth) setSessionMonth(ym, false);
+  }
+
+  function renderMonthNav() {
+    const label = $('session-month-label');
+    if (label) {
+      label.textContent = monthLabel(sessionMonth);
+      label.classList.toggle('is-current', sessionMonth === currentMonthStr());
+    }
+    const allBtn = $('session-month-all');
+    if (allBtn) {
+      allBtn.classList.toggle('active', !sessionMonth);
+      allBtn.setAttribute('aria-pressed', !sessionMonth ? 'true' : 'false');
+    }
+  }
+
   function renderSessions() {
     const sessions = App.state.sessions;
-
-    // Update client count
-    const countEl = $('session-count');
-    if (countEl) countEl.textContent = sessions.length;
 
     // Populate filter client dropdown
     populateClientFilter();
 
-    // Monthly summary
+    // Month navigator + owed-by-family (all time) + summary for the shown month
+    renderMonthNav();
+    App.renderOwedList($('sessions-owed-list'), $('sessions-owed-total'));
     renderMonthlySummary();
 
     // Apply filters
     let filtered = applySessionFilters();
+
+    // Bulk selection can only ever contain rows that are on screen
+    const sel = App.state.selectedSessions;
+    if (sel && sel.size) {
+      const visible = new Set(filtered.map((s) => s.id));
+      [...sel].forEach((id) => { if (!visible.has(id)) sel.delete(id); });
+    }
+
+    // Badge = what is shown; tooltip = everything
+    const countEl = $('session-count');
+    if (countEl) {
+      countEl.textContent = filtered.length;
+      countEl.title = filtered.length + ' shown of ' + sessions.length + ' total';
+    }
 
     // Sort
     filtered = sortSessions(filtered);
@@ -47,8 +112,12 @@
     if (!tbody) return;
 
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="11">No sessions match your filters</td></tr>';
+      const hint = sessionMonth
+        ? 'No sessions in ' + escapeHtml(monthLabel(sessionMonth)) + '. <button class="btn btn-sm" data-action="session-month-all">Show all time</button>'
+        : 'No sessions match your filters';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="11">' + hint + '</td></tr>';
       updateSessionTotals([]);
+      updateBulkBar();
       return;
     }
 
@@ -163,6 +232,7 @@
     const payment = $('filter-payment') ? $('filter-payment').value : '';
     const status = $('filter-status') ? $('filter-status').value : '';
 
+    if (sessionMonth) filtered = filtered.filter((s) => (s.date || '').slice(0, 7) === sessionMonth);
     if (dateStart) filtered = filtered.filter((s) => s.date >= dateStart);
     if (dateEnd) filtered = filtered.filter((s) => s.date <= dateEnd);
     if (clientId) filtered = filtered.filter((s) => (s.clientIds || []).some((cid) => String(cid) === String(clientId)));
@@ -228,18 +298,20 @@
     const sessions = App.state.sessions;
     const clients = App.state.clients;
 
-    const now = new Date();
-    const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    // Follows the month navigator; '' = all time
+    const monthStr = sessionMonth;
     const dateEl = $('monthly-summary-date');
-    if (dateEl) dateEl.textContent = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (dateEl) dateEl.textContent = monthStr ? monthLabel(monthStr) : '';
+    const titleEl = $('monthly-summary-title');
+    if (titleEl) titleEl.textContent = monthStr ? 'Monthly Summary' : 'All-Time Summary';
 
     const content = $('monthly-summary-content');
     if (!content) return;
 
-    const monthSessions = sessions.filter((s) => s.date && s.date.startsWith(monthStr) && s.status === 'completed');
+    const monthSessions = sessions.filter((s) => s.date && (!monthStr || s.date.startsWith(monthStr)) && s.status === 'completed');
 
     if (monthSessions.length === 0) {
-      content.innerHTML = '<p class="empty-state">No completed sessions this month</p>';
+      content.innerHTML = '<p class="empty-state">No completed sessions ' + (monthStr ? 'in ' + escapeHtml(monthLabel(monthStr)) : 'yet') + '</p>';
       return;
     }
 
@@ -531,6 +603,7 @@
     }
 
     App.closeModal('modal-session');
+    showMonthOf(sessionData.date);
     const saved = App.saveAndRender();
     if (saved) App.showToast(isNew ? 'Session added' : 'Session updated', 'success');
 
@@ -558,6 +631,7 @@
     dup.updatedAt = new Date().toISOString();
 
     sessions.push(dup);
+    showMonthOf(dup.date);
     if (App.saveAndRender()) App.showToast('Session duplicated', 'success');
   }
 
@@ -919,6 +993,7 @@
 
   // Expose to App namespace
   App.renderSessions = renderSessions;
+  App.setSessionMonth = setSessionMonth;
   App.openSessionForm = openSessionForm;
   App.saveSession = saveSession;
   App.duplicateSession = duplicateSession;

@@ -70,6 +70,10 @@
           <span class="stat-label">Clients</span>
           <span class="stat-value" id="header-clients">0</span>
         </div>
+        <button type="button" class="stat-pill stat-pill-owed" data-stat="owed" data-action="show-owed" id="header-owed-pill" title="Owed, all time. Click to see unpaid sessions.">
+          <span class="stat-label">Owed</span>
+          <span class="stat-value" id="header-owed">$0</span>
+        </button>
       </div>
     </div>
 
@@ -269,7 +273,7 @@
             <span class="outstanding-total" id="outstanding-total">$0</span>
           </header>
           <div class="dash-card-body">
-            <ul class="outstanding-list" id="outstanding-list" aria-label="Unpaid balances by client">
+            <ul class="outstanding-list" id="outstanding-list" aria-label="Unpaid balances by family">
               <li class="empty-state">All caught up &#10003;</li>
             </ul>
           </div>
@@ -346,6 +350,18 @@
         </div>
       </div>
 
+      <!-- Month Navigator -->
+      <nav class="month-nav" aria-label="Month shown">
+        <button class="btn btn-sm btn-icon" data-action="session-month-prev" aria-label="Previous month" title="Previous month">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <button class="month-nav-label" data-action="session-month-today" id="session-month-label" title="Jump to current month">This month</button>
+        <button class="btn btn-sm btn-icon" data-action="session-month-next" aria-label="Next month" title="Next month">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+        <button class="btn btn-sm" data-action="session-month-all" id="session-month-all" aria-pressed="false">All time</button>
+      </nav>
+
       <!-- Filter Panel -->
       <aside class="filter-panel" id="session-filters" hidden aria-label="Session filters">
         <div class="filter-row">
@@ -395,10 +411,21 @@
         <button class="btn btn-sm" data-action="bulk-deselect">Deselect All</button>
       </div>
 
+      <!-- Owed by family: ALL TIME, ignores the month navigator on purpose -->
+      <aside class="monthly-summary owed-panel" id="sessions-owed" aria-label="Money owed, all time, by family">
+        <header class="schedule-header">
+          <h3>Owed <span class="owed-sub">all time &middot; by family</span></h3>
+          <span class="outstanding-total" id="sessions-owed-total">$0</span>
+        </header>
+        <ul class="outstanding-list owed-list" id="sessions-owed-list" aria-label="Unpaid balances by family">
+          <li class="empty-state">All caught up &#10003;</li>
+        </ul>
+      </aside>
+
       <!-- Monthly Summary -->
       <aside class="monthly-summary" id="monthly-summary" aria-label="Monthly summary">
         <header class="schedule-header">
-          <h3>Monthly Summary</h3>
+          <h3 id="monthly-summary-title">Monthly Summary</h3>
           <time id="monthly-summary-date"></time>
         </header>
         <div id="monthly-summary-content">

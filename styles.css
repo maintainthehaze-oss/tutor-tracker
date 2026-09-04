@@ -281,6 +281,16 @@ h3 { font-size: 1.1rem; }
   color: var(--text-primary);
   font-weight: 700;
 }
+button.stat-pill {
+  font-family: inherit; /* no font-size here: .stat-pill's 0.85rem must win over the UA button style */
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+button.stat-pill:hover { border-color: var(--accent); }
+.stat-pill-owed.has-owed { border-color: var(--color-warning); background: var(--color-warning-bg); }
+.stat-pill-owed.has-owed .stat-value { color: var(--color-warning); }
+.stat-pill-owed:not(.has-owed) .stat-value { color: var(--color-success); }
 
 /* Header buttons */
 .header-btn {
@@ -1099,6 +1109,56 @@ h3 { font-size: 1.1rem; }
 }
 .monthly-stat-alert .monthly-stat-value {
   color: var(--danger);
+}
+
+/* --- Month navigator (Sessions tab) --- */
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.month-nav-label {
+  min-width: 11rem;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+.month-nav-label:hover { border-color: var(--accent); }
+.month-nav-label.is-current { border-color: var(--accent); }
+.month-nav .btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* --- Owed panel (Sessions tab) --- */
+.owed-sub {
+  margin-left: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.owed-list { padding: 0.25rem 1.25rem; }
+.owed-list .empty-state { padding: 0.75rem 0; }
+.outstanding-tag {
+  margin-right: 0.15rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 100px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  vertical-align: middle;
 }
 
 

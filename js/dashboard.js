@@ -130,6 +130,18 @@
     if (hsEl) hsEl.textContent = monthSessions.length;
     const hcEl = $('header-clients');
     if (hcEl) hcEl.textContent = active;
+
+    // Owed pill: ALL TIME, independent of the month shown elsewhere
+    const owed = App.computeOwedByFamily();
+    const hoEl = $('header-owed');
+    if (hoEl) hoEl.textContent = formatCurrency(owed.total);
+    const pill = $('header-owed-pill');
+    if (pill) {
+      pill.classList.toggle('has-owed', owed.total > 0);
+      pill.title = owed.total > 0
+        ? formatCurrency(owed.total) + ' owed across ' + owed.count + ' unpaid session' + (owed.count === 1 ? '' : 's') + ' (all time). Click to see them.'
+        : 'Nothing owed. Click to see unpaid sessions.';
+    }
   }
 
   function getChartColors() {
@@ -370,62 +382,49 @@
   }
 
   function renderOutstanding() {
-    const list = $('outstanding-list');
-    const totalEl = $('outstanding-total');
+    renderOwedList($('outstanding-list'), $('outstanding-total'));
+  }
+
+  /**
+   * Shared "who owes what" renderer — used by the Dashboard card and the
+   * Sessions tab panel so both always agree. Family-grouped, all time.
+   */
+  function renderOwedList(list, totalEl) {
     if (!list) return;
+    const owed = App.computeOwedByFamily();
 
-    const sessions = App.state.sessions;
-    const clients = App.state.clients;
-
-    // Unpaid, non-waived, completed sessions only (money actually owed)
-    const unpaid = sessions.filter((s) =>
-      s.status === 'completed' && !s.paid && s.payment !== 'waived'
-    );
-
-    // Aggregate owed amount + session count per client
-    const owedByClient = {};
-    unpaid.forEach((s) => {
-      const ids = s.clientIds || [];
-      if (ids.length === 0) return;
-      const share = num(s.amount) / ids.length;
-      ids.forEach((cid) => {
-        if (!owedByClient[cid]) owedByClient[cid] = { amount: 0, count: 0 };
-        owedByClient[cid].amount += share;
-        owedByClient[cid].count += 1;
-      });
-    });
-
-    const rows = Object.entries(owedByClient)
-      .map(([id, info]) => ({ client: clients.find((c) => String(c.id) === String(id)), ...info }))
-      .filter((x) => x.client)
-      .sort((a, b) => b.amount - a.amount);
-
-    const grandTotal = rows.reduce((sum, r) => sum + r.amount, 0);
     if (totalEl) {
-      totalEl.textContent = formatCurrency(grandTotal);
-      totalEl.classList.toggle('outstanding-zero', grandTotal <= 0);
+      totalEl.textContent = formatCurrency(owed.total);
+      totalEl.classList.toggle('outstanding-zero', owed.total <= 0);
     }
 
-    if (rows.length === 0) {
+    if (owed.groups.length === 0) {
       list.innerHTML = '<li class="empty-state">All caught up &#10003;</li>';
       return;
     }
 
-    list.innerHTML = rows.map((r) =>
-      '<li class="outstanding-item">' +
+    list.innerHTML = owed.groups.map((g) => {
+      const name = g.family ? g.family : clientName(g.members[0].client);
+      const parts = [g.count + ' unpaid session' + (g.count === 1 ? '' : 's')];
+      if (g.family) {
+        parts.unshift('<span class="outstanding-tag">family</span>');
+        parts.push(g.members.map((m) => escapeHtml(clientName(m.client)) + ' ' + formatCurrency(m.amount)).join(' &middot; '));
+      }
+      return '<li class="outstanding-item">' +
         '<div class="outstanding-info">' +
-          '<span class="outstanding-name">' + escapeHtml(clientName(r.client)) + '</span>' +
-          '<span class="outstanding-meta">' + r.count + ' unpaid session' + (r.count === 1 ? '' : 's') + '</span>' +
+          '<span class="outstanding-name">' + escapeHtml(name) + '</span>' +
+          '<span class="outstanding-meta">' + parts.join(' &middot; ') + '</span>' +
         '</div>' +
-        '<span class="outstanding-amount">' + formatCurrency(r.amount) + '</span>' +
-        '<button class="btn btn-sm btn-mark-paid" data-action="mark-client-paid" data-id="' + escapeHtml(r.client.id) + '" title="Mark all paid">Mark paid</button>' +
-      '</li>'
-    ).join('');
+        '<span class="outstanding-amount">' + formatCurrency(g.amount) + '</span>' +
+        '<button class="btn btn-sm btn-mark-paid" data-action="mark-group-paid" data-key="' + escapeHtml(g.key) + '" title="Mark all ' + g.count + ' paid">Mark paid</button>' +
+      '</li>';
+    }).join('');
   }
 
   // Expose to App namespace
   App.renderDashboard = renderDashboard;
   App.renderOutstanding = renderOutstanding;
+  App.renderOwedList = renderOwedList;
   App.updateHeaderStats = updateHeaderStats;
   App.renderIncomeChart = renderIncomeChart;
 

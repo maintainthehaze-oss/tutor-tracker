@@ -140,8 +140,10 @@
         break;
 
       case 'sessions':
+        // Export exactly what the Sessions tab is showing (month + filters), so the
+        // file matches the badge. Pick "All time" first for a full export.
         csv = 'Date,Time,Client(s),Type,Duration (hrs),Amount,Company Split,Paid,Status,Mileage,Notes\n';
-        sessions.forEach((s) => {
+        App.applySessionFilters().forEach((s) => {
           const names = (s.clientIds || []).map((id) => {
             const c = clients.find((cl) => String(cl.id) === String(id));
             return c ? clientName(c) : 'Unknown';
@@ -631,22 +633,43 @@
           break;
         }
 
-        case 'mark-client-paid': {
-          const sess = App.state.sessions;
-          const owed = sess.filter((s) =>
-            s.status === 'completed' && !s.paid && s.payment !== 'waived' &&
-            (s.clientIds || []).some((cid) => String(cid) === String(id))
-          );
-          if (owed.length === 0) break;
-          const c = App.state.clients.find((cl) => String(cl.id) === String(id));
-          const name = c ? clientName(c) : 'this client';
-          showConfirm('Mark Paid', 'Mark ' + owed.length + ' unpaid session' + (owed.length === 1 ? '' : 's') + ' for ' + name + ' as paid?', () => {
-            owed.forEach((s) => { s.paid = true; s.payment = 'paid'; s.paymentDate = todayISO(); s.updatedAt = new Date().toISOString(); });
+        case 'mark-group-paid': {
+          const key = target.getAttribute('data-key');
+          const { own, shared } = App.owedSessionsForGroup(key);
+          const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+          if (own.length === 0) {
+            if (shared.length) showToast(plural(shared.length, 'session') + ' for ' + key + ' also bill another family. Mark those paid from the table.', 'error');
+            break;
+          }
+          let msg = 'Mark ' + plural(own.length, 'unpaid session') + ' for ' + key + ' as paid?';
+          if (shared.length) msg += ' ' + plural(shared.length, 'session') + ' shared with another family will stay unpaid; mark those from the table.';
+          showConfirm('Mark Paid', msg, () => {
+            own.forEach((s) => { s.paid = true; s.payment = 'paid'; s.paymentDate = todayISO(); s.updatedAt = new Date().toISOString(); });
             if (!App.saveAndRender()) return;
-            showToast('Marked ' + owed.length + ' session' + (owed.length === 1 ? '' : 's') + ' paid', 'success');
+            showToast('Marked ' + plural(own.length, 'session') + ' paid', 'success');
           });
           break;
         }
+
+        case 'show-owed': {
+          // Header pill: jump to Sessions, all time, unpaid only, filter panel open
+          App.switchTab('sessions');
+          const fds = $('filter-date-start'); if (fds) fds.value = '';
+          const fde = $('filter-date-end'); if (fde) fde.value = '';
+          const fc = $('filter-client'); if (fc) fc.value = '';
+          const fp = $('filter-payment'); if (fp) fp.value = 'unpaid';
+          const fs = $('filter-status'); if (fs) fs.value = 'completed';
+          const filters = $('session-filters');
+          const toggle = document.querySelector('[data-action="toggle-filters"]');
+          if (filters) { filters.hidden = false; if (toggle) toggle.setAttribute('aria-expanded', 'true'); }
+          App.setSessionMonth('all');
+          break;
+        }
+
+        case 'session-month-prev': App.setSessionMonth('prev'); break;
+        case 'session-month-next': App.setSessionMonth('next'); break;
+        case 'session-month-today': App.setSessionMonth('today'); break;
+        case 'session-month-all': App.setSessionMonth('all'); break;
 
         case 'add-client': App.openClientForm(); break;
         case 'edit-client': App.openClientForm(id); break;
@@ -689,7 +712,7 @@
           const fc = $('filter-client'); if (fc) fc.value = '';
           const fp = $('filter-payment'); if (fp) fp.value = '';
           const fs = $('filter-status'); if (fs) fs.value = '';
-          App.renderSessions();
+          App.setSessionMonth('today');  // back to the default view, renders
           break;
         }
         case 'toggle-edit-mode':
@@ -904,7 +927,12 @@
       const target = e.target;
       const action = target.getAttribute('data-action');
       if (action === 'inline-edit') { App.handleInlineEdit(target); return; }
-      if (action === 'filter-sessions') { App.renderSessions(); return; }
+      if (action === 'filter-sessions') {
+        // A custom From/To range overrides the month navigator
+        if (/^filter-date-/.test(target.id) && target.value) App.setSessionMonth('all', false);
+        App.renderSessions();
+        return;
+      }
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
       if (action === 'report-filter') { App.renderReports(); return; }
       if (action === 'search-clients') { App.renderClients(target.value); return; }
