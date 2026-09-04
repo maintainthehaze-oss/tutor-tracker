@@ -416,7 +416,7 @@
           '<span class="outstanding-meta">' + parts.join(' &middot; ') + '</span>' +
         '</div>' +
         '<span class="outstanding-amount">' + formatCurrency(g.amount) + '</span>' +
-        '<button class="btn btn-sm btn-mark-paid" data-action="mark-group-paid" data-key="' + escapeHtml(g.key) + '" title="Mark all ' + g.count + ' paid">Mark paid</button>' +
+        '<button class="btn btn-sm btn-mark-paid" data-action="mark-group-paid" data-key="' + escapeHtml(g.key) + '" title="Mark all paid">Mark paid</button>' +
       '</li>';
     }).join('');
   }

@@ -668,7 +668,13 @@
     }
     s.updatedAt = new Date().toISOString();
     App.saveData();
-    updateSessionTotals(applySessionFilters());
+    if (field === 'date') {
+      // The row may have left the shown month: follow it and re-render so the table matches the totals
+      showMonthOf(s.date);
+      renderSessions();
+    } else {
+      updateSessionTotals(applySessionFilters());
+    }
     App.updateHeaderStats();
     App.scheduleSave();
   }

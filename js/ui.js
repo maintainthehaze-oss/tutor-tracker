@@ -679,7 +679,7 @@
           App.switchTab('sessions');
           setTimeout(() => {
             const el = $('filter-client');
-            if (el) { el.value = id; App.renderSessions(); }
+            if (el) { el.value = id; App.setSessionMonth('all', false); App.renderSessions(); }
             const filterPanel = $('session-filters');
             if (filterPanel) filterPanel.hidden = false;
           }, 100);
