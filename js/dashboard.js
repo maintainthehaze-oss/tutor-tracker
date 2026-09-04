@@ -24,9 +24,9 @@
     const clients = App.state.clients;
 
     const now = new Date();
-    const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const thisMonth = App.currentMonth();
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthStr = lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0');
+    const lastMonthStr = App.monthKey(lastMonth);
 
     const completedSessions = sessions.filter((s) => s.status === 'completed');
 
@@ -116,8 +116,7 @@
     const sessions = App.state.sessions;
     const clients = App.state.clients;
 
-    const now = new Date();
-    const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const thisMonth = App.currentMonth();
     const completed = sessions.filter((s) => s.status === 'completed');
     const monthSessions = completed.filter((s) => s.date && s.date.slice(0, 7) === thisMonth);
     const revenue = monthSessions.reduce((sum, s) => sum + num(s.amount), 0);
@@ -204,7 +203,7 @@
     const labels = [];
     for (let i = numMonths - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      const key = App.monthKey(d);
       months.push(key);
       labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
     }
@@ -404,7 +403,6 @@
     }
 
     list.innerHTML = owed.groups.map((g) => {
-      const name = g.family ? g.family : clientName(g.members[0].client);
       const parts = [g.count + ' unpaid session' + (g.count === 1 ? '' : 's')];
       if (g.family) {
         parts.unshift('<span class="outstanding-tag">family</span>');
@@ -412,11 +410,11 @@
       }
       return '<li class="outstanding-item">' +
         '<div class="outstanding-info">' +
-          '<span class="outstanding-name">' + escapeHtml(name) + '</span>' +
+          '<span class="outstanding-name">' + escapeHtml(g.label) + '</span>' +
           '<span class="outstanding-meta">' + parts.join(' &middot; ') + '</span>' +
         '</div>' +
         '<span class="outstanding-amount">' + formatCurrency(g.amount) + '</span>' +
-        '<button class="btn btn-sm btn-mark-paid" data-action="mark-group-paid" data-key="' + escapeHtml(g.key) + '" title="Mark all paid">Mark paid</button>' +
+        '<button class="btn btn-sm btn-mark-paid" data-action="mark-group-paid" data-key="' + escapeHtml(g.key) + '" data-label="' + escapeHtml(g.label) + '" title="Mark all paid">Mark paid</button>' +
       '</li>';
     }).join('');
   }

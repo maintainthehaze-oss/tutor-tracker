@@ -143,7 +143,7 @@
     } else {
       tbody.innerHTML = rows.map((g) =>
         '<tr>' +
-          '<td>' + escapeHtml(g.key) + '</td>' +
+          '<td>' + escapeHtml(g.label) + '</td>' +
           '<td>' + g.sessions + '</td>' +
           '<td>' + formatDuration(g.hours) + '</td>' +
           '<td>' + formatCurrency(g.gross) + '</td>' +

@@ -404,9 +404,43 @@
    * otherwise the individual client's own name. Clients with no family each
    * become their own group; siblings sharing a family roll into one.
    */
+  /**
+   * Grouping key for rollups. Namespaced so a family label can never collide
+   * with an individual's display name (a family "Smith" and a solo client
+   * named Smith must stay separate rows and separate Mark-paid targets).
+   */
   function groupKeyForClient(c) {
     const fam = clientFamily(c);
-    return fam || clientName(c);
+    return fam ? 'family:' + fam : 'client:' + String(c.id);
+  }
+
+  /** Human label for a group: the family name, or the client's own name. */
+  function groupLabelForClient(c) {
+    return clientFamily(c) || clientName(c);
+  }
+
+  /** 'YYYY-MM' for a Date (local time). */
+  function monthKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  /** 'YYYY-MM' for today. */
+  function currentMonth() {
+    return monthKey(new Date());
+  }
+
+  /**
+   * Mark one session paid. Only the unpaid -> paid transition stamps
+   * paymentDate, so re-marking never moves a payment's tax year.
+   * Returns true if anything changed.
+   */
+  function markSessionPaid(s) {
+    if (!s || s.paid) return false;
+    s.paid = true;
+    s.payment = 'paid';
+    s.paymentDate = todayISO();
+    s.updatedAt = new Date().toISOString();
+    return true;
   }
 
   /**
@@ -429,8 +463,7 @@
    */
   function computeMetrics(filter) {
     filter = filter || {};
-    const allClients = clients;
-    const findClient = (id) => allClients.find((c) => String(c.id) === String(id));
+    const findClient = clientLookup();
 
     // 1) Filter sessions (completed only — these are realized business activity)
     let rows = sessions.filter((s) => s.status === 'completed' && s.date);
@@ -483,14 +516,19 @@
         if (!c) return;
         const key = groupKeyForClient(c);
         if (!groups[key]) {
-          groups[key] = { key, family: clientFamily(c), gross: 0, companySplit: 0, yourCut: 0, hours: 0, sessions: 0, outstanding: 0 };
+          groups[key] = { key, label: groupLabelForClient(c), family: clientFamily(c), gross: 0, companySplit: 0, yourCut: 0, hours: 0, sessions: 0, outstanding: 0, members: {} };
         }
-        groups[key].gross += shareGross;
-        groups[key].companySplit += shareSplit;
-        groups[key].yourCut += (shareGross - shareSplit);
-        groups[key].hours += shareHours;
-        groups[key].outstanding += shareUnpaid;
-        if (!touched.has(key)) { groups[key].sessions++; touched.add(key); }
+        const g = groups[key];
+        g.gross += shareGross;
+        g.companySplit += shareSplit;
+        g.yourCut += (shareGross - shareSplit);
+        g.hours += shareHours;
+        g.outstanding += shareUnpaid;
+        if (!g.members[c.id]) g.members[c.id] = { client: c, gross: 0, outstanding: 0, sessions: 0 };
+        g.members[c.id].gross += shareGross;
+        g.members[c.id].outstanding += shareUnpaid;
+        g.members[c.id].sessions++;
+        if (!touched.has(key)) { g.sessions++; touched.add(key); }
       });
     });
     const groupRows = Object.values(groups).sort((a, b) => b.gross - a.gross);
@@ -506,43 +544,25 @@
 
   /**
    * Money owed RIGHT NOW, grouped by family (siblings roll up; solo clients
-   * stand alone). ALL TIME — no month/date filter on purpose.
-   * Completed + unpaid + non-waived sessions only. Multi-client sessions
-   * split evenly, same rule as computeMetrics.
+   * stand alone). ALL TIME — no month/date filter on purpose. Same rollup as
+   * computeMetrics (one set of grouping/split rules), restricted to unpaid.
    *
-   * Returns { total, count, groups: [{ key, family, amount, count, members: [{ client, amount, count }] }] }
+   * Returns { total, count, groups: [{ key, label, family, amount, count, members: [{ client, amount, count }] }] }
    * sorted by amount desc.
    */
   function computeOwedByFamily() {
-    const findClient = clientLookup();
-    const groups = {};
-    let total = 0, count = 0;
-    owedSessions().forEach((s) => {
-      const ids = s.clientIds || [];
-      if (ids.length === 0) return;
-      const share = num(s.amount) / ids.length;
-      const touched = new Set();
-      let counted = false;
-      ids.forEach((id) => {
-        const c = findClient(id);
-        if (!c) return;
-        const key = groupKeyForClient(c);
-        if (!groups[key]) groups[key] = { key, family: clientFamily(c), amount: 0, count: 0, members: {} };
-        const g = groups[key];
-        g.amount += share;
-        total += share;
-        if (!g.members[c.id]) g.members[c.id] = { client: c, amount: 0, count: 0 };
-        g.members[c.id].amount += share;
-        g.members[c.id].count++;
-        if (!touched.has(key)) { g.count++; touched.add(key); }
-        counted = true;
-      });
-      if (counted) count++;
-    });
-    const rows = Object.values(groups)
-      .map((g) => ({ ...g, members: Object.values(g.members).sort((a, b) => b.amount - a.amount) }))
+    const m = computeMetrics({ paid: 'unpaid' });
+    const groups = m.groups
+      .filter((g) => g.outstanding > 0)
+      .map((g) => ({
+        key: g.key, label: g.label, family: g.family,
+        amount: g.outstanding, count: g.sessions,
+        members: Object.values(g.members)
+          .map((x) => ({ client: x.client, amount: x.outstanding, count: x.sessions }))
+          .sort((a, b) => b.amount - a.amount),
+      }))
       .sort((a, b) => b.amount - a.amount);
-    return { total, count, groups: rows };
+    return { total: m.outstanding, count: m.outstandingCount, groups };
   }
 
   /** Sessions where money is actually owed: completed, unpaid, not waived. */
@@ -707,6 +727,10 @@
   App.clientFamily = clientFamily;
   App.groupKeyForClient = groupKeyForClient;
   App.computeOwedByFamily = computeOwedByFamily;
+  App.groupLabelForClient = groupLabelForClient;
+  App.monthKey = monthKey;
+  App.currentMonth = currentMonth;
+  App.markSessionPaid = markSessionPaid;
   App.owedSessionsForGroup = owedSessionsForGroup;
   App.saveData = saveData;
   App.hasCorruptStores = hasCorruptStores;

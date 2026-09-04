@@ -89,8 +89,7 @@
     const statusClass = 'status-' + (c.status || 'active');
 
     // Sessions this month (momentum at a glance)
-    const now = new Date();
-    const monthKey = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const monthKey = App.currentMonth();
     const thisMonthCount = completedForClient.filter((s) => s.date && s.date.slice(0, 7) === monthKey).length;
 
     // No role="button"/tabindex here: the card holds real Edit/View/Delete buttons,

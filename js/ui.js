@@ -125,6 +125,7 @@
     const settings = App.state.settings;
 
     let csv = '';
+    let note = '';
     let filename = '';
 
     switch (type) {
@@ -142,8 +143,11 @@
       case 'sessions':
         // Export exactly what the Sessions tab is showing (month + filters), so the
         // file matches the badge. Pick "All time" first for a full export.
+        // The scope is named in the filename and the toast so it is never silent.
         csv = 'Date,Time,Client(s),Type,Duration (hrs),Amount,Company Split,Paid,Status,Mileage,Notes\n';
-        App.applySessionFilters().forEach((s) => {
+        const shown = App.applySessionFilters();
+        note = shown.length + ' session' + (shown.length === 1 ? '' : 's') + ' (' + App.sessionScopeLabel() + ')';
+        shown.forEach((s) => {
           const names = (s.clientIds || []).map((id) => {
             const c = clients.find((cl) => String(cl.id) === String(id));
             return c ? clientName(c) : 'Unknown';
@@ -153,7 +157,7 @@
             s.companyAmount, s.paid ? 'Yes' : 'No', s.status, s.mileage, s.notes,
           ]);
         });
-        filename = 'sessions-' + todayISO() + '.csv';
+        filename = 'sessions-' + (App.getSessionMonth() || 'all-time') + '-' + todayISO() + '.csv';
         break;
 
       case 'expenses':
@@ -210,7 +214,7 @@
 
     if (csv) {
       downloadFile(csv, filename, 'text/csv');
-      showToast('CSV exported', 'success');
+      showToast('CSV exported' + (note ? ': ' + note : ''), 'success');
     }
   }
 
@@ -635,16 +639,17 @@
 
         case 'mark-group-paid': {
           const key = target.getAttribute('data-key');
+          const label = target.getAttribute('data-label') || key;
           const { own, shared } = App.owedSessionsForGroup(key);
           const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
           if (own.length === 0) {
-            if (shared.length) showToast(plural(shared.length, 'session') + ' for ' + key + ' also bill another family. Mark those paid from the table.', 'error');
+            if (shared.length) showToast(plural(shared.length, 'session') + ' for ' + label + ' also bill another family. Mark those paid from the table.', 'error');
             break;
           }
-          let msg = 'Mark ' + plural(own.length, 'unpaid session') + ' for ' + key + ' as paid?';
+          let msg = 'Mark ' + plural(own.length, 'unpaid session') + ' for ' + label + ' as paid?';
           if (shared.length) msg += ' ' + plural(shared.length, 'session') + ' shared with another family will stay unpaid; mark those from the table.';
           showConfirm('Mark Paid', msg, () => {
-            own.forEach((s) => { s.paid = true; s.payment = 'paid'; s.paymentDate = todayISO(); s.updatedAt = new Date().toISOString(); });
+            own.forEach((s) => App.markSessionPaid(s));
             if (!App.saveAndRender()) return;
             showToast('Marked ' + plural(own.length, 'session') + ' paid', 'success');
           });
@@ -738,10 +743,7 @@
           const sel = App.state.selectedSessions;
           const sess = App.state.sessions;
           sel.forEach((sid) => {
-            const s = sess.find((ses) => String(ses.id) === String(sid));
-            // Only stamp a payment date on the unpaid -> paid transition;
-            // re-marking an already-paid session must not move its tax year.
-            if (s && !s.paid) { s.paid = true; s.payment = 'paid'; s.paymentDate = todayISO(); }
+            App.markSessionPaid(sess.find((ses) => String(ses.id) === String(sid)));
           });
           sel.clear();
           if (App.saveAndRender()) showToast('Sessions marked as paid', 'success');
@@ -927,12 +929,7 @@
       const target = e.target;
       const action = target.getAttribute('data-action');
       if (action === 'inline-edit') { App.handleInlineEdit(target); return; }
-      if (action === 'filter-sessions') {
-        // A custom From/To range overrides the month navigator
-        if (/^filter-date-/.test(target.id) && target.value) App.setSessionMonth('all', false);
-        App.renderSessions();
-        return;
-      }
+      if (action === 'filter-sessions') { App.renderSessions(); return; }
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
       if (action === 'report-filter') { App.renderReports(); return; }
       if (action === 'search-clients') { App.renderClients(target.value); return; }

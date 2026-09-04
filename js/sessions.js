@@ -19,12 +19,7 @@
   let sessionSort = { field: 'date', dir: 'desc' };
 
   /** Month shown in the Sessions tab ('YYYY-MM'), or '' for all time. Defaults to the current month. */
-  let sessionMonth = currentMonthStr();
-
-  function currentMonthStr() {
-    const now = new Date();
-    return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  }
+  let sessionMonth = App.currentMonth();
 
   function monthLabel(ym) {
     if (!ym) return 'All time';
@@ -34,16 +29,20 @@
 
   /**
    * Change the month shown. v: 'prev' | 'next' | 'today' | 'all' | 'YYYY-MM'.
-   * Picking a month clears any custom From/To dates (they would fight).
+   *
+   * Date scope rule (both halves live here, see applySessionFilters):
+   *   picking a month clears any custom From/To range;
+   *   typing a From/To range switches the month to all time.
+   * Whichever the user touched last wins.
    */
   function setSessionMonth(v, render) {
     if (v === 'all') sessionMonth = '';
-    else if (v === 'today') sessionMonth = currentMonthStr();
+    else if (v === 'today') sessionMonth = App.currentMonth();
     else if (v === 'prev' || v === 'next') {
-      const base = sessionMonth || currentMonthStr();
+      const base = sessionMonth || App.currentMonth();
       const [y, m] = base.split('-').map(Number);
       const d = new Date(y, m - 1 + (v === 'next' ? 1 : -1), 1);
-      sessionMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      sessionMonth = App.monthKey(d);
     } else sessionMonth = v || '';
     if (v !== 'all') {
       const fds = $('filter-date-start'); if (fds) fds.value = '';
@@ -58,11 +57,18 @@
     if (sessionMonth && ym && ym !== sessionMonth) setSessionMonth(ym, false);
   }
 
+  /** Human description of what the Sessions tab is currently showing, for exports/toasts. */
+  function sessionScopeLabel() {
+    const anyFilter = ['filter-date-start', 'filter-date-end', 'filter-client', 'filter-payment', 'filter-status']
+      .some((id) => $(id) && $(id).value);
+    return monthLabel(sessionMonth) + (anyFilter ? ', filtered' : '');
+  }
+
   function renderMonthNav() {
     const label = $('session-month-label');
     if (label) {
       label.textContent = monthLabel(sessionMonth);
-      label.classList.toggle('is-current', sessionMonth === currentMonthStr());
+      label.classList.toggle('is-current', sessionMonth === App.currentMonth());
     }
     const allBtn = $('session-month-all');
     if (allBtn) {
@@ -77,13 +83,13 @@
     // Populate filter client dropdown
     populateClientFilter();
 
+    // Apply filters first: this also settles the month-vs-range rule
+    let filtered = applySessionFilters();
+
     // Month navigator + owed-by-family (all time) + summary for the shown month
     renderMonthNav();
     App.renderOwedList($('sessions-owed-list'), $('sessions-owed-total'));
     renderMonthlySummary();
-
-    // Apply filters
-    let filtered = applySessionFilters();
 
     // Bulk selection can only ever contain rows that are on screen
     const sel = App.state.selectedSessions;
@@ -232,6 +238,8 @@
     const payment = $('filter-payment') ? $('filter-payment').value : '';
     const status = $('filter-status') ? $('filter-status').value : '';
 
+    // A custom From/To range overrides the month navigator (other half of the rule in setSessionMonth)
+    if (dateStart || dateEnd) sessionMonth = '';
     if (sessionMonth) filtered = filtered.filter((s) => (s.date || '').slice(0, 7) === sessionMonth);
     if (dateStart) filtered = filtered.filter((s) => s.date >= dateStart);
     if (dateEnd) filtered = filtered.filter((s) => s.date <= dateEnd);
@@ -1000,6 +1008,8 @@
   // Expose to App namespace
   App.renderSessions = renderSessions;
   App.setSessionMonth = setSessionMonth;
+  App.getSessionMonth = () => sessionMonth;
+  App.sessionScopeLabel = sessionScopeLabel;
   App.openSessionForm = openSessionForm;
   App.saveSession = saveSession;
   App.duplicateSession = duplicateSession;
