@@ -1,0 +1,32 @@
+{
+  "syntheticOnly": true,
+  "activationExample": "2026-09-06T18:00:00-04:00",
+  "clients": [
+    {"id": 101, "name": "Fixture Alpha", "hourlyRate": "100.00", "status": "inactive", "familyGroup": "Fixture Family", "companySplit": 20, "splitHistory": [{"date": "2020-01-01", "rate": "20", "company": "Fabricated Old Company", "unknownSplitField": {"keep": null}}]},
+    {"id": "102", "firstName": "Fixture", "lastName": "Beta", "rate": 80, "familyGroup": "fixture family ", "companySplit": 0, "splitHistory": []}
+  ],
+  "sessions": [
+    {"id": 1, "clientIds": [101, "102"], "date": "2025-12-31", "time": "23:30", "duration": "1.50", "amount": "120.00", "companyAmount": "24.00", "companySplit": "20", "paid": true, "paymentDate": "2026-01-02", "status": "completed", "mileage": 10, "unknown": {"keep": [null, 0, "0"]}},
+    {"id": "2", "clientIds": [101], "date": "2026-01-03", "time": "10:00", "duration": 1, "amount": 0, "companyAmount": 0, "companySplit": 0, "paid": true, "status": "completed", "mileage": 0},
+    {"id": 3, "clientId": 101, "date": "2026-02-01", "duration": 1, "amount": "100.00", "paymentStatus": "unpaid", "status": "completed", "mileage": 4},
+    {"id": "4", "clientIds": ["102"], "date": "2026-02-02", "duration": 1, "amount": 80, "companyAmount": null, "companySplit": null, "paid": false, "status": "cancelled"},
+    {"id": 5, "clientIds": [101], "date": "2026-12-01", "time": "17:00", "duration": 2, "amount": 200, "companyAmount": 40, "companySplit": 20, "paid": false, "status": "scheduled", "recurring": {"seriesId": "synthetic-series", "unknown": true}},
+    {"id": "6", "clientIds": ["102"], "date": "2026-03-01", "amount": 80, "companyAmount": 0, "companySplit": 0, "status": "no-show", "paid": false},
+    {"id": 7, "clientIds": [101, "102"], "date": "2026-03-02", "duration": 1, "amount": 160, "companyAmount": 32, "companySplit": 20, "status": "completed", "paid": true, "paymentDate": "2026-03-03", "mileage": 6},
+    {"id": "8", "clientIds": ["102"], "date": "2026-03-04", "duration": 1, "amount": 50, "companyAmount": 0, "companySplit": 0, "status": "completed", "paid": false, "payment": "waived", "mileage": 0}
+  ],
+  "expenses": [
+    {"id": "exp-1", "date": "2026-02-01", "category": "supplies", "amount": "10.00", "receipt": "data:text/plain;base64,U1lOVEhFVElD", "unknown": null},
+    {"id": "exp-2", "date": "2026-02-02", "category": "meals", "amount": 20}
+  ],
+  "receipts": {"exp-2": "data:text/plain;base64,U1lOVEhFVElD"},
+  "settings": {"mileageRate": 0.5, "autoSync": "off", "unknownReportInput": "synthetic"},
+  "taxPayments": [{"id": "tax-1", "year": 2026, "date": "2026-04-01", "amount": "25.00", "unknown": null}],
+  "historical": [{"id": "hist-1", "date": "2025-12-31", "status": "completed", "amount": "300.00", "companyAmount": "60.00", "unknown": false}],
+  "invalidImportCases": {
+    "duplicateIds": [{"id": 1, "amount": 10}, {"id": 1, "amount": 20}],
+    "mixedTypeIds": [{"id": 1}, {"id": "1"}],
+    "missingId": [{"date": "2025-01-01", "amount": 0}],
+    "corruptRaw": "{not-json"
+  }
+}

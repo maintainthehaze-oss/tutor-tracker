@@ -1,0 +1,80 @@
+{
+  "retrievedAtUtc": "2026-09-06T22:42:18.058201+00:00",
+  "method": "HTTPS official npm registry; package archive SHA512 verified against registry metadata before copying exact distribution and license members; no package install or lifecycle scripts",
+  "packages": [
+    {
+      "package": "chart.js",
+      "version": "4.4.7",
+      "license": "MIT",
+      "peerDependencies": {},
+      "metadataUrl": "https://registry.npmjs.org/chart.js/4.4.7",
+      "tarballUrl": "https://registry.npmjs.org/chart.js/-/chart.js-4.4.7.tgz",
+      "tarballIntegrity": "sha512-pwkcKfdzTMAU/+jNosKhNL2bHtJc/sSmYgVbuGTEDhzkrhmyihmP7vUc/5ZK9WopidMDHNe3Wm7jOd/WhuHWuw==",
+      "tarballSha256": "af01b7afdbb70017c079b0dc78ef883f860d28fa2644ed78906a39090d07134f",
+      "files": [
+        {
+          "file": "chart.umd-4.4.7.js",
+          "packageMember": "package/dist/chart.umd.js",
+          "sha256": "2812cb8825fdc57469eb2f7bb055e9429244e599920511ee477e828499b632cb",
+          "bytes": 205615
+        },
+        {
+          "file": "chart.js-4.4.7.LICENSE",
+          "packageMember": "package/LICENSE.md",
+          "sha256": "41a84aa2caba645f966a18d9c2056b73e6d3a81d80bc0046bc0011a2634d4cce",
+          "bytes": 1093
+        }
+      ]
+    },
+    {
+      "package": "jspdf",
+      "version": "4.2.1",
+      "license": "MIT",
+      "peerDependencies": {},
+      "metadataUrl": "https://registry.npmjs.org/jspdf/4.2.1",
+      "tarballUrl": "https://registry.npmjs.org/jspdf/-/jspdf-4.2.1.tgz",
+      "tarballIntegrity": "sha512-YyAXyvnmjTbR4bHQRLzex3CuINCDlQnBqoSYyjJwTP2x9jDLuKDzy7aKUl0hgx3uhcl7xzg32agn5vlie6HIlQ==",
+      "tarballSha256": "e97bd16e3211928442c631b20dcefa78a8e10dad8ccbe97160b89b214745603a",
+      "files": [
+        {
+          "file": "jspdf.umd-4.2.1.min.js",
+          "packageMember": "package/dist/jspdf.umd.min.js",
+          "sha256": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54",
+          "bytes": 420165
+        },
+        {
+          "file": "jspdf-4.2.1.LICENSE",
+          "packageMember": "package/LICENSE",
+          "sha256": "dc388ec35ff463288cdde3588a36fd4ed12a45deff053243b37309acc9ef583b",
+          "bytes": 1142
+        }
+      ]
+    },
+    {
+      "package": "jspdf-autotable",
+      "version": "5.0.8",
+      "license": "MIT",
+      "peerDependencies": {
+        "jspdf": "^2 || ^3 || ^4"
+      },
+      "metadataUrl": "https://registry.npmjs.org/jspdf-autotable/5.0.8",
+      "tarballUrl": "https://registry.npmjs.org/jspdf-autotable/-/jspdf-autotable-5.0.8.tgz",
+      "tarballIntegrity": "sha512-Hy05N86yBO7CXBrnSLOge7i1ZYpKH2DjQ94iybaP7vBhSInjvRBgDc99ngKzSbSO8Jc98ZCally8I6n0tj2RJQ==",
+      "tarballSha256": "9989678462a02b0e45d80da98416b2ef2e15ff8be268acddfa62bdc9ea3bc2d6",
+      "files": [
+        {
+          "file": "jspdf.plugin.autotable-5.0.8.min.js",
+          "packageMember": "package/dist/jspdf.plugin.autotable.min.js",
+          "sha256": "a65dff2c6a8296b16aff24e69f7683cd7dbaed4a4ec26b507d6840ee27d54649",
+          "bytes": 32389
+        },
+        {
+          "file": "jspdf-autotable-5.0.8.LICENSE",
+          "packageMember": "package/LICENSE.txt",
+          "sha256": "99a374e0385cf714d2faae5f6e02ec79217c6bcecec39bdb9e102091471b960a",
+          "bytes": 1133
+        }
+      ]
+    }
+  ]
+}

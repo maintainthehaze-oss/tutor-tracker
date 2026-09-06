@@ -1,0 +1,1 @@
+/* Receipt persistence is owned exclusively by repository.js. Legacy store is not opened. */
