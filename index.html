@@ -1114,11 +1114,11 @@
           </div>
 
           <div class="form-group form-group-full">
-            <label for="session-clients">Client(s) <span class="required" aria-label="required">*</span></label>
-            <select id="session-clients" class="input" multiple required aria-describedby="session-clients-hint">
+            <span class="form-label" id="session-clients-label">Client(s) <span class="required" aria-label="required">*</span></span>
+            <div id="session-clients" class="client-picker" role="group" aria-labelledby="session-clients-label" aria-describedby="session-clients-hint">
               <!-- Populated by JS -->
-            </select>
-            <small id="session-clients-hint" class="form-hint">Hold Ctrl/Cmd to select multiple clients (family sessions)</small>
+            </div>
+            <small id="session-clients-hint" class="form-hint">Tap a name to add it. Tap again to remove. Pick more than one for family sessions.</small>
             <div class="repeat-last" id="repeat-last-banner" hidden>
               <button type="button" class="btn btn-sm btn-repeat" data-action="repeat-last-session">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>

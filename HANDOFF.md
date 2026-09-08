@@ -1,29 +1,41 @@
 # HANDOFF
 
-**2026-09-03 — Claude Code (Fable 5.1)**
+**2026-09-08 — Claude Code (Opus 4.8)**
 
 ## Task / State
-Close two known risks: receipts blowing the localStorage cap, and family names splitting on casing.
-DEPLOYED 2026-09-03 as b6549c9 (Pages build confirmed, live sw.js = v39, receipt-store.js serves 200).
+Make picking a student when adding a session easier / less scrolling.
+Replaced the cramped native `<select multiple>` client picker with a clickable name list.
+SHIPPED 2026-09-08 (SW bumped v40 -> v41). Landed alongside the parallel projected-revenue
+work (shared working tree caused mid-session churn; verified both features coexist before push).
 
-- Receipts now persist in IndexedDB (`tutor-tracker` / store `receipts`) via new `js/receipt-store.js`.
-  `App.state.receipts` is unchanged for every renderer. Legacy `tutoring-receipts` localStorage
-  key migrates on first load and is removed only after the IndexedDB write confirms.
-  `App.receiptsReady` gates Gist push. IDB failure -> localStorage fallback + push blocked.
-- Family labels: `App.canonicalFamily()` on save joins an existing spelling case-insensitively;
-  `migrateData()` merges existing variants to the most-used spelling (ties: first seen).
+- `#session-clients` is now a `<div class="client-picker">` of `<button class="client-pick">`
+  tiles (name + rate). Tap toggles; no Ctrl/Cmd. Active clients only.
+- Order computed once per open (no jumping on tap): selected first, then most-recent
+  session date, then alphabetical. `renderClientPicker()`, `getSelectedSessionClientIds()`,
+  `toggleSessionClient()` in js/sessions.js; all three on `App.*`.
+- Click wired via delegated `data-action="toggle-session-client"` in js/ui.js; removed the
+  obsolete `session-clients` change listener; `calc-mileage` now reads the new getter.
+- Note: old populate used strict `c.status === 'active'` (excluded status-less clients);
+  new code uses `(c.status || 'active') === 'active'` — status-less clients now show, matching
+  the rest of the app.
 
-## Verified (browser, 2026-09-03)
-Migration, coalesced double save, reload persistence, delete, clear-all, mid-load pull, simulated IDB failure (sync blocked, localStorage fallback), family merge Smith/smith -> Smith.
+## Verified (browser, 2026-09-08, python http.server + Browser pane)
+Active-only filter (inactive/paused excluded); recency+alpha ordering; single-select shows
+Repeat-last banner; multi-select (family) hides banner; auto-amount = avg rate x duration
+($62.50 for 70/55); save persists numeric clientIds [3,2]; edit re-opens pre-selected + floated
+to top; toggle on/off; empty-state message when no active clients. No console errors from new code
+(only a pre-existing SW-fetch error under the plain static server).
 
 ## Unverified
-Real device with ~3.4 MB of receipts (only synthetic 1px images tested). Safari private mode.
+Real device touch targets. Long client lists (>~30) scroll feel inside the 260px max-height box.
+Live GitHub Pages build (confirm live sw.js = v41 after Pages deploys).
 
 ## Next step
-MTH: on the live site unregister SW + hard refresh, open Expenses and confirm thumbnails
-render and DevTools > Application > IndexedDB > tutor-tracker has rows.
-Branch protection on main is ON since 2026-09-03: force-push and deletion blocked, admins included, no PR requirement (direct push still works).
+MTH: after Pages builds, hard-refresh the live site and confirm the Add Session picker shows
+clickable names (not the old dropdown). If two sessions run again, give each its own worktree
+— the shared OneDrive folder caused file races this session.
 
 ## Files touched
-js/receipt-store.js (new), js/app-core.js, js/sync.js, js/clients.js, index.html, sw.js,
-CLAUDE-INSTRUCTIONS.md, README.md, SECURITY-PRIVACY.md
+index.html (picker markup + hint), styles.css (.client-picker/.client-pick),
+js/sessions.js (picker render/read/toggle + openSessionForm/saveSession/updateSessionPrefill),
+js/ui.js (click case, removed change listener, calc-mileage)

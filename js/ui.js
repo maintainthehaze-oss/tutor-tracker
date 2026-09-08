@@ -623,6 +623,7 @@
       const id = rawId != null ? (isNaN(rawId) ? rawId : Number(rawId)) : null;
 
       switch (action) {
+        case 'toggle-session-client': App.toggleSessionClient(target); break;
         case 'toggle-theme': App.toggleTheme(); break;
         case 'open-settings': openSettings(); break;
         case 'global-search':
@@ -784,11 +785,9 @@
           break;
         }
         case 'calc-mileage': {
-          const sessionClientsEl = $('session-clients');
-          if (!sessionClientsEl) break;
-          const selectedOpts = Array.from(sessionClientsEl.selectedOptions);
-          if (selectedOpts.length === 0) { showToast('Select a client first', 'warning'); break; }
-          const cid = selectedOpts[0].value;
+          const selectedCids = App.getSelectedSessionClientIds ? App.getSelectedSessionClientIds() : [];
+          if (selectedCids.length === 0) { showToast('Select a client first', 'warning'); break; }
+          const cid = selectedCids[0];
           const client = App.state.clients.find((c) => String(c.id) === String(cid));
           if (!client || !client.address) { showToast('Client has no address set', 'warning'); break; }
           showToast('Calculating mileage...', 'info');
@@ -933,7 +932,6 @@
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
       if (action === 'report-filter') { App.renderReports(); return; }
       if (action === 'search-clients') { App.renderClients(target.value); return; }
-      if (target.id === 'session-clients') { App.updateSessionPrefill(); return; }
     });
 
     document.body.addEventListener('input', (e) => {

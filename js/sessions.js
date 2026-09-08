@@ -1086,6 +1086,7 @@
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
   App.toggleSessionClient = toggleSessionClient;
+  App.getSelectedSessionClientIds = getSelectedSessionClientIds;
   App.repeatLastSession = repeatLastSession;
 
 })();
