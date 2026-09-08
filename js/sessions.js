@@ -294,10 +294,23 @@
     const totalAmt = completed.reduce((sum, s) => sum + num(s.amount), 0);
     const totalMiles = completed.reduce((sum, s) => sum + num(s.mileage), 0);
 
+    // Projected revenue = scheduled (not-yet-realized) sessions in the current view.
+    // Kept separate from realized totals on purpose; the app only counts completed as revenue.
+    const scheduled = filtered.filter((s) => s.status === 'scheduled');
+    const projectedAmt = scheduled.reduce((sum, s) => sum + num(s.amount), 0);
+
     const durEl = $('total-duration');
     if (durEl) durEl.textContent = formatDuration(totalDur);
     const amtEl = $('total-amount');
-    if (amtEl) amtEl.textContent = formatCurrency(totalAmt);
+    if (amtEl) {
+      // formatCurrency yields only digits/currency punctuation, so this is safe to inject.
+      amtEl.innerHTML = formatCurrency(totalAmt) +
+        (projectedAmt > 0
+          ? '<span class="total-projected" title="Projected revenue from ' + scheduled.length +
+            ' scheduled session' + (scheduled.length === 1 ? '' : 's') +
+            ' in view (not yet realized)">+' + formatCurrency(projectedAmt) + ' projected</span>'
+          : '');
+    }
     const miEl = $('total-mileage');
     if (miEl) miEl.textContent = totalMiles.toFixed(1) + ' mi';
   }
@@ -341,6 +354,73 @@
       '</div>';
   }
 
+  /**
+   * Build the clickable client picker (replaces the old <select multiple>).
+   * Active clients only. Order is computed ONCE per open so tiles don't jump
+   * as you tap: currently-selected first, then most-recently-tutored, then
+   * alphabetical. Selection state lives on each button's aria-pressed.
+   */
+  function renderClientPicker(selectedIds) {
+    const picker = $('session-clients');
+    if (!picker) return;
+    const sel = (selectedIds || []).map(String);
+
+    const active = App.state.clients.filter((c) => (c.status || 'active') === 'active');
+
+    // Most recent session date per client, for recency ordering.
+    const lastDate = {};
+    App.state.sessions.forEach((s) => {
+      (s.clientIds || []).forEach((cid) => {
+        const k = String(cid);
+        const d = s.date || '';
+        if (!lastDate[k] || d > lastDate[k]) lastDate[k] = d;
+      });
+    });
+
+    active.sort((a, b) => {
+      const aSel = sel.includes(String(a.id)) ? 1 : 0;
+      const bSel = sel.includes(String(b.id)) ? 1 : 0;
+      if (aSel !== bSel) return bSel - aSel;             // selected first
+      const ad = lastDate[String(a.id)] || '';
+      const bd = lastDate[String(b.id)] || '';
+      if (ad !== bd) return bd.localeCompare(ad);        // most recent first
+      return clientName(a).localeCompare(clientName(b)); // then alphabetical
+    });
+
+    if (active.length === 0) {
+      picker.innerHTML = '<p class="client-picker-empty">No active clients. Add a client, ' +
+        'or set someone back to Active on the Clients tab.</p>';
+      return;
+    }
+
+    picker.innerHTML = active.map((c) => {
+      const isSel = sel.includes(String(c.id));
+      return '<button type="button" class="client-pick' + (isSel ? ' selected' : '') +
+        '" data-action="toggle-session-client" data-id="' + escapeHtml(c.id) +
+        '" aria-pressed="' + (isSel ? 'true' : 'false') + '">' +
+        '<span class="client-pick-name">' + escapeHtml(clientName(c)) + '</span>' +
+        '<span class="client-pick-rate">' + formatCurrency(c.rate) + '/hr</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  /** IDs of the clients currently selected in the picker (as strings). */
+  function getSelectedSessionClientIds() {
+    const picker = $('session-clients');
+    if (!picker) return [];
+    return Array.from(picker.querySelectorAll('.client-pick[aria-pressed="true"]'))
+      .map((b) => b.getAttribute('data-id'));
+  }
+
+  /** Toggle one client tile on/off, then refresh the amount/repeat hints. */
+  function toggleSessionClient(btn) {
+    if (!btn) return;
+    const on = btn.getAttribute('aria-pressed') === 'true';
+    btn.setAttribute('aria-pressed', on ? 'false' : 'true');
+    btn.classList.toggle('selected', !on);
+    updateSessionPrefill();
+  }
+
   function openSessionForm(id, prefillDate) {
     const sessions = App.state.sessions;
     const clients = App.state.clients;
@@ -353,17 +433,6 @@
 
     form.reset();
     $('session-id').value = '';
-
-    // Populate client dropdown
-    const clientSelect = $('session-clients');
-    if (clientSelect) {
-      clientSelect.innerHTML = clients
-        .filter((c) => c.status === 'active')
-        .sort((a, b) => clientName(a).localeCompare(clientName(b)))
-        .map((c) => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c)) +
-          ' (' + formatCurrency(c.rate) + '/hr)</option>')
-        .join('');
-    }
 
     if (id) {
       const s = sessions.find((ses) => String(ses.id) === String(id));
@@ -380,17 +449,13 @@
       $('session-status').value = s.status || 'completed';
       $('session-notes').value = s.notes || '';
 
-      // Select clients
-      if (clientSelect && s.clientIds) {
-        Array.from(clientSelect.options).forEach((opt) => {
-          opt.selected = s.clientIds.some((cid) => String(cid) === String(opt.value));
-        });
-      }
+      renderClientPicker(s.clientIds || []);
     } else {
       if (title) title.textContent = 'Add Session';
       $('session-date').value = prefillDate || todayISO();
       $('session-duration').value = settings.defaultDuration || 1;
       $('session-status').value = 'completed';
+      renderClientPicker([]);
     }
 
     App.openModal('modal-session');
@@ -422,12 +487,11 @@
    */
   function updateSessionPrefill() {
     const clients = App.state.clients;
-    const clientSelect = $('session-clients');
     const amountEl = $('session-amount');
     const banner = $('repeat-last-banner');
     const isEditing = !!$('session-id').value;
 
-    const selected = clientSelect ? Array.from(clientSelect.selectedOptions).map((o) => o.value) : [];
+    const selected = getSelectedSessionClientIds();
 
     // Live amount placeholder = avg rate x duration
     if (amountEl) {
@@ -512,10 +576,8 @@
     const clients = App.state.clients;
 
     const date = $('session-date').value;
-    const clientSelect = $('session-clients');
-    const selectedClients = clientSelect
-      ? Array.from(clientSelect.selectedOptions).map((o) => isNaN(o.value) ? o.value : Number(o.value))
-      : [];
+    const selectedClients = getSelectedSessionClientIds()
+      .map((v) => isNaN(v) ? v : Number(v));
     const duration = num($('session-duration').value);
 
     if (!date) {
@@ -1023,6 +1085,7 @@
   App.sessionSort = sessionSort;
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
+  App.toggleSessionClient = toggleSessionClient;
   App.repeatLastSession = repeatLastSession;
 
 })();
