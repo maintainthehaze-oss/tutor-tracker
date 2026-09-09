@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-08 (Fable, NO CODE): root retirement "did not answer" = live root sw.js still v41 legacy worker; root redirect NOT published; copy of deployment/ root files was permission-blocked. Detail + exact next steps: `docs/handoffs/2026-09-08-root-retirement-diagnosis.md`.**
+
 **2026-09-08 (Fable, NO CODE): Claude Code `/doctor` health check + independent verify. Global setup clean, zero changes. Detail: `docs/handoffs/2026-09-08-doctor-review.md`.**
 
 **2026-09-08 (Fable, NO CODE): cleaned the OneDrive TUTORING TRACKER clone (dead worktrees, merged branches, temp_clone, obsolete .bat, gc); live site verified v41. Cross-session remediation plan, all items CLOSED 2026-09-08 (docs commit 7f7f256 not yet pushed; stale C:\Users\dev31\Claude\Projects clone recycled): `docs/handoffs/2026-09-08-remediation-plan.md`. Detail: `docs/handoffs/2026-09-08-live-repo-cleanup.md`.**
