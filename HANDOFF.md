@@ -1,6 +1,6 @@
 # HANDOFF
 
-**2026-09-08 (Fable, NO CODE): root retirement "did not answer" = live root sw.js still v41 legacy worker; root redirect NOT published; copy of deployment/ root files was permission-blocked. Detail + exact next steps: `docs/handoffs/2026-09-08-root-retirement-diagnosis.md`.**
+**2026-09-09 02:13 UTC (Fable): ROOT RETIREMENT SHIPPED c3f8640, Pages built, live sw.js/index.html/protected-redirect.js verified byte-identical to repo. Next: MTH activates on /protected/ with ONE tab open (steps 2-5 in `docs/handoffs/2026-09-08-root-retirement-diagnosis.md`).**
 
 **2026-09-08 (Fable, NO CODE): Claude Code `/doctor` health check + independent verify. Global setup clean, zero changes. Detail: `docs/handoffs/2026-09-08-doctor-review.md`.**
 
