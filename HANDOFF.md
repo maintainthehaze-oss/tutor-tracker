@@ -2,7 +2,7 @@
 
 **2026-09-08 (Fable, NO CODE): Claude Code `/doctor` health check + independent verify. Global setup clean, zero changes. Detail: `docs/handoffs/2026-09-08-doctor-review.md`.**
 
-**2026-09-08 (Fable, NO CODE): cleaned the OneDrive TUTORING TRACKER clone (dead worktrees, merged branches, temp_clone, obsolete .bat, gc); live site verified v41. Cross-session remediation plan (FINAL, R2/R3 owned by the health-check session, 3 MTH decisions inside): `docs/handoffs/2026-09-08-remediation-plan.md`. Detail: `docs/handoffs/2026-09-08-live-repo-cleanup.md`.**
+**2026-09-08 (Fable, NO CODE): cleaned the OneDrive TUTORING TRACKER clone (dead worktrees, merged branches, temp_clone, obsolete .bat, gc); live site verified v41. Cross-session remediation plan, all items CLOSED 2026-09-08 (docs commit 7f7f256 not yet pushed; stale C:\Users\dev31\Claude\Projects clone recycled): `docs/handoffs/2026-09-08-remediation-plan.md`. Detail: `docs/handoffs/2026-09-08-live-repo-cleanup.md`.**
 
 **2026-09-08 — Claude Code (Opus 4.8)**
 

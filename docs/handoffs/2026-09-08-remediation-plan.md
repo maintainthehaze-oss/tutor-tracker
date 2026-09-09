@@ -17,11 +17,11 @@ Two sessions worked the same repo tonight from two different clones and three di
 | # | Item | Owner | Gate | State |
 |---|---|---|---|---|
 | R1 | Move tonight's cleanup handoff from outer Pro_files docs/handoffs into B; pointer in B HANDOFF.md; outer pointer removed | 6c session | none | DONE |
-| R2 | Commit the docs-only handoffs in B (HANDOFF.md, docs/handoffs/*). No push. | 6c session (MTH ruled one session handles all) | MTH says "commit" (doctrine: commit only when asked) | OPEN |
-| R3 | Add a "Clones" section to tracked CLAUDE-INSTRUCTIONS.md: which clone each launch folder uses; `git pull --ff-only` at session start and before any push; never push from a clone that is behind. Also state that the user-scope deploy-gate hook fires in both clones, so a push to main stays blocked until MTH says "Ship it". Also: spell git remotes literally; deploy-gate fails closed on $/backtick in a remote. One tracked edit covers both clones. | 6c session (MTH ruled one session handles all) | ships with next "Ship it" deploy | DRAFTED in working tree by health-check session before stand-down (+14/-1, reviewed and kept by 6c); commits with R2 |
-| R4 | safe.directory for B: keep the per-command `-c safe.directory=*` override; do not add a global exception | MTH (security posture) | MTH ruling | RECOMMENDED keep-as-is |
+| R2 | Commit the docs-only handoffs in B (HANDOFF.md, docs/handoffs/*). No push. | 6c session (MTH ruled one session handles all) | MTH says "commit" (doctrine: commit only when asked) | DONE 7f7f256 (local, not pushed) |
+| R3 | Add a "Clones" section to tracked CLAUDE-INSTRUCTIONS.md: which clone each launch folder uses; `git pull --ff-only` at session start and before any push; never push from a clone that is behind. Also state that the user-scope deploy-gate hook fires in both clones, so a push to main stays blocked until MTH says "Ship it". Also: spell git remotes literally; deploy-gate fails closed on $/backtick in a remote. One tracked edit covers both clones. | 6c session (MTH ruled one session handles all) | ships with next "Ship it" deploy | DRAFTED in working tree by health-check session before stand-down (+14/-1, reviewed and kept by 6c); DONE 7f7f256, ships with next "Ship it" |
+| R4 | safe.directory for B: keep the per-command `-c safe.directory=*` override; do not add a global exception | MTH (security posture) | MTH ruling | KEPT as is (no veto on 2026-09-08 "commit and go") |
 | R5 | Fix memory note tutor-tracker-repo-location.md (said "not a git repo, handoffs go here") | 6c session | none | DONE |
-| R6 | Clone C: verify no uncommitted/unpushed work (health-check session saw none earlier tonight; re-check at execution), then Recycle Bin (reversible) | 6c session | MTH "go" | OPEN |
+| R6 | Clone C: verify no uncommitted/unpushed work (health-check session saw none earlier tonight; re-check at execution), then Recycle Bin (reversible) | 6c session | MTH "go" | DONE: re-checked clean, fully pushed (2762437 is an ancestor of origin/main), its data file was a byte-identical copy of the live one; sent to Recycle Bin |
 
 ## Implementation plan (pending production activation)
 Unchanged from HANDOFF.md 2026-09-06 and docs/PRODUCTION_ACTIVATION_CONTRACT.md; restated only as sequence and gates.
@@ -44,3 +44,4 @@ Unchanged from HANDOFF.md 2026-09-06 and docs/PRODUCTION_ACTIVATION_CONTRACT.md;
 - 2026-09-08 6c -> health-check: plan marked FINAL; shared files (this doc, HANDOFF.md) released to the health-check session for R2/R3.
 - 2026-09-08 MTH -> 6c: "Which session should handle everything?" Ruled: 6c session owns R2, R3, R6. Health-check session told to stand down.
 - 2026-09-08 health-check -> 6c: stood down; disclosed an uncommitted R3 draft in CLAUDE-INSTRUCTIONS.md. 6c reviewed the diff: covers all R3 points, kept as is.
+- 2026-09-08 MTH: "commit and go". R2+R3 committed as 7f7f256 (docs-only, no push); R6 executed. All remediation items closed. Implementation steps I1-I5 remain, MTH-gated.
