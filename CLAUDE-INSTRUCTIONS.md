@@ -49,11 +49,24 @@ Every file is an IIFE. `app-core.js` creates `window.App = {}`. Other modules re
 - NET revenue primary (green glow), company split always visible
 - Heatmap and calendar features were deliberately removed — don't re-add
 
+## Clones
+
+Two live clones of this repo share the remote. The folder a session is launched from decides its clone:
+
+- `C:\Users\dev31\OneDrive\Desktop\Documents\Tutoring Tracker Pro_files` → `production-release/` inside it. Sandbox-owned, so every git call needs `git -c safe.directory=*`.
+- `C:\Users\dev31\OneDrive\Documents\Claude\Projects\TUTORING TRACKER` → that folder itself.
+
+Rules:
+
+- `git pull --ff-only` at session start and again before any push. Never push from a clone that is behind.
+- Handoffs: `docs/handoffs/YYYY-MM-DD-slug.md` plus a pointer line at the top of `HANDOFF.md`, committed docs-only so they are not swept into a feature commit.
+- The user-scope deploy-gate hook fires in both clones: a push to main is blocked until MTH says "Ship it". Spell remotes literally (`git push origin main`); a remote given as `$VAR` is denied by design.
+
 ## Deploy Checklist
 
 1. Bump `CACHE_NAME` in sw.js
 2. `node --check js/*.js`
-3. Push to main (GitHub Pages auto-deploys)
+3. `git pull --ff-only`, then push to main (GitHub Pages auto-deploys)
 4. On live site: unregister SW, hard refresh, check all tabs + console
 
 ## Data Keys
