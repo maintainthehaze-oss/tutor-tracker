@@ -3,7 +3,7 @@
 const PRODUCTION = self.location.origin === 'https://maintainthehaze-oss.github.io' &&
   self.location.pathname === '/tutor-tracker/protected/sw.js' &&
   self.registration.scope === 'https://maintainthehaze-oss.github.io/tutor-tracker/protected/';
-const REVISION = 'protected-2026-09-06-v1';
+const REVISION = 'protected-2026-09-10-v2';
 if (!PRODUCTION && !['localhost','127.0.0.1','[::1]'].includes(self.location.hostname)) {
   throw Error('This worker is for localhost rehearsal only; deployment is disabled.');
 }

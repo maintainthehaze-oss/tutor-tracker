@@ -306,10 +306,23 @@
     const totalAmt = completed.reduce((sum, s) => sum + num(s.amount), 0);
     const totalMiles = completed.reduce((sum, s) => sum + num(s.mileage), 0);
 
+    // Projected revenue = scheduled (not-yet-realized) sessions in the current view.
+    // Kept separate from realized totals on purpose; the app only counts completed as revenue.
+    const scheduled = filtered.filter((s) => s.status === 'scheduled');
+    const projectedAmt = scheduled.reduce((sum, s) => sum + num(s.amount), 0);
+
     const durEl = $('total-duration');
     if (durEl) durEl.textContent = formatDuration(totalDur);
     const amtEl = $('total-amount');
-    if (amtEl) amtEl.textContent = formatCurrency(totalAmt);
+    if (amtEl) {
+      // formatCurrency yields only digits/currency punctuation, so this is safe to inject.
+      amtEl.innerHTML = formatCurrency(totalAmt) +
+        (projectedAmt > 0
+          ? '<span class="total-projected" title="Projected revenue from ' + scheduled.length +
+            ' scheduled session' + (scheduled.length === 1 ? '' : 's') +
+            ' in view (not yet realized)">+' + formatCurrency(projectedAmt) + ' projected</span>'
+          : '');
+    }
     const miEl = $('total-mileage');
     if (miEl) miEl.textContent = totalMiles.toFixed(1) + ' mi';
   }

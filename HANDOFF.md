@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-10 (Fable): PORTED projected revenue into `protected/` (the app the live site actually serves). Root commit def9c33 had shipped it only to the retired root app. Files: `protected/js/sessions.js` (updateSessionTotals), `protected/styles.css` (.total-projected), `protected/sw.js` (REVISION -> protected-2026-09-10-v2). Browser-verified on localhost synthetic data: realized $430.00 + "+$245.50 projected" from 2 scheduled; status filter respected. NOT PUSHED — awaiting "Ship it". Unverified: live Pages build, real device.**
+
 **2026-09-09 (Cowork, owner-reported): DEVICE UPGRADE ACTIVATED (122 sessions). Root retirement live. Newest recovery save in Downloads/tutor-tracker-recovery is authoritative; copy to USB. Remaining I4 mobile check. Detail: `docs/handoffs/2026-09-08-root-retirement-diagnosis.md`.**
 
 **2026-09-08 (Fable, NO CODE): Claude Code `/doctor` health check + independent verify. Global setup clean, zero changes. Detail: `docs/handoffs/2026-09-08-doctor-review.md`.**
