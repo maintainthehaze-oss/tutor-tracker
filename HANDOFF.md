@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-10 (Fable): ROOT WORKER KILLED. Root `sw.js` is now the same kill switch (clear caches, unregister, reload); root redirect stays plain JS (`protected-redirect.js`). `protected/js/upgrade-shim.js` now unregisters BOTH tracker scopes and deletes all `tutor-*` caches on load. No service workers remain anywhere in the deployed site.**
+
 **2026-09-10 (Fable): UPGRADE PANEL HIDDEN ON LIVE SITE. `#protection-panel` (heading, status line, buttons) is hidden by `updateProtectionStatus` when production && repository.ready && !maintenance. Reappears only if activation is missing ("Device upgrade required") or maintenance flag is on. "Enter maintenance" removed; button is now exit-only ("Leave maintenance"), shown only while maintenance is on. Localhost keeps the panel for "Initialize fabricated preview".**
 
 **2026-09-10 (Fable): OFFLINE CACHING / INSTALL-AS-APP REMOVED from `protected/` (MTH ruling: desktop browser only). `protected/sw.js` is now a kill switch (skipWaiting, delete all caches, unregister, reload tabs) so browsers holding the old worker self-clean on next visit. `js/sw-register.js` -> `js/upgrade-shim.js` (unregisters protected-scope workers on load; keeps `window.TrackerUpgrade` resolving so restore/upgrade paths in ui.js don't throw; retireLegacyRoot is a no-op, root redirect is plain JS). `manifest.json`, apple/mobile meta, apple-touch-icon deleted. Root app untouched. Kill switch verified on localhost. From now on: no cache bump on protected/ deploys; plain reload picks up changes.**

@@ -1,30 +1,15 @@
-/* Root retirement worker: no record or cache mutation, including during activation. */
+/* KILL SWITCH — root worker retired 2026-09-10 (owner ruling: no offline caching anywhere).
+   Browsers still holding the old root worker (v41 cache or the retirement worker) fetch
+   this on their next root visit. It activates immediately, deletes every cache, unregisters,
+   and reloads open tabs; the plain-JS redirect in index.html then sends them to protected/. */
 'use strict';
-const ROOT = 'https://maintainthehaze-oss.github.io/tutor-tracker/';
-const PROTECTED = ROOT + 'protected/';
-const REVISION = 'root-retirement-2026-09-06-v1';
-if (self.location.href !== ROOT + 'sw.js' || self.registration.scope !== ROOT) {
-  throw Error('Root retirement worker is restricted to the production root.');
-}
-self.addEventListener('message', event => {
-  if (!['RETIRE_LEGACY', 'VERIFY_ROOT_RETIREMENT'].includes(event.data?.type)) return;
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const reply = value => event.ports[0]?.postMessage(value);
-    const windows = await self.clients.matchAll({type:'window', includeUncontrolled:true});
-    const own = windows.filter(client => new URL(client.url).origin === self.location.origin);
-    if (!event.source?.url.startsWith(PROTECTED) || event.data.revision !== REVISION ||
-        event.data.backupVerified !== true || own.length !== 1 || own[0].id !== event.source.id) {
-      reply({ok:false, error:'Root retirement requires verified recovery and one protected tab.'}); return;
-    }
-    reply({ok:true, revision:REVISION, scope:ROOT, soleClient:true});
-    if (event.data.type === 'RETIRE_LEGACY') await self.skipWaiting();
+    const keys = await caches.keys();
+    await Promise.all(keys.map(key => caches.delete(key)));
+    await self.registration.unregister();
+    const tabs = await self.clients.matchAll({type:'window', includeUncontrolled:true});
+    tabs.forEach(tab => tab.navigate(tab.url).catch(() => {}));
   })());
-});
-// No clients.claim(): the protected worker continues to control its existing page.
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-  if (event.request.mode === 'navigate' && url.origin === self.location.origin &&
-      ['/tutor-tracker/', '/tutor-tracker/index.html'].includes(url.pathname)) {
-    event.respondWith(Promise.resolve(Response.redirect(PROTECTED, 302)));
-  }
 });
