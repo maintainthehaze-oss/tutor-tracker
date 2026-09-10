@@ -64,7 +64,7 @@ Rules:
 
 ## Deploy Checklist
 
-1. Bump `CACHE_NAME` in sw.js
+1. (Root app only, retired.) `protected/` has NO service worker since 2026-09-10: `protected/sw.js` is a self-destruct kill switch, `protected/manifest.json` was removed, `js/upgrade-shim.js` keeps TrackerUpgrade calls resolving. No cache bump needed for protected/ deploys.
 2. `node --check js/*.js`
 3. `git pull --ff-only`, then push to main (GitHub Pages auto-deploys)
 4. On live site: unregister SW, hard refresh, check all tabs + console
