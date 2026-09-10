@@ -346,6 +346,7 @@
           <span class="badge" id="session-count">0</span>
         </div>
         <div class="toolbar-right">
+          <button class="btn btn-sm" data-action="toggle-split" aria-pressed="false" title="Show or hide company split figures">Show split</button>
           <button class="btn btn-sm" data-action="toggle-filters" aria-expanded="false" aria-controls="session-filters">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
             Filters
@@ -460,7 +461,7 @@
               <th data-sort="type">Type</th>
               <th data-sort="duration" class="sortable" aria-sort="none" tabindex="0" role="button">Duration</th>
               <th data-sort="amount" class="sortable" aria-sort="none" tabindex="0" role="button">Amount</th>
-              <th data-sort="split">Split</th>
+              <th data-sort="split" class="split-info">Split</th>
               <th data-sort="mileage">Mileage</th>
               <th data-sort="payment" class="sortable" aria-sort="none" tabindex="0" role="button">Payment</th>
               <th data-sort="status" class="sortable" aria-sort="none" tabindex="0" role="button">Status</th>
@@ -612,6 +613,7 @@
           </select>
         </div>
         <button class="btn btn-sm btn-link" data-action="report-filter-reset">Reset</button>
+        <button class="btn btn-sm" data-action="toggle-split" aria-pressed="false" title="Show or hide company split figures">Show split</button>
       </div>
 
       <p id="report-notice" class="tax-flag-note" role="status"></p>
@@ -623,7 +625,7 @@
             <span class="card-label">Total Income</span>
           </div>
         </article>
-        <article class="summary-card">
+        <article class="summary-card split-info">
           <div class="card-data">
             <span class="card-value" id="report-company-split">$0</span>
             <span class="card-label">Historical Share</span>
@@ -672,7 +674,7 @@
               <th>Sessions</th>
               <th>Hours</th>
               <th>Income</th>
-              <th>Historical Share</th>
+              <th class="split-info">Historical Share</th>
               <th>Expenses</th>
               <th>Net</th>
               <th>Miles</th>
@@ -688,7 +690,7 @@
               <td id="report-foot-sessions">0</td>
               <td id="report-foot-hours">0</td>
               <td id="report-foot-income">$0</td>
-              <td id="report-foot-split">$0</td>
+              <td id="report-foot-split" class="split-info">$0</td>
               <td id="report-foot-expenses">$0</td>
               <td id="report-foot-net">$0</td>
               <td id="report-foot-miles">0</td>
@@ -709,7 +711,7 @@
                 <th>Sessions</th>
                 <th>Hours</th>
                 <th>Gross</th>
-                <th>Historical Share</th>
+                <th class="split-info">Historical Share</th>
                 <th>Your Cut</th>
                 <th>Outstanding</th>
               </tr>
@@ -723,7 +725,7 @@
                 <td id="family-foot-sessions">0</td>
                 <td id="family-foot-hours">0</td>
                 <td id="family-foot-gross">$0</td>
-                <td id="family-foot-split">$0</td>
+                <td id="family-foot-split" class="split-info">$0</td>
                 <td id="family-foot-cut">$0</td>
                 <td id="family-foot-outstanding">$0</td>
               </tr>
@@ -1074,7 +1076,7 @@
             <small class="family-suggest" id="client-family-suggest" hidden></small>
           </div>
 
-          <section class="form-group-full" id="client-legacy-details" hidden>
+          <section class="form-group-full split-info" id="client-legacy-details" hidden>
             <h3>Historical company details — read-only</h3>
             <p>Saved evidence only. These values do not apply to new sessions. Quoted values retain their original text type; null means a saved empty value.</p>
             <pre id="client-legacy-content" class="record-evidence"></pre>

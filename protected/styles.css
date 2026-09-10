@@ -916,6 +916,11 @@ button.stat-pill:hover { border-color: var(--accent); }
   color: var(--text-primary);
 }
 
+/* Company split figures are collapsed by default; toggled via [data-action="toggle-split"]. */
+.split-collapsed .split-info {
+  display: none !important;
+}
+
 .total-projected {
   display: block;
   margin-top: 2px;

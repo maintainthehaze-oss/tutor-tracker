@@ -104,7 +104,7 @@
             '<td>' + mm.sessionCount + '</td>' +
             '<td>' + formatDuration(mm.hours) + '</td>' +
             '<td>' + formatCurrency(mm.gross) + '</td>' +
-            '<td>' + formatCurrency(mm.companySplit) + '</td>' +
+            '<td class="split-info">' + formatCurrency(mm.companySplit) + '</td>' +
             '<td>' + formatCurrency(mExp) + '</td>' +
             '<td>' + formatCurrency(mm.netProfit) + '</td>' +
             '<td>' + mm.miles.toFixed(1) + '</td>' +
@@ -144,7 +144,7 @@
           '<td>' + g.sessions + '</td>' +
           '<td>' + formatDuration(g.hours) + '</td>' +
           '<td>' + formatCurrency(g.gross) + '</td>' +
-          '<td>' + formatCurrency(g.companySplit) + '</td>' +
+          '<td class="split-info">' + formatCurrency(g.companySplit) + '</td>' +
           '<td>' + formatCurrency(g.yourCut) + '</td>' +
           '<td>' + (g.outstanding > 0 ? '<span class="owe">' + formatCurrency(g.outstanding) + '</span>' : '—') + '</td>' +
         '</tr>'

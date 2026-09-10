@@ -190,7 +190,7 @@
         '<td><span class="' + typeClass + '">' + escapeHtml(typeLabels[s.type] || s.type || 'In Person') + '</span></td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.duration) + '" step="0.25" min="0.25" data-field="duration" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.amount) + '" step="0.01" min="0" data-field="amount" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
-        '<td>' + splitDisplay + '</td>' +
+        '<td class="split-info">' + splitDisplay + '</td>' +
         '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
         '<td><select class="input input-sm" data-field="payment" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
           '<option value="paid"' + (s.paid ? ' selected' : '') + '>Paid</option>' +
@@ -215,7 +215,7 @@
       '<td><span class="' + typeClass + '">' + escapeHtml(typeLabels[s.type] || s.type || 'In Person') + '</span></td>' +
       '<td>' + formatDuration(s.duration) + '</td>' +
       '<td>' + amountDisplay + '</td>' +
-      '<td>' + splitDisplay + '</td>' +
+      '<td class="split-info">' + splitDisplay + '</td>' +
       '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
       '<td><span class="payment-badge ' + paymentClass + '">' + paymentLabel + '</span></td>' +
       '<td><span class="' + statusClass + '">' + escapeHtml(s.status || 'completed') + '</span></td>' +
@@ -361,7 +361,7 @@
         '<div class="monthly-stat"><span class="monthly-stat-value">' + totalSessions + '</span><span class="monthly-stat-label">Sessions</span></div>' +
         '<div class="monthly-stat"><span class="monthly-stat-value">' + formatDuration(totalHours) + '</span><span class="monthly-stat-label">Hours</span></div>' +
         '<div class="monthly-stat"><span class="monthly-stat-value">' + formatCurrency(totalRevenue) + '</span><span class="monthly-stat-label">Revenue</span></div>' +
-        (totalSplit > 0 ? '<div class="monthly-stat"><span class="monthly-stat-value">' + formatCurrency(totalSplit) + '</span><span class="monthly-stat-label">Co. Split</span></div>' : '') +
+        (totalSplit > 0 ? '<div class="monthly-stat split-info"><span class="monthly-stat-value">' + formatCurrency(totalSplit) + '</span><span class="monthly-stat-label">Co. Split</span></div>' : '') +
         (totalMiles > 0 ? '<div class="monthly-stat"><span class="monthly-stat-value">' + totalMiles.toFixed(1) + ' mi</span><span class="monthly-stat-label">Mileage</span></div>' : '') +
         (unpaidCount > 0 ? '<div class="monthly-stat monthly-stat-alert"><span class="monthly-stat-value">' + unpaidCount + '</span><span class="monthly-stat-label">Unpaid</span></div>' : '') +
       '</div>';
@@ -388,7 +388,10 @@
       ['Status', 'status'], ['Paid', 'paid'], ['Payment', 'payment'], ['Payment date', 'paymentDate']
     ];
     content.innerHTML = '<p>Original stored values. Missing means the field was not stored; null is an explicitly stored empty value. Quoted values are text. No values below are recalculated.</p>' +
-      '<dl>' + fields.map(([label, field]) => '<dt>' + label + '</dt><dd>' + escapeHtml(rawValue(field)) + '</dd>').join('') + '</dl>';
+      '<dl>' + fields.map(([label, field]) => {
+        const cls = /^company/.test(field) ? ' class="split-info"' : '';
+        return '<dt' + cls + '>' + label + '</dt><dd' + cls + '>' + escapeHtml(rawValue(field)) + '</dd>';
+      }).join('') + '</dl>';
     const appendEvidence = (label, value) => {
       const heading = document.createElement('h3');
       heading.textContent = label;

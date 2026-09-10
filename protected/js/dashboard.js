@@ -63,7 +63,9 @@
     if (dashNet) dashNet.textContent = formatCurrency(thisNet);
 
     const dashGrossSplit = $('dash-gross-split');
-    if (dashGrossSplit) dashGrossSplit.textContent = 'Gross: ' + formatCurrency(thisRevenue) + (current.hasLegacyShare ? ' | Historical share: ' + formatCurrency(thisCompanySplit) : '');
+    // formatCurrency output is digits/punctuation only, safe to inject.
+    if (dashGrossSplit) dashGrossSplit.innerHTML = 'Gross: ' + formatCurrency(thisRevenue) +
+      (current.hasLegacyShare ? '<span class="split-info"> | Historical share: ' + formatCurrency(thisCompanySplit) + '</span>' : '');
     reportNotice('dashboard-report-notice', dashGrossSplit, [...current.warnings, ...previous.warnings]);
 
     const dashSess = $('dash-sessions');
@@ -275,7 +277,7 @@
             borderWidth: 2.5,
             order: 1,
           },
-        ].filter((dataset) => dataset.label !== 'Historical share' || hasLegacyShare),
+        ].filter((dataset) => dataset.label !== 'Historical share' || (hasLegacyShare && App.showSplit())),
       },
       options: {
         responsive: true,

@@ -570,6 +570,7 @@
 
       switch (action) {
         case 'toggle-theme': App.toggleTheme(); break;
+        case 'toggle-split': App.toggleSplit(); break;
         case 'open-settings': openSettings(); break;
         case 'global-search':
           openModal('modal-search');
