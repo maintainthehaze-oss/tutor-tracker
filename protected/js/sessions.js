@@ -97,7 +97,6 @@
     // Month navigator + owed-by-family (all time) + summary for the shown month
     renderMonthNav();
     App.renderOwedList($('sessions-owed-list'), $('sessions-owed-total'));
-    renderMonthlySummary();
 
     // Bulk selection can only ever contain rows that are on screen
     const sel = App.state.selectedSessions;
@@ -326,45 +325,6 @@
     }
     const miEl = $('total-mileage');
     if (miEl) miEl.textContent = totalMiles.toFixed(1) + ' mi';
-  }
-
-  function renderMonthlySummary() {
-    const sessions = App.state.sessions;
-    const clients = App.state.clients;
-
-    // Follows the month navigator; '' = all time
-    const monthStr = sessionMonth;
-    const dateEl = $('monthly-summary-date');
-    if (dateEl) dateEl.textContent = monthStr ? monthLabel(monthStr) : '';
-    const titleEl = $('monthly-summary-title');
-    if (titleEl) titleEl.textContent = monthStr ? 'Monthly Summary' : 'All-Time Summary';
-
-    const content = $('monthly-summary-content');
-    if (!content) return;
-
-    const monthSessions = sessions.filter((s) => s.date && (!monthStr || s.date.startsWith(monthStr)) && s.status === 'completed');
-
-    if (monthSessions.length === 0) {
-      content.innerHTML = '<p class="empty-state">No completed sessions ' + (monthStr ? 'in ' + escapeHtml(monthLabel(monthStr)) : 'yet') + '</p>';
-      return;
-    }
-
-    const totalSessions = monthSessions.length;
-    const totalHours = monthSessions.reduce((sum, s) => sum + num(s.duration), 0);
-    const totalRevenue = monthSessions.reduce((sum, s) => sum + App.revenueAmount(s), 0);
-    const totalSplit = monthSessions.reduce((sum, s) => sum + App.revenueSplit(s), 0);
-    const totalMiles = monthSessions.reduce((sum, s) => sum + num(s.mileage), 0);
-    const unpaidCount = monthSessions.filter((s) => !s.paid && s.payment !== 'waived').length;
-
-    content.innerHTML =
-      '<div class="monthly-stats">' +
-        '<div class="monthly-stat"><span class="monthly-stat-value">' + totalSessions + '</span><span class="monthly-stat-label">Sessions</span></div>' +
-        '<div class="monthly-stat"><span class="monthly-stat-value">' + formatDuration(totalHours) + '</span><span class="monthly-stat-label">Hours</span></div>' +
-        '<div class="monthly-stat"><span class="monthly-stat-value">' + formatCurrency(totalRevenue) + '</span><span class="monthly-stat-label">Revenue</span></div>' +
-        (totalSplit > 0 ? '<div class="monthly-stat split-info"><span class="monthly-stat-value">' + formatCurrency(totalSplit) + '</span><span class="monthly-stat-label">Co. Split</span></div>' : '') +
-        (totalMiles > 0 ? '<div class="monthly-stat"><span class="monthly-stat-value">' + totalMiles.toFixed(1) + ' mi</span><span class="monthly-stat-label">Mileage</span></div>' : '') +
-        (unpaidCount > 0 ? '<div class="monthly-stat monthly-stat-alert"><span class="monthly-stat-value">' + unpaidCount + '</span><span class="monthly-stat-label">Unpaid</span></div>' : '') +
-      '</div>';
   }
 
   function openSessionDetail(id) {

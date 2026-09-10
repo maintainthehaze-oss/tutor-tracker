@@ -1097,35 +1097,6 @@ button.stat-pill:hover { border-color: var(--accent); }
   font-size: 0.88rem;
   color: var(--text-muted);
 }
-.monthly-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem;
-}
-.monthly-stat {
-  flex: 1 1 80px;
-  text-align: center;
-  padding: 0.5rem;
-  border-radius: 8px;
-  background: var(--bg-main);
-}
-.monthly-stat-value {
-  display: block;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-.monthly-stat-label {
-  display: block;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-top: 0.15rem;
-}
-.monthly-stat-alert .monthly-stat-value {
-  color: var(--danger);
-}
-
 /* --- Month navigator (Sessions tab) --- */
 .month-nav {
   display: flex;

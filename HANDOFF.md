@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-10 (Fable): REMOVED Sessions-tab Monthly Summary panel (redundant with Totals row + header pills). Deleted `#monthly-summary` aside, `renderMonthlySummary`, `.monthly-stat*` CSS. Owed panel kept. SW REVISION -> v4.**
+
 **2026-09-10 (Fable): PROJECTED PILL IN HEADER. `#header-projected-pill` next to Revenue; sums ALL scheduled sessions (any date, waived = $0) in `updateHeaderStats` (`protected/js/dashboard.js`); hidden when $0. SW REVISION -> protected-2026-09-10-v3. Browser-verified desktop + mobile wrap.**
 
 **2026-09-10 (Fable): COMPANY SPLIT COLLAPSED BY DEFAULT (MTH ruling). Every split figure carries class `split-info`; `body.split-collapsed` hides them (CSS). Per-device pref in localStorage `tutoring-show-split` (default off); "Show split"/"Hide split" buttons in Sessions toolbar + Reports filter bar (`data-action="toggle-split"`, `App.toggleSplit`). Covers: Sessions Split column, Co. Split monthly stat, dashboard sub-line + Historical-share chart dataset, Reports share card + both tables, session-detail company rows, client legacy-details section. CSV exports and tax Commissions line untouched. Browser-verified both states + persistence across reload. SHIPPED 2026-09-10 (commits e0561b1, 655f866, 30df951); live sw.js = protected-2026-09-10-v2 verified.**
