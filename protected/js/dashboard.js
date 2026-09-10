@@ -135,6 +135,19 @@
       hrEl.textContent = formatCurrency(month.yourCut);
       hrEl.title = month.warnings.length ? App.reportModel.notice(month.warnings, 'current-v2') : '';
     }
+    // Projected pill: every scheduled (not-yet-realized) session, any date.
+    // Past-dated scheduled sessions get auto-completed on load, so this is
+    // effectively "upcoming". Waived fees count as $0 via App.revenueAmount.
+    const scheduled = App.state.sessions.filter((s) => s.status === 'scheduled');
+    const projected = scheduled.reduce((sum, s) => sum + App.revenueAmount(s), 0);
+    const hpEl = $('header-projected');
+    const hpPill = $('header-projected-pill');
+    if (hpEl) hpEl.textContent = formatCurrency(projected);
+    if (hpPill) {
+      hpPill.hidden = projected <= 0;
+      hpPill.title = 'Projected from ' + scheduled.length + ' scheduled session' + (scheduled.length === 1 ? '' : 's') +
+        ' not yet completed (all dates, not yet realized). Waived fees excluded.';
+    }
     const hsEl = $('header-sessions');
     if (hsEl) hsEl.textContent = month.sessionCount;
     const hcEl = $('header-clients');

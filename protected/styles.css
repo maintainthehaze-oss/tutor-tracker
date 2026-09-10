@@ -288,6 +288,7 @@ button.stat-pill {
   transition: border-color 0.15s, background 0.15s;
 }
 button.stat-pill:hover { border-color: var(--accent); }
+.stat-pill-projected .stat-value { color: var(--accent); }
 .stat-pill-owed.has-owed { border-color: var(--color-warning); background: var(--color-warning-bg); }
 .stat-pill-owed.has-owed .stat-value { color: var(--color-warning); }
 .stat-pill-owed:not(.has-owed) .stat-value { color: var(--color-success); }
