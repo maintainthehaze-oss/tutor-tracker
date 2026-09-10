@@ -332,6 +332,13 @@
    *   For per-CLIENT / per-FAMILY attribution, a multi-client session's gross
    *   and companySplit are divided EVENLY among its clients.
    */
+  /** A waived fee is not revenue: no money changes hands, so the session's
+   *  amount and company split count as $0 everywhere revenue is summed.
+   *  The session itself still counts (hours, mileage, session counts). */
+  function isWaived(s) { return !!s && s.payment === 'waived'; }
+  function revenueAmount(s) { return isWaived(s) ? 0 : num(s.amount); }
+  function revenueSplit(s) { return isWaived(s) ? 0 : num(s.companyAmount); }
+
   function computeMetrics(filter) {
     filter = filter || {};
     const findClient = clientLookup();
@@ -359,8 +366,8 @@
     let gross = 0, companySplit = 0, miles = 0, hours = 0;
     let outstanding = 0, outstandingCount = 0;
     rows.forEach((s) => {
-      gross += num(s.amount);
-      companySplit += num(s.companyAmount);
+      gross += revenueAmount(s);
+      companySplit += revenueSplit(s);
       miles += num(s.mileage);
       hours += num(s.duration);
       if (!s.paid && s.payment !== 'waived') {
@@ -375,8 +382,8 @@
     rows.forEach((s) => {
       const ids = s.clientIds || [];
       if (ids.length === 0) return;
-      const shareGross = num(s.amount) / ids.length;
-      const shareSplit = num(s.companyAmount) / ids.length;
+      const shareGross = revenueAmount(s) / ids.length;
+      const shareSplit = revenueSplit(s) / ids.length;
       const shareHours = num(s.duration) / ids.length;
       const isUnpaid = !s.paid && s.payment !== 'waived';
       const shareUnpaid = isUnpaid ? num(s.amount) / ids.length : 0;
@@ -541,6 +548,9 @@
   App.formatDuration = formatDuration;
   App.todayISO = todayISO;
   App.num = num;
+  App.isWaived = isWaived;
+  App.revenueAmount = revenueAmount;
+  App.revenueSplit = revenueSplit;
   App.downloadFile = downloadFile;
   App.clientName = clientName;
   App.initials = initials;

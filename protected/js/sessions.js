@@ -303,13 +303,14 @@
   function updateSessionTotals(filtered) {
     const completed = filtered.filter((s) => s.status === 'completed');
     const totalDur = completed.reduce((sum, s) => sum + num(s.duration), 0);
-    const totalAmt = completed.reduce((sum, s) => sum + num(s.amount), 0);
+    // Waived fees are not revenue (App.revenueAmount returns 0 for them).
+    const totalAmt = completed.reduce((sum, s) => sum + App.revenueAmount(s), 0);
     const totalMiles = completed.reduce((sum, s) => sum + num(s.mileage), 0);
 
     // Projected revenue = scheduled (not-yet-realized) sessions in the current view.
     // Kept separate from realized totals on purpose; the app only counts completed as revenue.
     const scheduled = filtered.filter((s) => s.status === 'scheduled');
-    const projectedAmt = scheduled.reduce((sum, s) => sum + num(s.amount), 0);
+    const projectedAmt = scheduled.reduce((sum, s) => sum + App.revenueAmount(s), 0);
 
     const durEl = $('total-duration');
     if (durEl) durEl.textContent = formatDuration(totalDur);
@@ -350,8 +351,8 @@
 
     const totalSessions = monthSessions.length;
     const totalHours = monthSessions.reduce((sum, s) => sum + num(s.duration), 0);
-    const totalRevenue = monthSessions.reduce((sum, s) => sum + num(s.amount), 0);
-    const totalSplit = monthSessions.reduce((sum, s) => sum + num(s.companyAmount), 0);
+    const totalRevenue = monthSessions.reduce((sum, s) => sum + App.revenueAmount(s), 0);
+    const totalSplit = monthSessions.reduce((sum, s) => sum + App.revenueSplit(s), 0);
     const totalMiles = monthSessions.reduce((sum, s) => sum + num(s.mileage), 0);
     const unpaidCount = monthSessions.filter((s) => !s.paid && s.payment !== 'waived').length;
 

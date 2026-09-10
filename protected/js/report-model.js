@@ -95,7 +95,9 @@
     const M={sessionCount:rows.length,gross:0,companySplit:0,miles:0,hours:0,outstanding:0,outstandingCount:0,sessions:rows};
     const groups = new Map();
     rows.forEach(s=>{
-      const gross=number(s.amount),split=number(s.companyAmount),hours=number(s.duration),unpaid=!s.paid&&s.payment!=='waived';
+      // Waived fees are not revenue (current mode). captured-v1 keeps its stored math so filed reports still reproduce.
+      const waived=version!=='captured-v1'&&s.payment==='waived';
+      const gross=waived?0:number(s.amount),split=waived?0:number(s.companyAmount),hours=number(s.duration),unpaid=!s.paid&&s.payment!=='waived';
       M.gross+=gross; M.companySplit+=split; M.miles+=number(s.mileage); M.hours+=hours;
       if(unpaid){M.outstanding+=gross;M.outstandingCount++;}
       const ids=s.clientIds||[],touched=new Set();

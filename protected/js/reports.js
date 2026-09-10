@@ -178,7 +178,8 @@
       (s.clientIds || []).forEach((cid) => {
         const capturedClient = (s._report ? s._report.clients : clients).find(c => String(c.id) === String(cid));
         if (!stats[cid]) stats[cid] = { sessions: 0, hours: 0, revenue: 0, lastDate: '', name: capturedClient ? clientName(capturedClient) : 'Unknown' };
-        const share = numeric(s.amount) / (s.clientIds.length || 1);
+        const waived = mode !== 'captured-v1' && s.payment === 'waived';
+        const share = (waived ? 0 : numeric(s.amount)) / (s.clientIds.length || 1);
         stats[cid].sessions++;
         stats[cid].hours += numeric(s.duration);
         stats[cid].revenue += share;
