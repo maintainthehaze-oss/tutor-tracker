@@ -31,3 +31,18 @@ session with that permission allowed. Nothing was written to the repo except thi
 4. Reopen `C:\Users\dev31\Downloads\tutor-tracker-recovery\tutor-tracker-before-upgrade-private.json`
    and activate. Any error: stop, report verbatim.
 5. Then I4/I5 of docs/handoffs/2026-09-08-remediation-plan.md.
+
+## Outcome (2026-09-09, Cowork session, reported by owner)
+ACTIVATED. Root retirement completed via a NEW recovery save (counts at activation: 122 sessions,
+not 121; one session was added on 9/9 before activation). The earlier
+`tutor-tracker-before-upgrade-private.json` (121 sessions) is now stale; the newer save is the
+authoritative recovery file. Success toast text NOT captured (UNVERIFIED). Live root redirect and
+post-activation dashboard state not independently verified by Claude Code.
+
+Lessons:
+- The very first "did not answer" was the tab lock (more than one window on the origin), not code.
+- Chrome refuses file dialogs from automated clicks: Save / Reopen must be owner clicks.
+- A "worker is installing, reload" step appeared once and cleared with a normal reload. Expected.
+
+Remaining: I4 mobile reload verification + receipt evidence; owner to copy the newest recovery
+file to USB (only copy). Plan: docs/handoffs/2026-09-08-remediation-plan.md.
