@@ -910,8 +910,14 @@
       $('protection-heading').textContent='Protected tutoring tracker';
       $('production-upgrade').hidden=App.repository.ready;
     }
+    // Maintenance mode is no longer offered (owner ruling 2026-09-10); the button only
+    // remains as an exit if the stored flag is ever found on.
     const maintenance=$('toggle-maintenance');
-    if(maintenance) { maintenance.hidden=!App.repository.ready; maintenance.textContent=App.repository.maintenance?'Leave maintenance':'Enter maintenance'; }
+    if(maintenance) maintenance.hidden=!(App.repository.ready && App.repository.maintenance);
+    // Live site: the whole panel is upgrade scaffolding. Hide it once records are
+    // activated unless maintenance mode needs the exit button.
+    const panel=$('protection-panel');
+    if(panel && production()) panel.hidden=App.repository.ready && !App.repository.maintenance;
   }
   function populateReportYears() {
     ['report', 'tax'].forEach(surface => {
@@ -1003,7 +1009,7 @@
         showToast('Fabricated preview initialized. No real records were read.','success');
       }catch(error){showToast(error.message,'error');}
     });
-    $('toggle-maintenance').addEventListener('click',()=>App.runCommand('maintenance.set',{enabled:!App.repository.maintenance},App.repository.revision));
+    $('toggle-maintenance').addEventListener('click',()=>App.runCommand('maintenance.set',{enabled:false},App.repository.revision));
   }
   App.updateProtectionStatus=updateProtectionStatus;
   App.backupData=backupData; App.restoreData=restoreData; App.clearAllData=clearAllData;

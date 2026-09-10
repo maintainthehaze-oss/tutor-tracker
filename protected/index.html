@@ -26,11 +26,14 @@
 </head>
 
 <body>
-  <aside style="padding:12px;border:2px solid #d99b24" aria-live="polite">
+  <!-- Upgrade / rehearsal panel. On the live site it is hidden once records are activated
+       (ui.js updateProtectionStatus); it reappears only if activation is missing or
+       maintenance mode is somehow on. Localhost keeps it for seeding synthetic data. -->
+  <aside id="protection-panel" style="padding:12px;border:2px solid #d99b24" aria-live="polite">
     <strong id="protection-heading">Slice 4 - synthetic local review only. Backup and sync rehearsal; no live migration.</strong>
     <p id="protection-status"></p>
     <button id="initialize-preview" type="button">Initialize fabricated preview</button>
-    <button id="toggle-maintenance" type="button" hidden>Enter maintenance</button>
+    <button id="toggle-maintenance" type="button" hidden>Leave maintenance</button>
     <section id="production-upgrade" hidden>
       <p>Preserve this device's records before starting the protected tracker. Close other tracker tabs first. Cloud sync stays off.</p>
       <button id="prepare-upgrade" type="button">Review device upgrade</button>
