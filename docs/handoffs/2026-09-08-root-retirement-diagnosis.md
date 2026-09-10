@@ -34,9 +34,12 @@ session with that permission allowed. Nothing was written to the repo except thi
 
 ## Outcome (2026-09-09, Cowork session, reported by owner)
 ACTIVATED. Root retirement completed via a NEW recovery save (counts at activation: 122 sessions,
-not 121; one session was added on 9/9 before activation). The earlier
-`tutor-tracker-before-upgrade-private.json` (121 sessions) is now stale; the newer save is the
-authoritative recovery file. Success toast text NOT captured (UNVERIFIED). Live root redirect and
+not 121; one session was added on 9/9 before activation). The earlier 121-session file
+(13,930,117 bytes) no longer exists in Downloads/tutor-tracker-recovery. Two NEW saves are there
+(13,932,511 bytes each, NOT identical, differ at line 8 = likely save timestamp):
+`tutor-tracker-before-upgrade-private.json` 19:49 and `... (1).json` 20:46. The 20:46 file is
+presumably the one used for activation (UNVERIFIED which one the owner picked). Keep both until
+confirmed; copy to USB. Success toast text NOT captured (UNVERIFIED). Live root redirect and
 post-activation dashboard state not independently verified by Claude Code.
 
 Lessons:

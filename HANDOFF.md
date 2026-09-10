@@ -1,6 +1,6 @@
 # HANDOFF
 
-**2026-09-09 (Cowork, owner-reported): DEVICE UPGRADE ACTIVATED (122 sessions). Root retirement live. Newest recovery save in Downloads	utor-tracker-recovery is authoritative; copy to USB. Remaining I4 mobile check. Detail: `docs/handoffs/2026-09-08-root-retirement-diagnosis.md`.**
+**2026-09-09 (Cowork, owner-reported): DEVICE UPGRADE ACTIVATED (122 sessions). Root retirement live. Newest recovery save in Downloads/tutor-tracker-recovery is authoritative; copy to USB. Remaining I4 mobile check. Detail: `docs/handoffs/2026-09-08-root-retirement-diagnosis.md`.**
 
 **2026-09-08 (Fable, NO CODE): Claude Code `/doctor` health check + independent verify. Global setup clean, zero changes. Detail: `docs/handoffs/2026-09-08-doctor-review.md`.**
 
