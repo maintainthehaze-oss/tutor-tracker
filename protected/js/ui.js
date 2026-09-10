@@ -640,7 +640,6 @@
 
         case 'add-session': App.openSessionForm(); break;
         case 'edit-session': App.openSessionForm(id); break;
-        case 'view-session': App.openSessionDetail(id); break;
         case 'delete-session': App.deleteSession(id); break;
         case 'save-session': App.saveSession(); break;
         case 'duplicate-session': App.duplicateSession(id); break;

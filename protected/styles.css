@@ -979,6 +979,53 @@ button.stat-pill:hover { border-color: var(--accent); }
   text-align: right !important;
 }
 
+/* Sessions table: fit to screen. Compact cells, wrap client names, small inline
+   inputs in edit mode. Horizontal scroll stays only as a fallback on narrow windows. */
+#sessions-table th,
+#sessions-table td {
+  padding: 0.45rem 0.45rem;
+}
+#sessions-table .col-check {
+  width: 2rem;
+  padding-left: 0.4rem;
+  padding-right: 0.2rem;
+}
+#sessions-table thead th {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+#sessions-table .col-client {
+  white-space: normal;
+  min-width: 7rem;
+}
+#sessions-table .col-actions {
+  width: auto;
+  white-space: nowrap;
+}
+#sessions-table .col-actions .btn {
+  margin-left: 0.1rem;
+}
+#sessions-table .col-actions .btn-icon {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0.3rem;
+}
+#sessions-table .input-sm {
+  padding: 0.25rem 0.35rem;
+  font-size: 0.82rem;
+  width: auto;
+  max-width: 7.5rem;
+}
+#sessions-table input[type="number"].input-sm {
+  max-width: 4.4rem;
+}
+#sessions-table input[type="time"].input-sm {
+  max-width: 5.4rem;
+}
+#sessions-table select.input-sm {
+  padding-right: 0.2rem;
+}
+
 /* Empty row */
 .empty-row td {
   text-align: center;

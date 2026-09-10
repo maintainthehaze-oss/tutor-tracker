@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-10 (Fable): SESSIONS TABLE FIT-TO-SCREEN + "View details" removed. Pencil now opens the read-only detail for protected rows (openSessionForm already routed there); `view-session` action deleted. New `#sessions-table` CSS block (compact padding, `.col-client` wraps, small inline inputs, 28px icon buttons). Measured on synthetic data: fits at 1024px in normal, split-shown, and edit mode; 1280 comfortable. Horizontal scroll remains only as fallback below ~1000px.**
+
 **2026-09-10 (Fable): ROOT WORKER KILLED. Root `sw.js` is now the same kill switch (clear caches, unregister, reload); root redirect stays plain JS (`protected-redirect.js`). `protected/js/upgrade-shim.js` now unregisters BOTH tracker scopes and deletes all `tutor-*` caches on load. No service workers remain anywhere in the deployed site.**
 
 **2026-09-10 (Fable): UPGRADE PANEL HIDDEN ON LIVE SITE. `#protection-panel` (heading, status line, buttons) is hidden by `updateProtectionStatus` when production && repository.ready && !maintenance. Reappears only if activation is missing ("Device upgrade required") or maintenance flag is on. "Enter maintenance" removed; button is now exit-only ("Leave maintenance"), shown only while maintenance is on. Localhost keeps the panel for "Initialize fabricated preview".**
