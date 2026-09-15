@@ -39,6 +39,13 @@
   function manifests(state) {
     return Object.fromEntries(collections.map(k => [k, Object.fromEntries(state[k].map(r => [P.key(r.id), true]))]));
   }
+  const STATUS_EVENT_VALUES = ['completed','cancelled','no-show'];
+  /** Effective status per session id from append-only status events (last one wins). */
+  function statusOverlay(events) {
+    const out = Object.create(null);
+    (events || []).forEach(ev => { if (ev && ev.type === 'status') out[P.key(ev.sessionId)] = ev.status; });
+    return out;
+  }
   function unchangedRows(originals, rows, label) {
     const byId = index(rows);
     originals.forEach(r => {
@@ -84,10 +91,21 @@
     });
     index(e.events);
     const sessions = index(e.working.sessions), payments = new Set();
+    // Status events: only archived sessions that were still scheduled at activation; the original stays byte-identical.
     e.events.forEach(event => {
+      if (!event || event.type !== 'status') return;
       const key = P.key(event.sessionId), session = sessions[key];
+      if (!session || session.status !== 'scheduled' || !Object.hasOwn(e.archive.manifest.sessions,key) ||
+          !STATUS_EVENT_VALUES.includes(event.status) ||
+          typeof event.recordedAt !== 'string' || !Number.isFinite(Date.parse(event.recordedAt))) throw Error('Invalid status event');
+    });
+    const statuses = statusOverlay(e.events);
+    e.events.forEach(event => {
+      if (event.type === 'status') return;
+      const key = P.key(event.sessionId), session = sessions[key];
+      const status = session && (Object.hasOwn(statuses,key) ? statuses[key] : session.status);
       // Payment events may target archived (pre-activation) or finalized sessions; both stay byte-identical.
-      if (event.type !== 'payment' || !session || session.status !== 'completed' ||
+      if (event.type !== 'payment' || !session || status !== 'completed' ||
           !(Object.hasOwn(e.archive.manifest.sessions,key) || Object.hasOwn(e.finalized,key)) ||
           typeof event.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(event.date) ||
           typeof event.recordedAt !== 'string' || !Number.isFinite(Date.parse(event.recordedAt)) || payments.has(key)) throw Error('Invalid or conflicting payment event');
@@ -430,8 +448,10 @@
       view.sessions = view.sessions.map(s => {
         if (!Array.isArray(s.clientIds)) s.clientIds = Object.hasOwn(s,'clientId') ? [s.clientId] : [];
         if (s.paid == null && (s.paymentStatus != null || s.payment != null)) s.paid = (s.paymentStatus || s.payment) === 'paid';
-        // Payment overlay is a read view only; finalized original is never edited.
-        const event = current.events.filter(e => P.key(e.sessionId) === P.key(s.id)).at(-1);
+        // Status / payment overlays are a read view only; the stored original is never edited.
+        const statusEvent = current.events.filter(e => e.type === 'status' && P.key(e.sessionId) === P.key(s.id)).at(-1);
+        if (statusEvent) { s.status = statusEvent.status; s.statusEvent = true; }
+        const event = current.events.filter(e => e.type !== 'status' && P.key(e.sessionId) === P.key(s.id)).at(-1);
         if (event) { s.paid = true; s.payment = 'paid'; s.paymentDate = event.date; }
         return s;
       });
@@ -496,10 +516,26 @@
             // Archived rows accept payment events too: the original record is never edited, only overlaid on read.
             const rows=select(w.sessions,p.ids);
             if (typeof p.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw Error('Payment date required');
+            const statuses=statusOverlay(draft.events);
             rows.forEach(s => {
-              if (s.paid || draft.events.some(e=>P.key(e.sessionId)===P.key(s.id))) throw Error('Payment already recorded');
-              if (s.status !== 'completed') throw Error('Complete the session before recording a payment');
+              const k=P.key(s.id);
+              if (s.paid || draft.events.some(e=>e.type!=='status'&&P.key(e.sessionId)===k)) throw Error('Payment already recorded');
+              if ((Object.hasOwn(statuses,k)?statuses[k]:s.status) !== 'completed') throw Error('Complete the session before recording a payment');
               draft.events.push({id:crypto.randomUUID(),sessionId:s.id,date:p.date,type:'payment',recordedAt:new Date().toISOString()});
+            }); break;
+          }
+          case 'session.status': {
+            // Pre-activation sessions are read-only, so a scheduled one that later happened (or did not) records
+            // its outcome as an append-only status event; the last event wins so a mistake can be corrected.
+            const rows=select(w.sessions,p.ids);
+            if (!STATUS_EVENT_VALUES.includes(p.status)) throw Error('Invalid session status');
+            const statuses=statusOverlay(draft.events);
+            rows.forEach(s => {
+              const k=P.key(s.id);
+              if (!archived('sessions',s.id) || s.status !== 'scheduled') throw Error('Only pre-activation scheduled sessions take a status event: '+k);
+              if ((Object.hasOwn(statuses,k)?statuses[k]:s.status) === p.status) throw Error('Session is already '+p.status);
+              if (p.status !== 'completed' && draft.events.some(e=>e.type!=='status'&&P.key(e.sessionId)===k)) throw Error('A paid session cannot be changed to '+p.status);
+              draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'status',status:p.status,recordedAt:new Date().toISOString()});
             }); break;
           }
           case 'client.save': {

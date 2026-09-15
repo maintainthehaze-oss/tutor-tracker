@@ -820,6 +820,7 @@
       const target = e.target;
       const action = target.getAttribute('data-action');
       if (action === 'inline-edit') { App.handleInlineEdit(target); return; }
+      if (action === 'archived-status') { App.setArchivedStatus(target); return; }
       if (action === 'filter-sessions') { App.renderSessions(); return; }
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
       if (action === 'report-filter') { App.renderReports(); return; }

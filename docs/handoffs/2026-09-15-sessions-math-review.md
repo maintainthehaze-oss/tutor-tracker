@@ -55,3 +55,28 @@ frozen forever — cannot be completed, cancelled, or paid, and they inflate the
 on purpose. Needs a ruling: (a) allow status events on archived scheduled rows the same append-only way, or (b) MTH re-enters
 them as new sessions and ignores the frozen ones. Unknown whether real data has any; check Sessions tab for Scheduled rows dated
 before 2026-09-09.
+
+## Later same day — pre-activation SCHEDULED sessions get status events (Fable). MTH ruling: "allow status changes on the frozen scheduled ones"
+Files: `protected/js/repository.js`, `report-model.js`, `sessions.js`, `ui.js`, `protected/styles.css`.
+- New append-only event `{type:'status', sessionId, status:'completed'|'cancelled'|'no-show', recordedAt}`. Only valid for
+  archived sessions whose stored status is `scheduled`. Last event wins (so a wrong choice can be corrected). Original row
+  stays byte-identical; `unchangedRows` still enforced. Store validator checks status events first, then requires payment
+  events to target an EFFECTIVE status of completed. `session.payment` uses the effective status and ignores status events
+  when checking "already recorded".
+- New command `session.status {ids, status}`. Refuses non-archived or non-scheduled originals, a no-op status, and any change
+  away from completed once a payment event exists ("A paid session cannot be changed to …").
+- Read view (`repository.read`) overlays `status` and sets `s.statusEvent = true`. `report-model.js` (current mode) now
+  overlays BOTH status and payment events on legacy/archived rows too — before this, the 2026-09-15 archived-payment fix
+  showed paid in the app but Reports/Tax still read those rows as unpaid. captured-v1 untouched (frozen on purpose).
+- `autoCompleteOverdue` second batch: archived scheduled rows dated before today -> `session.status completed`.
+- Sessions row: archived rows that were scheduled at activation show a small `<select class="archived-status">` in the
+  Status column (scheduled / completed / cancelled / no-show; "scheduled" disabled once an event exists). Change ->
+  `App.setArchivedStatus` -> command -> toast. CSS keeps the select at normal row height (measured 42px, same as other rows).
+Browser-verified on a FRESH synthetic activation with fixture session 5 temporarily back-dated to 2026-09-01 (fixture restored
+after, clean diff): load-time auto-complete emitted the status event (owed +$200, projected pill hidden, totals +2h/$200);
+select -> no-show (amount/payment show —, owed drops) -> completed (last wins); Mark paid on the archived+completed row
+worked; select -> cancelled on the paid row refused with toast and select reverted; report-model current: status completed,
+paid, paymentDate; captured-v1: still scheduled/unpaid; original untouched; 4 events persisted and store reopened after
+reload; Reports and Tax tabs render. Unverified: real data, real device.
+Recovery/backup files: events array now may contain `type:'status'` entries. Older app versions would reject such a store
+("Invalid or conflicting payment event") — do not roll back the deployed JS after any status event has been recorded.

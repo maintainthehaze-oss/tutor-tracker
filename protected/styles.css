@@ -1002,6 +1002,12 @@ button.stat-pill:hover { border-color: var(--accent); }
   width: auto;
   white-space: nowrap;
 }
+#sessions-table select.archived-status {
+  width: auto;
+  min-width: 0;
+  padding: 0.15rem 0.3rem;
+  font-size: 0.8rem;
+}
 #sessions-table .col-actions .btn {
   margin-left: 0.1rem;
 }

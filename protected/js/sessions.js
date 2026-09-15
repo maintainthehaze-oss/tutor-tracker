@@ -186,6 +186,15 @@
       : '-';
 
     const protectedRow = App.isProtectedSession(s.id);
+    // Pre-activation sessions that were still scheduled at activation are read-only, so their outcome is
+    // recorded as a status event (last wins). Offer the choice in place of the badge.
+    const archivedScheduled = protectedRow && App.isArchivedRecord('sessions', s.id) && (s.status === 'scheduled' || s.statusEvent);
+    const statusCell = archivedScheduled
+      ? '<select class="input input-sm archived-status" data-action="archived-status" data-id="' + escapeHtml(s.id) + '" title="Record what happened to this scheduled session">' +
+          ['scheduled', 'completed', 'cancelled', 'no-show'].map((v) =>
+            '<option value="' + v + '"' + (s.status === v ? ' selected' : '') + (v === 'scheduled' && s.statusEvent ? ' disabled' : '') + '>' + v + '</option>').join('') +
+        '</select>'
+      : '<span class="' + statusClass + '">' + escapeHtml(s.status || 'completed') + '</span>';
     if (editMode && !protectedRow) {
       return '<tr class="session-row' + (isSelected ? ' selected' : '') + '" data-id="' + escapeHtml(s.id) + '">' +
         '<td class="col-check"><input type="checkbox" data-action="select-session" data-id="' + escapeHtml(s.id) + '"' + (isSelected ? ' checked' : '') + ' aria-label="Select session"></td>' +
@@ -223,7 +232,7 @@
       '<td class="split-info">' + splitDisplay + '</td>' +
       '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
       '<td>' + paymentCell + '</td>' +
-      '<td><span class="' + statusClass + '">' + escapeHtml(s.status || 'completed') + '</span></td>' +
+      '<td>' + statusCell + '</td>' +
       '<td class="col-actions">' +
         (protectedRow && s.status === 'completed' && !s.paid && !App.isWaived(s) ? '<button class="btn btn-sm" data-action="mark-paid" data-id="' + escapeHtml(s.id) + '" title="Mark this session paid">Mark paid</button>' : '') +
         '<button class="btn btn-sm btn-icon" data-action="edit-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="View (read-only record)"' : ' title="Edit"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
@@ -715,18 +724,30 @@
   async function autoCompleteOverdue() {
     if (!App.repository.ready || App.repository.maintenance) return 0;
     const today = todayISO();
+    const past = (s) => s.status === 'scheduled' && typeof s.date === 'string' && s.date < today;
     const overdue = App.state.sessions.filter((s) =>
-      s.status === 'scheduled' && typeof s.date === 'string' && s.date < today &&
-      !App.isProtectedSession(s.id) &&
+      past(s) && !App.isProtectedSession(s.id) &&
       num(s.duration) > 0 && Number.isFinite(Number(s.amount)) && Number(s.amount) >= 0 &&
       Array.isArray(s.clientIds) && s.clientIds.length > 0);
-    if (overdue.length === 0) return 0;
-    const ok = await App.runCommand('session.update',
-      { ids: overdue.map((s) => s.id), patch: { status: 'completed' } }, App.repository.revision);
-    if (!ok) return 0;
-    App.showToast(overdue.length + ' past scheduled session' + (overdue.length === 1 ? '' : 's') +
+    // Pre-activation scheduled sessions are read-only; they complete through an append-only status event.
+    const archivedOverdue = App.state.sessions.filter((s) => past(s) && App.isArchivedRecord('sessions', s.id));
+    let done = 0;
+    if (overdue.length && await App.runCommand('session.update',
+      { ids: overdue.map((s) => s.id), patch: { status: 'completed' } }, App.repository.revision)) done += overdue.length;
+    if (archivedOverdue.length && await App.runCommand('session.status',
+      { ids: archivedOverdue.map((s) => s.id), status: 'completed' }, App.repository.revision)) done += archivedOverdue.length;
+    if (done === 0) return 0;
+    App.showToast(done + ' past scheduled session' + (done === 1 ? '' : 's') +
       ' auto-completed (date has passed)', 'success');
-    return overdue.length;
+    return done;
+  }
+
+  /** Status select on an archived (pre-activation) scheduled row changed. */
+  async function setArchivedStatus(el) {
+    const id = el.getAttribute('data-id'), status = el.value;
+    if (status === 'scheduled') { renderSessions(); return; }
+    const ok = await App.runCommand('session.status', { ids: [id], status }, App.repository.revision);
+    if (ok) App.showToast('Session marked ' + status, 'success'); else renderSessions();
   }
 
   function updateBulkBar() {
@@ -860,6 +881,7 @@
   App.handleInlineEdit = handleInlineEdit;
   App.updateBulkBar = updateBulkBar;
   App.autoCompleteOverdue = autoCompleteOverdue;
+  App.setArchivedStatus = setArchivedStatus;
   App.applySessionFilters = applySessionFilters;
   App.calculateMileage = calculateMileage;
   App.recalc2026Mileage = recalc2026Mileage;
