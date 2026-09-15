@@ -80,3 +80,35 @@ paid, paymentDate; captured-v1: still scheduled/unpaid; original untouched; 4 ev
 reload; Reports and Tax tabs render. Unverified: real data, real device.
 Recovery/backup files: events array now may contain `type:'status'` entries. Older app versions would reject such a store
 ("Invalid or conflicting payment event") — do not roll back the deployed JS after any status event has been recorded.
+
+## Later same day — LOCKED SESSIONS ARE EDITABLE via correction events (Fable). COMMITTED LOCALLY, PUSH PENDING (MTH pushes)
+MTH: "I want to be able to edit past sessions, one is marked as paid but it wasn't yet." Ruling (Fable, veto open): keep the
+read-only originals, add append-only `correction` events instead of removing the locks.
+
+Chokepoint: `App.recordPolicy.applyEvents(record, events)` in `protected/js/record-policy.js` — the ONLY place event overlays
+happen (status, payment, correction; in event order, last wins; sets `statusEvent` / `corrected` flags on the view). Used by
+`repository.read()`, the `session.payment` / `session.status` / `session.correct` commands, and `report-model.js` (current mode;
+captured-v1 untouched). `validateCorrection(fields)` (same file) is shared by the store validator and the command.
+
+- Event: `{id, sessionId, type:'correction', fields:{...}, recordedAt}`. Target must be locked (archived or finalized).
+  Correctable fields: date, time, type, duration, amount, clientIds, address, notes, mileage(+manual/calculated/details),
+  status (completed/cancelled/no-show only — never back to scheduled), paid, payment, paymentDate (null or date).
+- Store validator now checks events STRUCTURALLY only (locked target, stamped, valid payload). Business rules live in the
+  commands, because a later event can legitimately change the effective state (e.g. correction un-pays, then Mark paid again
+  -> a second payment event is valid). `session.payment` and `session.status` check the EFFECTIVE state via applyEvents.
+- New command `session.correct {id, fields}`.
+- UI (`sessions.js`, `index.html`, `ui.js`): pencil on a locked row opens the normal edit form (title "Edit Session (original
+  kept)", note + "View original" button that opens the read-only evidence modal; "scheduled" option disabled). Save computes
+  the diff against what the form showed (defaults for fields older rows omit) and sends only changed fields; nothing changed ->
+  "No changes". Client list now includes the session's own clients even if inactive (they were silently dropped before).
+- NEW "Paid on" date field (`#session-payment-date`, shown when Payment = Paid) for new AND existing sessions — closes finding
+  #3 (payments could not be backdated). Pre-filled with the stored payment date, so an already-paid session keeps its date
+  unless MTH changes it. Inline edit-mode inputs and Delete stay blocked on locked rows (toast points to the pencil).
+- Detail modal heading now "Later events (status, payment, corrections) — separate from the original record".
+Browser-verified on a fresh synthetic activation: archived paid session 1 -> unpaid (owed +$120, original untouched); Mark
+paid again (payment event after correction accepted); "Paid on" backdated to 2026-01-15 -> report current paymentDate
+2026-01-15, captured-v1 still 2026-01-02; amount/notes correction on session 3 (totals +$10); no-change save; finalized
+(non-archived) row -> cancelled via form (row shows —); "View original" opens the evidence modal listing 3 events; inactive
+client kept on the session; store reopened after reload at rev 6; a notes-only edit records only `{notes}`; Reports/Tax/Dashboard
+render; console clean. Unverified: real data, real device.
+Compatibility: same one-way door as status events — older deployed JS rejects a store containing correction events.

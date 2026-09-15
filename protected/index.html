@@ -1114,6 +1114,10 @@
       </header>
       <form class="modal-body" id="session-form" novalidate>
         <div class="form-grid">
+          <div class="form-group form-group-full" id="session-protected-note" hidden>
+            <small class="form-hint">This session is locked. Saving records a correction; the original stays on file.
+              <button type="button" class="btn btn-sm" data-action="view-original">View original</button></small>
+          </div>
           <div class="form-group">
             <label for="session-date">Date <span class="required" aria-label="required">*</span></label>
             <input type="date" id="session-date" class="input" required>
@@ -1173,6 +1177,10 @@
               <option value="paid">Paid</option>
               <option value="waived">Waived</option>
             </select>
+          </div>
+          <div class="form-group" id="session-payment-date-group" hidden>
+            <label for="session-payment-date">Paid on</label>
+            <input type="date" id="session-payment-date" class="input">
           </div>
           <div class="form-group">
             <label for="session-status">Session Status</label>

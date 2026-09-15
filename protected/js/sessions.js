@@ -20,7 +20,7 @@
 
   function rejectProtected(id) {
     if (!App.isProtectedSession(id)) return false;
-    App.showToast('Historical and finalized sessions are read-only. Duplicate to create a new session.', 'warning');
+    App.showToast('Locked session: use the pencil to save a correction, or Duplicate it.', 'warning');
     return true;
   }
 
@@ -384,12 +384,12 @@
       pricingSettings[field] = evidence.settings[field];
     });
     appendEvidence('Original pricing settings (stored fields only)', pricingSettings);
-    appendEvidence('Later payment events — separate from the original record', snapshot.events.filter((event) => String(event.sessionId) === String(id)));
+    appendEvidence('Later events (status, payment, corrections) — separate from the original record', snapshot.events.filter((event) => String(event.sessionId) === String(id)));
     App.openModal('modal-session-detail');
   }
 
   function openSessionForm(id, prefillDate) {
-    if (id && App.isProtectedSession(id)) return openSessionDetail(id);
+    const locked = !!id && App.isProtectedSession(id);
     sessionFormRevision = App.repository.revision;
     const sessions = App.state.sessions;
     const clients = App.state.clients;
@@ -402,12 +402,19 @@
 
     form.reset();
     $('session-id').value = '';
+    const note = $('session-protected-note');
+    if (note) note.hidden = !locked;
+    const editing = id ? sessions.find((ses) => String(ses.id) === String(id)) : null;
+    const editingClientIds = editing && Array.isArray(editing.clientIds) ? editing.clientIds.map(String) : [];
+    // A locked session can only carry a real outcome; it never goes back to scheduled.
+    const scheduledOpt = $('session-status') && $('session-status').querySelector('option[value="scheduled"]');
+    if (scheduledOpt) scheduledOpt.disabled = locked;
 
-    // Populate client dropdown
+    // Populate client dropdown: active clients, plus whoever is on the session being edited (may be inactive now).
     const clientSelect = $('session-clients');
     if (clientSelect) {
       clientSelect.innerHTML = clients
-        .filter((c) => c.status === 'active')
+        .filter((c) => c.status === 'active' || editingClientIds.includes(String(c.id)))
         .sort((a, b) => clientName(a).localeCompare(clientName(b)))
         .map((c) => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c)) +
           ' (' + formatCurrency(c.rate) + '/hr)</option>')
@@ -417,7 +424,7 @@
     if (id) {
       const s = sessions.find((ses) => String(ses.id) === String(id));
       if (!s) return;
-      if (title) title.textContent = 'Edit Session';
+      if (title) title.textContent = locked ? 'Edit Session (original kept)' : 'Edit Session';
       $('session-id').value = s.id;
       $('session-date').value = s.date || '';
       $('session-time').value = s.time || '';
@@ -426,6 +433,7 @@
       $('session-amount').value = s.amount == null ? '' : s.amount;
       $('session-mileage').value = s.mileage || '';
       $('session-payment').value = s.paid ? 'paid' : (s.payment === 'waived' ? 'waived' : 'unpaid');
+      $('session-payment-date').value = s.paymentDate || todayISO();
       $('session-status').value = s.status || 'completed';
       $('session-notes').value = s.notes || '';
 
@@ -440,10 +448,48 @@
       $('session-date').value = prefillDate || todayISO();
       $('session-duration').value = settings.defaultDuration || 1;
       $('session-status').value = 'scheduled';
+      $('session-payment-date').value = todayISO();
     }
 
+    togglePaymentDate();
     App.openModal('modal-session');
     updateSessionPrefill();
+  }
+
+  /** "Paid on" is only meaningful when the payment status is paid. */
+  function togglePaymentDate() {
+    const group = $('session-payment-date-group');
+    if (group) group.hidden = $('session-payment').value !== 'paid';
+  }
+
+  /**
+   * Locked (archived or finalized) sessions are edited through append-only correction events:
+   * only the fields that actually changed are recorded; the original record is never touched.
+   */
+  async function saveCorrection(id, form) {
+    const prev = App.state.sessions.find((s) => String(s.id) === String(id));
+    if (!prev) return false;
+    const fields = {};
+    const same = (a, b) => JSON.stringify(a === undefined ? null : a) === JSON.stringify(b === undefined ? null : b);
+    const prevClientIds = (prev.clientIds || []).map(String);
+    if (!same(form.clientIds.map(String), prevClientIds)) fields.clientIds = form.clientIds;
+    // Compare against what the form showed for the stored record (older rows omit some fields entirely).
+    const shown = { date: prev.date || '', time: prev.time || '', type: prev.type || 'in-person', status: prev.status || 'completed',
+      notes: prev.notes || '', payment: prev.paid ? 'paid' : (prev.payment === 'waived' ? 'waived' : 'unpaid') };
+    Object.keys(shown).forEach((k) => { if (!same(form[k], shown[k])) fields[k] = form[k]; });
+    if (num(form.duration) !== num(prev.duration)) fields.duration = num(form.duration);
+    if (num(form.amount) !== num(prev.amount)) fields.amount = num(form.amount);
+    if (num(form.mileage) !== num(prev.mileage)) { fields.mileage = num(form.mileage); fields.mileageManual = true; }
+    if (form.paid !== !!prev.paid) fields.paid = form.paid;
+    if (!same(form.paymentDate, prev.paymentDate == null ? null : prev.paymentDate)) fields.paymentDate = form.paymentDate;
+    if ('paid' in fields || 'payment' in fields) { fields.paid = form.paid; fields.payment = form.payment; fields.paymentDate = form.paymentDate; }
+    if (Object.keys(fields).length === 0) { App.closeModal('modal-session'); App.showToast('No changes', 'info'); return true; }
+    const saved = await App.runCommand('session.correct', { id, fields }, sessionFormRevision);
+    if (!saved) return false;
+    App.closeModal('modal-session');
+    showMonthOf(form.date);
+    App.showToast('Correction saved; original kept on file', 'success');
+    return true;
   }
 
   /** Most recent completed session for a single client (by date, then createdAt). */
@@ -588,7 +634,12 @@
 
     const id = $('session-id').value;
     const isNew = !id;
-    if (id && rejectProtected(id)) return false;
+    const paidOn = paid ? ($('session-payment-date').value || todayISO()) : null;
+    if (id && App.isProtectedSession(id)) return saveCorrection(id, {
+      date, time: $('session-time').value || '', clientIds: selectedClients, type: $('session-type').value || 'in-person',
+      duration, amount, paid, payment: paymentVal, paymentDate: paidOn, status: $('session-status').value || 'completed',
+      mileage: num($('session-mileage').value), notes: ($('session-notes').value || '').trim(),
+    });
 
     const sessionData = {
       id: id || generateId(),
@@ -600,7 +651,7 @@
       amount,
       paid,
       payment: paymentVal,
-      paymentDate: paid ? todayISO() : null,
+      paymentDate: paidOn,
       status: $('session-status').value || 'completed',
       mileage: num($('session-mileage').value),
       mileageDetails: '',
@@ -630,12 +681,8 @@
       const mileageVal = num($('session-mileage').value);
       sessionData.mileageManual = prev.mileageManual === true ||
         (mileageVal > 0 && mileageVal !== num(prev.mileage));
-      // Cash-basis integrity: editing an ALREADY-paid session must not
-      // re-stamp its payment date (that would move income between tax years).
-      // Only an unpaid -> paid transition gets today's date.
-      if (paid && prev.paid && prev.paymentDate) {
-        sessionData.paymentDate = prev.paymentDate;
-      }
+      // Cash-basis integrity: the "Paid on" field is pre-filled with the stored payment date, so an
+      // already-paid session keeps its date unless the owner deliberately changes it.
 
     }
 
@@ -874,6 +921,7 @@
   App.getSessionMonth = () => sessionMonth;
   App.sessionScopeLabel = sessionScopeLabel;
   App.openSessionForm = openSessionForm;
+  App.togglePaymentDate = togglePaymentDate;
   App.openSessionDetail = openSessionDetail;
   App.saveSession = saveSession;
   App.duplicateSession = duplicateSession;

@@ -99,17 +99,21 @@
           !STATUS_EVENT_VALUES.includes(event.status) ||
           typeof event.recordedAt !== 'string' || !Number.isFinite(Date.parse(event.recordedAt))) throw Error('Invalid status event');
     });
-    const statuses = statusOverlay(e.events);
     e.events.forEach(event => {
       if (event.type === 'status') return;
       const key = P.key(event.sessionId), session = sessions[key];
-      const status = session && (Object.hasOwn(statuses,key) ? statuses[key] : session.status);
-      // Payment events may target archived (pre-activation) or finalized sessions; both stay byte-identical.
-      if (event.type !== 'payment' || !session || status !== 'completed' ||
-          !(Object.hasOwn(e.archive.manifest.sessions,key) || Object.hasOwn(e.finalized,key)) ||
-          typeof event.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(event.date) ||
-          typeof event.recordedAt !== 'string' || !Number.isFinite(Date.parse(event.recordedAt)) || payments.has(key)) throw Error('Invalid or conflicting payment event');
-      payments.add(key);
+      // Payment and correction events may target archived (pre-activation) or finalized sessions; both stay
+      // byte-identical. Business rules (completed before payment, etc.) are enforced by the commands at write
+      // time because a later event can legitimately change the effective state.
+      const locked = !!session && (Object.hasOwn(e.archive.manifest.sessions,key) || Object.hasOwn(e.finalized,key));
+      const stamped = typeof event.recordedAt === 'string' && Number.isFinite(Date.parse(event.recordedAt));
+      if (event.type === 'payment') {
+        if (!locked || !stamped || typeof event.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(event.date)) throw Error('Invalid payment event');
+        payments.add(key);
+      } else if (event.type === 'correction') {
+        if (!locked || !stamped) throw Error('Invalid correction event');
+        P.validateCorrection(event.fields);
+      } else throw Error('Unknown event type');
     });
     e.working.sessions.forEach(row => {
       if (!Object.hasOwn(e.archive.manifest.sessions,P.key(row.id))) {
@@ -448,12 +452,8 @@
       view.sessions = view.sessions.map(s => {
         if (!Array.isArray(s.clientIds)) s.clientIds = Object.hasOwn(s,'clientId') ? [s.clientId] : [];
         if (s.paid == null && (s.paymentStatus != null || s.payment != null)) s.paid = (s.paymentStatus || s.payment) === 'paid';
-        // Status / payment overlays are a read view only; the stored original is never edited.
-        const statusEvent = current.events.filter(e => e.type === 'status' && P.key(e.sessionId) === P.key(s.id)).at(-1);
-        if (statusEvent) { s.status = statusEvent.status; s.statusEvent = true; }
-        const event = current.events.filter(e => e.type !== 'status' && P.key(e.sessionId) === P.key(s.id)).at(-1);
-        if (event) { s.paid = true; s.payment = 'paid'; s.paymentDate = event.date; }
-        return s;
+        // Status / payment / correction overlays are a read view only; the stored original is never edited.
+        return P.applyEvents(s, current.events);
       });
       return freeze(view);
     }
@@ -516,11 +516,10 @@
             // Archived rows accept payment events too: the original record is never edited, only overlaid on read.
             const rows=select(w.sessions,p.ids);
             if (typeof p.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw Error('Payment date required');
-            const statuses=statusOverlay(draft.events);
             rows.forEach(s => {
-              const k=P.key(s.id);
-              if (s.paid || draft.events.some(e=>e.type!=='status'&&P.key(e.sessionId)===k)) throw Error('Payment already recorded');
-              if ((Object.hasOwn(statuses,k)?statuses[k]:s.status) !== 'completed') throw Error('Complete the session before recording a payment');
+              const eff=P.applyEvents(clone(s),draft.events);
+              if (eff.paid) throw Error('Payment already recorded');
+              if (eff.status !== 'completed') throw Error('Complete the session before recording a payment');
               draft.events.push({id:crypto.randomUUID(),sessionId:s.id,date:p.date,type:'payment',recordedAt:new Date().toISOString()});
             }); break;
           }
@@ -534,9 +533,27 @@
               const k=P.key(s.id);
               if (!archived('sessions',s.id) || s.status !== 'scheduled') throw Error('Only pre-activation scheduled sessions take a status event: '+k);
               if ((Object.hasOwn(statuses,k)?statuses[k]:s.status) === p.status) throw Error('Session is already '+p.status);
-              if (p.status !== 'completed' && draft.events.some(e=>e.type!=='status'&&P.key(e.sessionId)===k)) throw Error('A paid session cannot be changed to '+p.status);
+              if (p.status !== 'completed' && P.applyEvents(clone(s),draft.events).paid) throw Error('A paid session cannot be changed to '+p.status);
               draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'status',status:p.status,recordedAt:new Date().toISOString()});
             }); break;
+          }
+          case 'session.correct': {
+            // Locked sessions (archived or finalized) are edited through append-only correction events.
+            // The stored original never changes; the read view overlays the corrections in order.
+            const s=select(w.sessions,[p.id])[0];
+            if (!protectedSession(s.id)) throw Error('Editable session: save it normally');
+            P.validateCorrection(p.fields);
+            draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'correction',fields:clone(p.fields),recordedAt:new Date().toISOString()});
+            break;
+          }
+          case 'session.correct': {
+            // Locked sessions (archived or finalized) are edited through append-only correction events.
+            // The stored original never changes; the read view overlays the corrections in order.
+            const s=select(w.sessions,[p.id])[0];
+            if (!protectedSession(s.id)) throw Error('Editable session: save it normally');
+            P.validateCorrection(p.fields);
+            draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'correction',fields:clone(p.fields),recordedAt:new Date().toISOString()});
+            break;
           }
           case 'client.save': {
             // Company setup is retired. Merge retains existing legacy metadata,

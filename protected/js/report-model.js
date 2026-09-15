@@ -53,11 +53,8 @@
       if (!captured) {
         s.clientIds = unique(s.clientIds.map(String));
         if (!legacy) s.companyAmount = 0;
-        // Append-only events overlay archived and finalized rows alike; the stored original is untouched.
-        const status = e.events.filter(ev => ev.type === 'status' && key(ev.sessionId) === id).at(-1);
-        if (status) s.status = status.status;
-        const payment = e.events.filter(ev => ev.type !== 'status' && key(ev.sessionId) === id).at(-1);
-        if (payment) { s.paid = true; s.payment = 'paid'; s.paymentDate = payment.date; }
+        // Append-only events (status, payment, correction) overlay archived and finalized rows alike; the stored original is untouched.
+        App.recordPolicy.applyEvents(s, e.events);
       }
       for (const field of ['amount','companyAmount','duration','mileage']) {
         if (!validNumber(s[field])) rowWarnings.push('Record ' + id + ': ' + field + ' is ' +

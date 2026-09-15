@@ -640,6 +640,7 @@
 
         case 'add-session': App.openSessionForm(); break;
         case 'edit-session': App.openSessionForm(id); break;
+        case 'view-original': App.openSessionDetail($('session-id').value); break;
         case 'delete-session': App.deleteSession(id); break;
         case 'save-session': App.saveSession(); break;
         case 'duplicate-session': App.duplicateSession(id); break;
@@ -829,6 +830,7 @@
       if (action === 'change-tax-year') { App.renderTaxSummary(); return; }
       if (action === 'search-clients') { App.renderClients(target.value); return; }
       if (target.id === 'session-clients') { App.updateSessionPrefill(); return; }
+      if (target.id === 'session-payment') { App.togglePaymentDate(); return; }
     });
 
     document.body.addEventListener('input', (e) => {
