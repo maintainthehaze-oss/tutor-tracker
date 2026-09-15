@@ -23,7 +23,7 @@ Scope: `protected/js/sessions.js`, `app-core.js` (computeMetrics), `repository.j
 
 Next step: MTH picks which of 1–6 to fix; 1, 2, 5 are mechanical. 3, 4, 7 need a ruling.
 
-## Same day — fixes applied (Fable), UNCOMMITTED, not deployed
+## Same day — fixes applied (Fable). SHIPPED commit 75c8b7b; live ui.js/sessions.js/index.html verified via curl ~140s after push
 MTH rulings: no separate "Record payment" concept (just Mark paid); scheduled sessions auto-complete once the day has passed; fix 6; a family has one rate (7 needs no code: average of equal sibling rates = that rate).
 
 Changes (`protected/index.html`, `protected/js/sessions.js`, `protected/js/ui.js`):
