@@ -33,3 +33,25 @@ Changes (`protected/index.html`, `protected/js/sessions.js`, `protected/js/ui.js
 - Cancelled / no-show rows show "—" for Amount and Payment; Unpaid filter excludes them; Payment sort buckets Paid / Unpaid / Waived.
 Browser-verified on synthetic data: past scheduled row → completed + locked on reload (toast shown), Mark paid flips it and Owed drops, projected pill unchanged, footer aligned in all modes.
 Known pre-existing: archived (imported historical) unpaid sessions have no Mark paid path — `session.payment` rejects archived rows — so the Owed panel's Mark paid errors for them.
+
+## Later same day — archived sessions can now be marked paid (Fable). COMMITTED LOCALLY, NOT PUSHED
+Finding: activation (`stageLegacyActivation` / `activateSynthetic`, `repository.js`) puts EVERY pre-activation record in
+`archive.manifest`, not just imported historical data. So all 122 of MTH's real sessions are "archived", and any that were
+unpaid on 2026-09-09 could never be marked paid: `session.payment` threw "Read-only historical sessions" and the store
+validator rejected payment events for archived ids. The Owed panel's Mark paid errored for those groups.
+
+Fix (invariant preserved: originals stay byte-identical, `unchangedRows` still enforced; payments are append-only events
+overlaid on read):
+- `repository.js` validator: payment event target must be archived OR finalized (was: finalized AND NOT archived).
+- `repository.js` `session.payment`: removed the archived rejection. Status must still be completed; one payment per session.
+- `sessions.js` row: Mark paid button no longer hidden on archived rows; read-only detail shows "Later payment events" for archived rows too.
+Browser-verified on the synthetic store (session 3, archived, completed, unpaid $100): Mark paid -> paid, paymentDate
+stamped, Owed $100 -> $0, original record unchanged, event listed in the detail modal, store reopens after reload with the
+event (validator accepts it). Second Mark paid correctly refused ("Payment already recorded"). Owed-panel group button uses
+the same command (`ui.js` mark-group-paid) — verified by code trace only.
+
+RISK still open: archived SCHEDULED sessions (any session that was still "scheduled" at activation on 2026-09-09) are
+frozen forever — cannot be completed, cancelled, or paid, and they inflate the Projected pill. Auto-complete skips locked rows
+on purpose. Needs a ruling: (a) allow status events on archived scheduled rows the same append-only way, or (b) MTH re-enters
+them as new sessions and ignores the frozen ones. Unknown whether real data has any; check Sessions tab for Scheduled rows dated
+before 2026-09-09.

@@ -86,8 +86,9 @@
     const sessions = index(e.working.sessions), payments = new Set();
     e.events.forEach(event => {
       const key = P.key(event.sessionId), session = sessions[key];
+      // Payment events may target archived (pre-activation) or finalized sessions; both stay byte-identical.
       if (event.type !== 'payment' || !session || session.status !== 'completed' ||
-          Object.hasOwn(e.archive.manifest.sessions,key) || !Object.hasOwn(e.finalized,key) ||
+          !(Object.hasOwn(e.archive.manifest.sessions,key) || Object.hasOwn(e.finalized,key)) ||
           typeof event.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(event.date) ||
           typeof event.recordedAt !== 'string' || !Number.isFinite(Date.parse(event.recordedAt)) || payments.has(key)) throw Error('Invalid or conflicting payment event');
       payments.add(key);
@@ -492,9 +493,8 @@
             const ids=new Set(rows.map(s=>P.key(s.id))); w.sessions=w.sessions.filter(s=>!ids.has(P.key(s.id))); break;
           }
           case 'session.payment': {
+            // Archived rows accept payment events too: the original record is never edited, only overlaid on read.
             const rows=select(w.sessions,p.ids);
-            const locked=rows.filter(s=>archived('sessions',s.id));
-            if (locked.length) throw Error('Read-only historical sessions: '+locked.map(s=>P.key(s.id)).join(', '));
             if (typeof p.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw Error('Payment date required');
             rows.forEach(s => {
               if (s.paid || draft.events.some(e=>P.key(e.sessionId)===P.key(s.id))) throw Error('Payment already recorded');

@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-15 (Fable): ARCHIVED SESSIONS CAN BE MARKED PAID. Activation archives ALL pre-existing records (all 122 real sessions), so pre-activation unpaid sessions had no Mark paid path (Owed panel errored). Payment events now allowed on archived completed rows; originals untouched. COMMITTED LOCALLY, NOT PUSHED — needs "Ship it". OPEN RISK: pre-activation *scheduled* sessions are frozen forever (needs ruling). Detail: `docs/handoffs/2026-09-15-sessions-math-review.md`.**
+
 **2026-09-15 (Fable): SESSIONS MATH REVIEW + FIXES. SHIPPED 2026-09-15 (commit 75c8b7b); live scripts verified. Verified totals correct. Fixed: Totals row alignment, Record payment→Mark paid (hidden on waived), bulk Mark Paid removed, select-all picks only unlocked rows, NEW auto-complete of past-dated scheduled sessions on load (they lock), cancelled/no-show rows show — and leave the Unpaid filter. Browser-verified on synthetic data. Unverified: real device / real data. Detail: `docs/handoffs/2026-09-15-sessions-math-review.md`.**
 
 **2026-09-10 (Fable): SESSIONS TABLE FIT-TO-SCREEN + "View details" removed. Pencil now opens the read-only detail for protected rows (openSessionForm already routed there); `view-session` action deleted. New `#sessions-table` CSS block (compact padding, `.col-client` wraps, small inline inputs, 28px icon buttons). Measured on synthetic data: fits at 1024px in normal, split-shown, and edit mode; 1280 comfortable. Horizontal scroll remains only as fallback below ~1000px.**
