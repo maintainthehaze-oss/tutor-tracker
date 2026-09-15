@@ -422,7 +422,6 @@
       <!-- Bulk Actions Bar -->
       <div class="bulk-actions-bar" id="bulk-actions" hidden aria-label="Bulk actions">
         <span class="bulk-count"><span id="bulk-selected-count">0</span> selected</span>
-        <button class="btn btn-sm" data-action="bulk-mark-paid">Mark Paid</button>
         <button class="btn btn-sm" data-action="bulk-mark-unpaid">Mark Unpaid</button>
         <button class="btn btn-sm btn-danger" data-action="bulk-delete">Delete</button>
         <button class="btn btn-sm" data-action="bulk-deselect">Deselect All</button>
@@ -465,9 +464,11 @@
           </tbody>
           <tfoot id="sessions-tfoot">
             <tr>
-              <td colspan="5"><strong>Totals</strong></td>
+              <td class="col-check" hidden></td>
+              <td colspan="4"><strong>Totals</strong></td>
               <td id="total-duration">0h</td>
               <td id="total-amount">$0</td>
+              <td class="split-info"></td>
               <td id="total-mileage">0 mi</td>
               <td colspan="3"></td>
             </tr>

@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-15 (Fable): SESSIONS MATH REVIEW + FIXES (UNCOMMITTED, not deployed). Verified totals correct. Fixed: Totals row alignment, Record payment→Mark paid (hidden on waived), bulk Mark Paid removed, select-all picks only unlocked rows, NEW auto-complete of past-dated scheduled sessions on load (they lock), cancelled/no-show rows show — and leave the Unpaid filter. Browser-verified on synthetic data. Next gate: MTH "Ship it" → commit + push. Detail: `docs/handoffs/2026-09-15-sessions-math-review.md`.**
+
 **2026-09-10 (Fable): SESSIONS TABLE FIT-TO-SCREEN + "View details" removed. Pencil now opens the read-only detail for protected rows (openSessionForm already routed there); `view-session` action deleted. New `#sessions-table` CSS block (compact padding, `.col-client` wraps, small inline inputs, 28px icon buttons). Measured on synthetic data: fits at 1024px in normal, split-shown, and edit mode; 1280 comfortable. Horizontal scroll remains only as fallback below ~1000px.**
 
 **2026-09-10 (Fable): ROOT WORKER KILLED. Root `sw.js` is now the same kill switch (clear caches, unregister, reload); root redirect stays plain JS (`protected-redirect.js`). `protected/js/upgrade-shim.js` now unregisters BOTH tracker scopes and deletes all `tutor-*` caches on load. No service workers remain anywhere in the deployed site.**

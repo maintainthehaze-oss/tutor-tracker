@@ -672,18 +672,13 @@
           break;
         case 'select-all-sessions':
           if (target.checked) {
-            App.applySessionFilters().forEach((s) => App.state.selectedSessions.add(s.id));
+            // Only rows that actually have a checkbox (locked rows cannot be bulk-edited).
+            App.applySessionFilters().filter((s) => !App.isProtectedSession(s.id)).forEach((s) => App.state.selectedSessions.add(s.id));
           } else {
             App.state.selectedSessions.clear();
           }
           App.renderSessions();
           break;
-        case 'bulk-mark-paid': {
-          if(await App.runCommand('session.payment',{ids:[...App.state.selectedSessions],date:todayISO()},App.repository.revision)) {
-            App.state.selectedSessions.clear(); App.renderSessions(); showToast('Payments recorded', 'success');
-          }
-          break;
-        }
         case 'bulk-mark-unpaid': {
           if(await App.runCommand('session.update',{ids:[...App.state.selectedSessions],patch:{paid:false,payment:'unpaid',paymentDate:null}},App.repository.revision)) {
             App.state.selectedSessions.clear(); App.renderSessions(); showToast('Scheduled sessions updated', 'success');
@@ -703,8 +698,8 @@
           App.state.selectedSessions.clear();
           App.renderSessions();
           break;
-        case 'record-payment':
-          if(await App.runCommand('session.payment',{ids:[id],date:todayISO()},App.repository.revision)) showToast('Payment recorded separately','success');
+        case 'mark-paid':
+          if(await App.runCommand('session.payment',{ids:[id],date:todayISO()},App.repository.revision)) showToast('Marked paid','success');
           break;
         case 'quick-complete':
           if(await App.runCommand('session.update',{ids:[id],patch:{status:'completed'}},App.repository.revision)) showToast('Session finalized','success');
@@ -974,6 +969,8 @@
     setupEventDelegation(); setupReceiptDragDrop();
     App.repository.subscribe(()=>{App.refreshReadViews();populateReportYears();updateProtectionStatus();});
     try { await App.loadData(); } catch(error) { showToast(error.message,'error'); }
+    // Scheduled sessions whose date has passed become completed (owner ruling 2026-09-15).
+    try { await App.autoCompleteOverdue(); } catch(error) { showToast('Auto-complete skipped: ' + error.message,'warning'); }
     populateReportYears();
     updateProtectionStatus(); App.updateSyncUI();
     if(production()) {

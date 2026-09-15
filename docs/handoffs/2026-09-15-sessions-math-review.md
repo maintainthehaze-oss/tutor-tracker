@@ -1,0 +1,35 @@
+# 2026-09-15 — Sessions tab math / status review (Fable, NO CODE CHANGES)
+
+Scope: `protected/js/sessions.js`, `app-core.js` (computeMetrics), `repository.js` session commands,
+`ui.js` bulk/payment handlers, `report-model.js` rate(). Verified on localhost synthetic fixture
+(`.claude/launch.json` → `protected-static`, python http.server; fixture auto-loads at `/`).
+
+## Verified correct (synthetic data, all-time view)
+- Totals: hours 5h30m, realized $380 (waived $50 excluded), miles 20.0, projected +$245.50 (waived scheduled $500 excluded). All match hand calculation.
+- Owed by family $100 = the one completed unpaid session. Multi-client sessions split evenly; owed/report rollups agree.
+- IRS mileage rates 2024/2025/2026 = 0.67/0.70/0.725 in BOTH `App.MILEAGE_RATES` and `reportModel.rate()`; deduction = miles x year rate.
+- Payment date preserved on re-edit of an already-paid session; unpaid→paid stamps today.
+- Every non-scheduled session is finalized on save (read-only). Payments on finalized rows go through append-only `session.payment` events.
+
+## Findings (unfixed)
+1. Totals row misaligned in the DEFAULT view (`protected/index.html` ~L468). `colspan="5"` assumes the checkbox column is visible; with checkbox hidden (normal mode) and Split collapsed (default), Duration total sits under Amount, Amount under Mileage, Miles under Payment. Measured via getBoundingClientRect. Aligns only in Edit Mode with Split hidden. Fix: `<td class="col-check" hidden></td><td colspan="4">Totals</td>…<td class="split-info"></td>…`.
+2. Bulk "Mark Paid" can never succeed: only scheduled rows get checkboxes (everything else is finalized/locked) and `session.payment` requires status completed. Verified toast: "Complete the session before recording a payment". Also `select-all-sessions` (`ui.js` L673) adds ALL filtered ids incl. locked → "10 selected" with 2 checkboxes; Delete / Mark Unpaid then fail for the whole batch.
+3. Payment date cannot be backdated: `record-payment`, `mark-group-paid`, `bulk-mark-paid` all use `todayISO()`. Cash-basis tax gross keys on paymentDate → late entry moves income across tax years.
+4. `dashboard.js` L139 claims past-dated scheduled sessions auto-complete on load; no such code exists anywhere in `protected/js`. Overdue scheduled sessions never become revenue/owed and inflate Projected indefinitely.
+5. "Record payment" button shows on Waived sessions (condition is only `!s.paid`, `sessions.js` renderSessionRow).
+6. Cancelled / No-show rows show an "Unpaid" badge and their Amount but are excluded from totals/owed (status gate). Math consistent, display misleading. No-show fees (if ever charged) are never revenue.
+7. Auto amount for multi-client sessions = AVERAGE client rate x duration (not sum). Business-rule question. Reports per-client $/hr gives each client full hours but a revenue share, so client vs family tables disagree (`reports.js` L184).
+8. Minor: `formatDuration(1.999)` → "1h 60m" (quarter-hour inputs safe); `formatCurrency(-5)` → "$-5.00"; Payment sort treats Waived as Unpaid; legacy Split shows "0% / $40.00" when percent missing; form's calc-mileage button is dead (always warns).
+
+Next step: MTH picks which of 1–6 to fix; 1, 2, 5 are mechanical. 3, 4, 7 need a ruling.
+
+## Same day — fixes applied (Fable), UNCOMMITTED, not deployed
+MTH rulings: no separate "Record payment" concept (just Mark paid); scheduled sessions auto-complete once the day has passed; fix 6; a family has one rate (7 needs no code: average of equal sibling rates = that rate).
+
+Changes (`protected/index.html`, `protected/js/sessions.js`, `protected/js/ui.js`):
+- Totals row: `<td class="col-check" hidden>` + `colspan="4"` + empty `.split-info` cell → aligned in normal, edit, and split-shown modes (measured via getBoundingClientRect).
+- Row button "Record payment" → "Mark paid" (`data-action="mark-paid"`), hidden on waived rows; toast "Marked paid". Bulk "Mark Paid" button + handler removed. Select-all now adds only unlocked rows.
+- `App.autoCompleteOverdue()` (sessions.js) runs in `ui.js init()` right after `loadData()`: scheduled + date < today + valid + unlocked → `session.update {status:'completed'}` in one batch, toast with count. Skips in maintenance mode. RISK: auto-completed sessions lock; a session that did not happen must be cancelled on or before its date.
+- Cancelled / no-show rows show "—" for Amount and Payment; Unpaid filter excludes them; Payment sort buckets Paid / Unpaid / Waived.
+Browser-verified on synthetic data: past scheduled row → completed + locked on reload (toast shown), Mark paid flips it and Owed drops, projected pill unchanged, footer aligned in all modes.
+Known pre-existing: archived (imported historical) unpaid sessions have no Mark paid path — `session.payment` rejects archived rows — so the Owed panel's Mark paid errors for them.

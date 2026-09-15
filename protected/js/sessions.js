@@ -174,7 +174,13 @@
 
     const splitAmount = num(s.companyAmount);
 
-    let amountDisplay = formatCurrency(s.amount);
+    // Cancelled / no-show sessions carry no charge (owner ruling 2026-09-15):
+    // show a dash instead of an amount and a payment state.
+    const noCharge = s.status === 'cancelled' || s.status === 'no-show';
+    const amountDisplay = noCharge ? '<span title="No charge">&mdash;</span>' : formatCurrency(s.amount);
+    const paymentCell = noCharge
+      ? '<span title="No charge: session did not happen">&mdash;</span>'
+      : '<span class="payment-badge ' + paymentClass + '">' + paymentLabel + '</span>';
     const splitDisplay = splitAmount > 0
       ? escapeHtml(num(s.companySplit)) + '% / ' + formatCurrency(splitAmount)
       : '-';
@@ -216,10 +222,10 @@
       '<td>' + amountDisplay + '</td>' +
       '<td class="split-info">' + splitDisplay + '</td>' +
       '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
-      '<td><span class="payment-badge ' + paymentClass + '">' + paymentLabel + '</span></td>' +
+      '<td>' + paymentCell + '</td>' +
       '<td><span class="' + statusClass + '">' + escapeHtml(s.status || 'completed') + '</span></td>' +
       '<td class="col-actions">' +
-        (protectedRow && !App.isArchivedRecord('sessions',s.id) && s.status === 'completed' && !s.paid ? '<button class="btn btn-sm" data-action="record-payment" data-id="' + escapeHtml(s.id) + '">Record payment</button>' : '') +
+        (protectedRow && !App.isArchivedRecord('sessions',s.id) && s.status === 'completed' && !s.paid && !App.isWaived(s) ? '<button class="btn btn-sm" data-action="mark-paid" data-id="' + escapeHtml(s.id) + '" title="Mark this session paid">Mark paid</button>' : '') +
         '<button class="btn btn-sm btn-icon" data-action="edit-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="View (read-only record)"' : ' title="Edit"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
         '<button class="btn btn-sm btn-icon" data-action="duplicate-session" data-id="' + escapeHtml(s.id) + '" title="Duplicate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
         '<button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' disabled title="Read-only record"' : ' title="Delete"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
@@ -255,7 +261,7 @@
     if (dateEnd) filtered = filtered.filter((s) => s.date <= dateEnd);
     if (clientId) filtered = filtered.filter((s) => (s.clientIds || []).some((cid) => String(cid) === String(clientId)));
     if (payment === 'paid') filtered = filtered.filter((s) => s.paid === true);
-    else if (payment === 'unpaid') filtered = filtered.filter((s) => !s.paid && s.payment !== 'waived');
+    else if (payment === 'unpaid') filtered = filtered.filter((s) => !s.paid && s.payment !== 'waived' && s.status !== 'cancelled' && s.status !== 'no-show');
     else if (payment === 'waived') filtered = filtered.filter((s) => s.payment === 'waived');
     if (status) filtered = filtered.filter((s) => s.status === status);
 
@@ -287,8 +293,8 @@
         case 'amount':
           return (num(a.amount) - num(b.amount)) * mult;
         case 'payment':
-          va = a.paid ? 'a' : 'b';
-          vb = b.paid ? 'a' : 'b';
+          va = a.paid ? 'a' : (a.payment === 'waived' ? 'c' : 'b');
+          vb = b.paid ? 'a' : (b.payment === 'waived' ? 'c' : 'b');
           return va < vb ? -1 * mult : va > vb ? 1 * mult : 0;
         case 'status':
           return (a.status || '').localeCompare(b.status || '') * mult;
@@ -701,6 +707,30 @@
     return saved;
   }
 
+  /**
+   * Scheduled sessions dated before today are treated as having happened and
+   * flip to completed on load (owner ruling 2026-09-15). Completed sessions
+   * lock, so a session that did NOT happen must be cancelled on or before its
+   * date. Rows that would fail validation are left alone rather than blocking
+   * the whole batch.
+   */
+  async function autoCompleteOverdue() {
+    if (!App.repository.ready || App.repository.maintenance) return 0;
+    const today = todayISO();
+    const overdue = App.state.sessions.filter((s) =>
+      s.status === 'scheduled' && typeof s.date === 'string' && s.date < today &&
+      !App.isProtectedSession(s.id) &&
+      num(s.duration) > 0 && Number.isFinite(Number(s.amount)) && Number(s.amount) >= 0 &&
+      Array.isArray(s.clientIds) && s.clientIds.length > 0);
+    if (overdue.length === 0) return 0;
+    const ok = await App.runCommand('session.update',
+      { ids: overdue.map((s) => s.id), patch: { status: 'completed' } }, App.repository.revision);
+    if (!ok) return 0;
+    App.showToast(overdue.length + ' past scheduled session' + (overdue.length === 1 ? '' : 's') +
+      ' auto-completed (date has passed)', 'success');
+    return overdue.length;
+  }
+
   function updateBulkBar() {
     const selectedSessions = App.state.selectedSessions;
     const bar = $('bulk-actions');
@@ -831,6 +861,7 @@
   App.deleteSession = deleteSession;
   App.handleInlineEdit = handleInlineEdit;
   App.updateBulkBar = updateBulkBar;
+  App.autoCompleteOverdue = autoCompleteOverdue;
   App.applySessionFilters = applySessionFilters;
   App.calculateMileage = calculateMileage;
   App.recalc2026Mileage = recalc2026Mileage;
