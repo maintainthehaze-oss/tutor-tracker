@@ -34,7 +34,7 @@ Changes (`protected/index.html`, `protected/js/sessions.js`, `protected/js/ui.js
 Browser-verified on synthetic data: past scheduled row → completed + locked on reload (toast shown), Mark paid flips it and Owed drops, projected pill unchanged, footer aligned in all modes.
 Known pre-existing: archived (imported historical) unpaid sessions have no Mark paid path — `session.payment` rejects archived rows — so the Owed panel's Mark paid errors for them.
 
-## Later same day — archived sessions can now be marked paid (Fable). COMMITTED LOCALLY, NOT PUSHED
+## Later same day — archived sessions can now be marked paid (Fable). SHIPPED commit d9c56d0; live files verified via curl ~40s after push
 Finding: activation (`stageLegacyActivation` / `activateSynthetic`, `repository.js`) puts EVERY pre-activation record in
 `archive.manifest`, not just imported historical data. So all 122 of MTH's real sessions are "archived", and any that were
 unpaid on 2026-09-09 could never be marked paid: `session.payment` threw "Read-only historical sessions" and the store
