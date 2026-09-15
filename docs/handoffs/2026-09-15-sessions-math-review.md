@@ -81,7 +81,7 @@ reload; Reports and Tax tabs render. Unverified: real data, real device.
 Recovery/backup files: events array now may contain `type:'status'` entries. Older app versions would reject such a store
 ("Invalid or conflicting payment event") — do not roll back the deployed JS after any status event has been recorded.
 
-## Later same day — LOCKED SESSIONS ARE EDITABLE via correction events (Fable). COMMITTED LOCALLY, PUSH PENDING (MTH pushes)
+## Later same day — LOCKED SESSIONS ARE EDITABLE via correction events (Fable). SHIPPED commit 7077e7d; live files verified via curl ~60s after push
 MTH: "I want to be able to edit past sessions, one is marked as paid but it wasn't yet." Ruling (Fable, veto open): keep the
 read-only originals, add append-only `correction` events instead of removing the locks.
 
