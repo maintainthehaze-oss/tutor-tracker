@@ -56,7 +56,7 @@ on purpose. Needs a ruling: (a) allow status events on archived scheduled rows t
 them as new sessions and ignores the frozen ones. Unknown whether real data has any; check Sessions tab for Scheduled rows dated
 before 2026-09-09.
 
-## Later same day — pre-activation SCHEDULED sessions get status events (Fable). MTH ruling: "allow status changes on the frozen scheduled ones"
+## Later same day — pre-activation SCHEDULED sessions get status events (Fable). SHIPPED commit de52f44; live files verified via curl ~60s after push. MTH ruling: "allow status changes on the frozen scheduled ones"
 Files: `protected/js/repository.js`, `report-model.js`, `sessions.js`, `ui.js`, `protected/styles.css`.
 - New append-only event `{type:'status', sessionId, status:'completed'|'cancelled'|'no-show', recordedAt}`. Only valid for
   archived sessions whose stored status is `scheduled`. Last event wins (so a wrong choice can be corrected). Original row
