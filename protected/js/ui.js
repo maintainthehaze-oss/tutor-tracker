@@ -248,6 +248,8 @@
       businessAddress: ($('settings-business-address').value || '').trim(),
       mileageRate: num($('settings-irs-rate').value),
       defaultDuration: num($('settings-default-duration').value),
+      // Stored locally only; the sync allowlist never sends it (see SECURITY-PRIVACY.md).
+      orsApiKey: ($('settings-ors-key').value || '').trim(),
       autoSync: 'off'
     };
     if(await App.runCommand('settings.update',{patch},settingsRevision)) {
@@ -708,16 +710,7 @@
         case 'quick-noshow':
           if(await App.runCommand('session.update',{ids:[id],patch:{status:'no-show'}},App.repository.revision)) showToast('Session finalized as no-show','success');
           break;
-        case 'calc-mileage':
-          showToast('Automatic mileage is unavailable in this protected preview. Enter mileage before completion.','warning');
-          break;
-        case 'recalc-2026-mileage':
-          showConfirm(
-            'Recalculate 2026 Mileage',
-            'This recomputes per-leg driving miles for all 2026 in-person sessions (in drive order) and overwrites their current mileage. Previous years and historical data are NOT affected. Continue?',
-            () => { App.recalc2026Mileage(); }
-          );
-          break;
+        case 'calc-mileage': App.calcFormMileage(); break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
 
         case 'add-expense': App.openExpenseForm(); break;

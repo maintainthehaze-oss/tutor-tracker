@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://api.openrouteservice.org; object-src 'none'; base-uri 'self';">
   <meta name="description" content="Tutoring Tracker Pro — track clients, sessions, expenses, mileage, and taxes for your tutoring business.">
   <meta name="theme-color" content="#1a1a2e">
 
@@ -1318,8 +1318,7 @@
                 <small class="form-hint">Free at <a href="https://openrouteservice.org" target="_blank" rel="noopener">openrouteservice.org</a> &mdash; enables automatic mileage calculation</small>
               </div>
               <div class="form-group form-group-full">
-                <button type="button" class="btn btn-sm" data-action="recalc-2026-mileage">Recalculate 2026 Mileage</button>
-                <small class="form-hint">Recomputes per-leg driving miles (in drive order) for 2026 in-person sessions only. Previous years and historical data are not touched.</small>
+                <small class="form-hint">Use the pin button next to Mileage in the session form: it fills in round-trip driving miles from your Business Address to the client's address. You can edit the number before saving. Existing sessions are never recalculated in bulk.</small>
               </div>
             </div>
           </fieldset>

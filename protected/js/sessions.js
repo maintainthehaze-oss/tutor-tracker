@@ -401,6 +401,7 @@
     if (!modal || !form) return;
 
     form.reset();
+    delete $('session-mileage').dataset.details;
     $('session-id').value = '';
     const note = $('session-protected-note');
     if (note) note.hidden = !locked;
@@ -479,7 +480,11 @@
     Object.keys(shown).forEach((k) => { if (!same(form[k], shown[k])) fields[k] = form[k]; });
     if (num(form.duration) !== num(prev.duration)) fields.duration = num(form.duration);
     if (num(form.amount) !== num(prev.amount)) fields.amount = num(form.amount);
-    if (num(form.mileage) !== num(prev.mileage)) { fields.mileage = num(form.mileage); fields.mileageManual = true; }
+    if (num(form.mileage) !== num(prev.mileage)) {
+      fields.mileage = num(form.mileage);
+      fields.mileageManual = !form.mileageDetails;
+      if (form.mileageDetails) fields.mileageDetails = form.mileageDetails;
+    }
     if (form.paid !== !!prev.paid) fields.paid = form.paid;
     if (!same(form.paymentDate, prev.paymentDate == null ? null : prev.paymentDate)) fields.paymentDate = form.paymentDate;
     if ('paid' in fields || 'payment' in fields) { fields.paid = form.paid; fields.payment = form.payment; fields.paymentDate = form.paymentDate; }
@@ -638,7 +643,8 @@
     if (id && App.isProtectedSession(id)) return saveCorrection(id, {
       date, time: $('session-time').value || '', clientIds: selectedClients, type: $('session-type').value || 'in-person',
       duration, amount, paid, payment: paymentVal, paymentDate: paidOn, status: $('session-status').value || 'completed',
-      mileage: num($('session-mileage').value), notes: ($('session-notes').value || '').trim(),
+      mileage: num($('session-mileage').value), mileageDetails: $('session-mileage').dataset.details || '',
+      notes: ($('session-notes').value || '').trim(),
     });
 
     const sessionData = {
@@ -654,11 +660,12 @@
       paymentDate: paidOn,
       status: $('session-status').value || 'completed',
       mileage: num($('session-mileage').value),
-      mileageDetails: '',
+      // Set by the form's auto-calc button; typing in the field clears it.
+      mileageDetails: $('session-mileage').dataset.details || '',
       // Mileage is entered before finalization; no background writes follow.
       mileageCalculated: num($('session-mileage').value) > 0,
-      // Hand-entered mileage is FINAL: day recalcs must never overwrite it.
-      mileageManual: num($('session-mileage').value) > 0,
+      // Hand-entered mileage is FINAL: nothing may overwrite it.
+      mileageManual: num($('session-mileage').value) > 0 && !$('session-mileage').dataset.details,
       address: primaryClient ? primaryClient.address : '',
       notes: ($('session-notes').value || '').trim(),
       ...(isNew ? { recurring: null, createdAt: new Date().toISOString() } : {}),
@@ -679,8 +686,9 @@
       // manual (frozen against day recalcs) if it was already manual, or the
       // user actually CHANGED the value in this edit.
       const mileageVal = num($('session-mileage').value);
-      sessionData.mileageManual = prev.mileageManual === true ||
-        (mileageVal > 0 && mileageVal !== num(prev.mileage));
+      const mileageAuto = !!$('session-mileage').dataset.details;
+      sessionData.mileageManual = !mileageAuto && (prev.mileageManual === true ||
+        (mileageVal > 0 && mileageVal !== num(prev.mileage)));
       // Cash-basis integrity: the "Paid on" field is pre-filled with the stored payment date, so an
       // already-paid session keeps its date unless the owner deliberately changes it.
 
@@ -808,50 +816,53 @@
   }
 
   /* ==========================================================
-     MILEAGE CALCULATION
+     MILEAGE CALCULATION (OpenRouteService; per session, on demand)
      ========================================================== */
 
-  async function geocode(address) {
-    const settings = App.state.settings;
-    if (!address || !settings.orsApiKey) return null;
+  const ORS_BASE = 'https://api.openrouteservice.org';
+
+  // Key goes in the Authorization header, never the query string: URLs leak
+  // into browser history, referrers and network logs.
+  async function orsFetch(path, options) {
+    let resp;
     try {
-      // Key goes in the Authorization header, never the query string: URLs leak
-      // into browser history, referrers and network logs. Matches routeDist().
-      const url = 'https://api.openrouteservice.org/geocode/search?text=' +
-        encodeURIComponent(address) +
-        '&size=1&boundary.country=US';
-      const resp = await fetch(url, { headers: { Authorization: settings.orsApiKey } });
-      const data = await resp.json();
-      if (data.features && data.features.length > 0) {
-        const coords = data.features[0].geometry.coordinates;
-        return [coords[0], coords[1]]; // [lng, lat]
-      }
+      resp = await fetch(ORS_BASE + path, options);
     } catch (e) {
-      console.error('Geocode error:', e);
+      // ORS answers a bad/missing key with 401/403 and NO CORS headers, so the
+      // browser reports it as a network failure. Cover both causes.
+      throw new Error('Could not reach OpenRouteService. Check the API key in Settings, or your connection.');
+    }
+    if (resp.status === 401 || resp.status === 403) throw new Error('OpenRouteService rejected the API key. Check it in Settings.');
+    if (resp.status === 429) throw new Error('OpenRouteService rate limit reached. Try again in a minute.');
+    if (!resp.ok) throw new Error('OpenRouteService error (HTTP ' + resp.status + ').');
+    return resp.json();
+  }
+
+  /** [lng, lat] for an address, or null when ORS cannot find it. Throws on key/network errors. */
+  async function geocode(address) {
+    const key = App.state.settings.orsApiKey;
+    const data = await orsFetch('/geocode/search?text=' + encodeURIComponent(address) + '&size=1&boundary.country=US',
+      { headers: { Authorization: key } });
+    if (data.features && data.features.length > 0) {
+      const coords = data.features[0].geometry.coordinates;
+      return [coords[0], coords[1]]; // [lng, lat]
     }
     return null;
   }
 
+  /** One-way driving miles, or null when ORS has no route (caller falls back to an estimate). */
   async function routeDist(coords1, coords2) {
-    const settings = App.state.settings;
-    if (!settings.orsApiKey) return null;
+    const key = App.state.settings.orsApiKey;
     try {
-      const resp = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
+      const data = await orsFetch('/v2/directions/driving-car', {
         method: 'POST',
-        headers: {
-          Authorization: settings.orsApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          coordinates: [coords1, coords2],
-        }),
+        headers: { Authorization: key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coordinates: [coords1, coords2] }),
       });
-      const data = await resp.json();
-      if (data.routes && data.routes.length > 0) {
-        return data.routes[0].summary.distance / 1609.34; // meters to miles
-      }
+      if (data.routes && data.routes.length > 0) return data.routes[0].summary.distance / 1609.34; // meters to miles
     } catch (e) {
-      console.error('Route error:', e);
+      if (/API key|rate limit/.test(e.message)) throw e;
+      console.warn('Route lookup failed; using straight-line estimate:', e);
     }
     return null;
   }
@@ -867,53 +878,67 @@
     return R * c;
   }
 
-  function fallbackDist(addr1, addr2) {
-    if (!addr1 || !addr2) return 0;
-    const city1 = (addr1.split(',')[1] || '').trim().toLowerCase();
-    const city2 = (addr2.split(',')[1] || '').trim().toLowerCase();
-    if (city1 && city2 && city1 === city2) return 3;
-    return 8;
-  }
-
+  /**
+   * Round-trip miles from the Business Address to `address`.
+   * Resolves { miles, method }: method 'route' (ORS driving directions) or
+   * 'estimate' (straight-line x 1.3 road factor when no route is returned).
+   * Rejects with a user-facing message when it cannot compute. Never guesses
+   * without an API key: a made-up figure would flow into the tax deduction.
+   */
   async function calculateMileage(address) {
     const settings = App.state.settings;
-    if (!address) return 0;
-    const homeAddr = settings.businessAddress;
-    if (!homeAddr) return 0;
+    const homeAddr = (settings.businessAddress || '').trim();
+    const dest = (address || '').trim();
+    if (!homeAddr) throw new Error('Set your Business Address in Settings first.');
+    if (!dest) throw new Error('This client has no address on file. Add it on the Clients tab.');
+    if (!settings.orsApiKey) throw new Error('Add your OpenRouteService API key in Settings to calculate driving miles.');
+    const homeCoords = await geocode(homeAddr);
+    if (!homeCoords) throw new Error('Could not locate your Business Address. Check it in Settings.');
+    const destCoords = await geocode(dest);
+    if (!destCoords) throw new Error('Could not locate the client address: ' + dest);
+    const dist = await routeDist(homeCoords, destCoords);
+    if (dist != null) return { miles: Math.round(dist * 2 * 10) / 10, method: 'route' };
+    const hv = haversine(homeCoords[1], homeCoords[0], destCoords[1], destCoords[0]);
+    return { miles: Math.round(hv * 1.3 * 2 * 10) / 10, method: 'estimate' };
+  }
 
-    // Try ORS API first
-    if (settings.orsApiKey) {
-      try {
-        const homeCoords = await geocode(homeAddr);
-        const destCoords = await geocode(address);
-        if (homeCoords && destCoords) {
-          const dist = await routeDist(homeCoords, destCoords);
-          if (dist != null) return Math.round(dist * 2 * 10) / 10; // Round trip
-
-          // Fallback to haversine
-          const hvDist = haversine(homeCoords[1], homeCoords[0], destCoords[1], destCoords[0]);
-          return Math.round(hvDist * 1.3 * 2 * 10) / 10; // *1.3 road factor, round trip
-        }
-      } catch (e) {
-        console.error('Mileage calc error:', e);
-      }
+  /** Session-form pin button: fill the Mileage field from the first selected client's address.
+   *  The value stays editable; saving records how it was derived in mileageDetails. */
+  async function calcFormMileage() {
+    const input = $('session-mileage');
+    const btn = document.querySelector('[data-action="calc-mileage"]');
+    if (!input) return false;
+    const clientSelect = $('session-clients');
+    const selected = clientSelect ? Array.from(clientSelect.selectedOptions).map((o) => o.value) : [];
+    if (selected.length === 0) { App.showToast('Select a client first', 'warning'); return false; }
+    if (($('session-type').value || 'in-person') === 'online') {
+      App.showToast('Online session: no travel. Change Session Type to In Person to calculate mileage.', 'warning');
+      return false;
     }
-
-    // Crude fallback
-    return fallbackDist(homeAddr, address) * 2;
+    const client = App.state.clients.find((c) => String(c.id) === String(selected[0]));
+    const address = client ? (client.address || '').trim() : '';
+    if (btn) btn.disabled = true;
+    try {
+      const result = await calculateMileage(address);
+      input.value = result.miles;
+      input.dataset.details = (result.method === 'route' ? 'Driving route' : 'Straight-line estimate (x1.3 road factor)') +
+        ', round trip: ' + App.state.settings.businessAddress.trim() + ' <-> ' + address;
+      App.showToast(result.miles.toFixed(1) + ' mi round trip' +
+        (result.method === 'route' ? '' : ' (estimate; no driving route found)') + '. Edit before saving if needed.',
+        result.method === 'route' ? 'success' : 'warning');
+      return true;
+    } catch (e) {
+      App.showToast(e.message || 'Mileage calculation failed', 'error');
+      return false;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
-  // Bulk/day recalculation stays unavailable until complete proposed routes can be
-  // validated and committed atomically. Manual mileage is saved with the form.
-  async function autoCalcDayMileage() {
-    App.showToast('Automatic mileage recalculation is unavailable. Enter mileage before finalizing a new session.', 'warning');
-    return false;
-  }
-
-  async function recalc2026Mileage() {
-    App.showToast('Historical mileage is read-only. Bulk recalculation is unavailable.', 'warning');
-    return false;
-  }
+  // Typing over an auto-calculated figure makes it hand-entered again.
+  document.addEventListener('input', (e) => {
+    if (e.target && e.target.id === 'session-mileage') delete e.target.dataset.details;
+  });
 
   // Expose to App namespace
   App.renderSessions = renderSessions;
@@ -932,8 +957,7 @@
   App.setArchivedStatus = setArchivedStatus;
   App.applySessionFilters = applySessionFilters;
   App.calculateMileage = calculateMileage;
-  App.recalc2026Mileage = recalc2026Mileage;
-  App.autoCalcDayMileage = autoCalcDayMileage;
+  App.calcFormMileage = calcFormMileage;
   App.sessionSort = sessionSort;
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
