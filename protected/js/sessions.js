@@ -217,7 +217,7 @@
           '<option value="cancelled"' + (s.status === 'cancelled' ? ' selected' : '') + '>Cancelled</option>' +
           '<option value="no-show"' + (s.status === 'no-show' ? ' selected' : '') + '>No Show</option>' +
         '</select></td>' +
-        '<td class="col-actions"><button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' disabled title="Read-only record"' : ' title="Delete"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>' +
+        '<td class="col-actions"><button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="Locked: kept on file. Click to cancel it instead"' : ' title="Delete"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></td>' +
       '</tr>';
     }
 
@@ -237,7 +237,7 @@
         (protectedRow && s.status === 'completed' && !s.paid && !App.isWaived(s) ? '<button class="btn btn-sm" data-action="mark-paid" data-id="' + escapeHtml(s.id) + '" title="Mark this session paid">Mark paid</button>' : '') +
         '<button class="btn btn-sm btn-icon" data-action="edit-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="View (read-only record)"' : ' title="Edit"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
         '<button class="btn btn-sm btn-icon" data-action="duplicate-session" data-id="' + escapeHtml(s.id) + '" title="Duplicate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
-        '<button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' disabled title="Read-only record"' : ' title="Delete"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
+        '<button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="Locked: kept on file. Click to cancel it instead"' : ' title="Delete"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
       '</td>' +
     '</tr>';
   }
@@ -732,11 +732,32 @@
     return true;
   }
 
+  /** Trash can on a locked row: deletion is impossible (append-only evidence), so offer a cancel
+   *  correction instead. The original stays on file; the row drops out of revenue, hours and miles. */
+  function voidLockedSession(s) {
+    if (['cancelled', 'no-show'].includes(s.status)) {
+      App.showToast('Locked session is already ' + s.status + '. It stays on file and does not count.', 'info');
+      return;
+    }
+    if (s.paid) {
+      App.showToast('This session is marked paid. Use the pencil to un-pay it first, then cancel it.', 'warning');
+      return;
+    }
+    const revision = App.repository.revision;
+    App.showConfirm('Cancel locked session',
+      'Locked sessions are kept on file and cannot be deleted. Mark the ' + formatDate(s.date) +
+      ' session as cancelled instead? It drops out of revenue, hours and miles; the original stays on file.',
+      async () => {
+        if (!await App.runCommand('session.correct', { id: s.id, fields: { status: 'cancelled' } }, revision)) return;
+        App.showToast('Session cancelled; original kept on file', 'success');
+      });
+  }
+
   function deleteSession(id) {
-    if (rejectProtected(id)) return;
     const revision = App.repository.revision;
     const s = App.state.sessions.find((ses) => String(ses.id) === String(id));
     if (!s) return;
+    if (App.isProtectedSession(id)) { voidLockedSession(s); return; }
     App.showConfirm('Delete Session', 'Delete this session from ' + formatDate(s.date) + '?', async () => {
       if (!await App.runCommand('session.delete', { ids: [id] }, revision)) return;
       App.state.selectedSessions.delete(id);

@@ -1766,6 +1766,12 @@ select.input[multiple] {
   color: #fff;
 }
 
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .btn-ghost {
   background: transparent;
   border-color: transparent;

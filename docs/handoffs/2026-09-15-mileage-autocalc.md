@@ -114,3 +114,26 @@ corrected), two-stop day: leg 1 = 26.1, leg 2 + return = 114.5. 5 days routed wi
 revision unchanged. UNVERIFIED: real ORS key; MTH's 35 real sessions (his fill values will be
 rewritten as day legs on the next run of the Settings tool).
 SHIPPED 2026-09-15 (commit 2c38893); live files verified via curl.
+
+## Follow-up 3 (same day): trash can on locked rows
+
+MTH (after "Mileage set on 35 sessions across 20 days" on live data with a real key): "When I hit
+the red trash can, it's still not deleting the sessions." Root cause is a UX trap, not a bug in
+delete: the session form defaults Status to Completed, so every new session locks on save, and the
+trash button was rendered `disabled` with no disabled styling, so it looked red and clickable but
+the click never reached the handler (no toast, nothing).
+
+Fix (`protected/js/sessions.js`, `protected/styles.css`):
+- Trash on a locked row is now clickable (title "Locked: kept on file. Click to cancel it instead")
+  and calls `voidLockedSession(s)`: already cancelled/no-show -> info toast; paid -> warning ("un-pay
+  it first" via the pencil); otherwise a confirm that explains deletion is impossible and offers to
+  mark it cancelled via a `session.correct` {status:'cancelled'} event (original kept; drops out of
+  revenue, hours, miles). Unlocked rows delete as before.
+- New CSS `.btn:disabled, .btn[disabled] { opacity: .45; cursor: not-allowed }` so any remaining
+  disabled buttons (pin while routing, read-only view) look disabled.
+- Ruling: true deletion of locked rows stays off (MTH's append-only evidence policy, one-way door).
+
+Verified on localhost: locked unpaid completed row -> confirm text -> row shows cancelled, still
+locked, correction recorded; locked paid row -> warning, status unchanged; already-cancelled locked
+row -> info toast; unlocked rows unaffected; disabled opacity 0.45 after reload. Note: styles.css is
+not cache-busted, so a hard refresh is needed to see the dimming.
