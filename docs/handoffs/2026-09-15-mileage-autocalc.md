@@ -43,4 +43,5 @@ next to Mileage in the session form only showed an "unavailable" toast, and the 
 
 ## Next
 - MTH: enter Business Address + ORS key in Settings on the live site after deploy, then try the
-  pin on a new in-person session. "Ship it" required to push.
+  pin on a new in-person session.
+- SHIPPED 2026-09-15 (commit bfe7a7f, pushed after MTH created the deploy-gate file); live files verified via curl.
