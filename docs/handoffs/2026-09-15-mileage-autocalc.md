@@ -113,3 +113,4 @@ corrected), two-stop day: leg 1 = 26.1, leg 2 + return = 114.5. 5 days routed wi
 (Leg 1 of 3) and "1 other session that day will change". Re-run: "0 sessions ... 6 already correct",
 revision unchanged. UNVERIFIED: real ORS key; MTH's 35 real sessions (his fill values will be
 rewritten as day legs on the next run of the Settings tool).
+SHIPPED 2026-09-15 (commit 2c38893); live files verified via curl.
