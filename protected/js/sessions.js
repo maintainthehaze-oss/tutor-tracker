@@ -838,14 +838,18 @@
     return resp.json();
   }
 
-  /** [lng, lat] for an address, or null when ORS cannot find it. Throws on key/network errors. */
+  /** [lng, lat] for an address, or null when ORS cannot find it. Throws on key/network errors.
+   *  Successful lookups are cached for the page session so bulk fills geocode each address once. */
+  const geocodeCache = new Map();
   async function geocode(address) {
+    if (geocodeCache.has(address)) return geocodeCache.get(address);
     const key = App.state.settings.orsApiKey;
     const data = await orsFetch('/geocode/search?text=' + encodeURIComponent(address) + '&size=1&boundary.country=US',
       { headers: { Authorization: key } });
     if (data.features && data.features.length > 0) {
       const coords = data.features[0].geometry.coordinates;
-      return [coords[0], coords[1]]; // [lng, lat]
+      geocodeCache.set(address, [coords[0], coords[1]]); // [lng, lat]
+      return geocodeCache.get(address);
     }
     return null;
   }
@@ -921,8 +925,7 @@
     try {
       const result = await calculateMileage(address);
       input.value = result.miles;
-      input.dataset.details = (result.method === 'route' ? 'Driving route' : 'Straight-line estimate (x1.3 road factor)') +
-        ', round trip: ' + App.state.settings.businessAddress.trim() + ' <-> ' + address;
+      input.dataset.details = mileageFields(result, address).mileageDetails;
       App.showToast(result.miles.toFixed(1) + ' mi round trip' +
         (result.method === 'route' ? '' : ' (estimate; no driving route found)') + '. Edit before saving if needed.',
         result.method === 'route' ? 'success' : 'warning');
@@ -939,6 +942,90 @@
   document.addEventListener('input', (e) => {
     if (e.target && e.target.id === 'session-mileage') delete e.target.dataset.details;
   });
+
+  function mileageFields(result, address) {
+    return {
+      mileage: result.miles, mileageCalculated: true, mileageManual: false,
+      mileageDetails: (result.method === 'route' ? 'Driving route' : 'Straight-line estimate (x1.3 road factor)') +
+        ', round trip: ' + App.state.settings.businessAddress.trim() + ' <-> ' + address,
+    };
+  }
+
+  /** Settings tool: fill round-trip miles on in-person sessions that have none.
+   *  Existing miles are never touched. Locked sessions get append-only correction events. */
+  async function fillMissingMileage() {
+    const settings = App.state.settings;
+    if (!(settings.businessAddress || '').trim()) { App.showToast('Set your Business Address (above) and save first.', 'warning'); return false; }
+    if (!settings.orsApiKey) { App.showToast('Add your OpenRouteService API key and save first.', 'warning'); return false; }
+    const clients = App.state.clients;
+    const groups = new Map(); // client address -> sessions needing miles
+    let skipped = 0;
+    App.state.sessions.forEach((s) => {
+      if (num(s.mileage) > 0) return;
+      if ((s.type || 'in-person') === 'online') return;
+      if (!['completed', 'scheduled'].includes(s.status || 'completed')) return;
+      const client = clients.find((c) => String(c.id) === String((s.clientIds || [])[0]));
+      const address = client ? (client.address || '').trim() : '';
+      if (!address) { skipped++; return; }
+      if (!groups.has(address)) groups.set(address, []);
+      groups.get(address).push(s);
+    });
+    const total = [...groups.values()].reduce((n, g) => n + g.length, 0);
+    const skippedNote = skipped ? ' ' + skipped + ' skipped because the client has no address on file.' : '';
+    if (total === 0) {
+      App.showToast('Nothing to fill: every in-person session already has miles.' + skippedNote, 'info');
+      return false;
+    }
+    App.showConfirm('Fill missing mileage',
+      total + ' session' + (total === 1 ? '' : 's') + ' at ' + groups.size + ' address' + (groups.size === 1 ? '' : 'es') +
+      ' will get round-trip driving miles from your Business Address. Sessions that already have miles are never changed;' +
+      ' locked sessions keep their original on file.' + skippedNote +
+      ' This sends ' + (groups.size + 1) + ' addresses to OpenRouteService. Continue?',
+      () => runFillMissingMileage(groups));
+    return true;
+  }
+
+  async function runFillMissingMileage(groups) {
+    const btn = document.querySelector('[data-action="fill-missing-mileage"]');
+    const label = btn ? btn.textContent : '';
+    if (btn) btn.disabled = true;
+    let filled = 0, unlocated = 0, i = 0;
+    const corrections = [];
+    try {
+      for (const [address, rows] of groups) {
+        i++;
+        if (btn) btn.textContent = 'Calculating ' + i + ' of ' + groups.size + '...';
+        let result;
+        try {
+          result = await calculateMileage(address);
+        } catch (e) {
+          if (/Could not locate the client address/.test(e.message)) { unlocated += rows.length; continue; }
+          throw e; // key, network or Business Address problems abort the whole run
+        }
+        const fields = mileageFields(result, address);
+        rows.forEach((s) => { if (App.isProtectedSession(s.id)) corrections.push({ id: s.id, fields }); });
+        const unlocked = rows.filter((s) => !App.isProtectedSession(s.id)).map((s) => s.id);
+        if (unlocked.length) {
+          if (!await App.runCommand('session.update', { ids: unlocked, patch: fields }, App.repository.revision)) return false;
+          filled += unlocked.length;
+        }
+        // Free ORS tier allows 40 directions calls a minute; pace long runs.
+        if (i < groups.size) await new Promise((r) => setTimeout(r, groups.size > 30 ? 1600 : 250));
+      }
+      if (corrections.length) {
+        if (!await App.runCommand('session.correctMany', { items: corrections }, App.repository.revision)) return false;
+        filled += corrections.length;
+      }
+      App.showToast('Filled mileage on ' + filled + ' session' + (filled === 1 ? '' : 's') + '.' +
+        (unlocated ? ' ' + unlocated + ' skipped: address not found.' : ''), filled ? 'success' : 'warning');
+      return true;
+    } catch (e) {
+      App.showToast(e.message || 'Mileage fill failed', 'error');
+      return false;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
+  }
 
   // Expose to App namespace
   App.renderSessions = renderSessions;
@@ -958,6 +1045,7 @@
   App.applySessionFilters = applySessionFilters;
   App.calculateMileage = calculateMileage;
   App.calcFormMileage = calcFormMileage;
+  App.fillMissingMileage = fillMissingMileage;
   App.sessionSort = sessionSort;
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;

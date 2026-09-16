@@ -546,13 +546,17 @@
             draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'correction',fields:clone(p.fields),recordedAt:new Date().toISOString()});
             break;
           }
-          case 'session.correct': {
-            // Locked sessions (archived or finalized) are edited through append-only correction events.
-            // The stored original never changes; the read view overlays the corrections in order.
-            const s=select(w.sessions,[p.id])[0];
-            if (!protectedSession(s.id)) throw Error('Editable session: save it normally');
-            P.validateCorrection(p.fields);
-            draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'correction',fields:clone(p.fields),recordedAt:new Date().toISOString()});
+          case 'session.correctMany': {
+            // Same append-only correction event as session.correct, for many locked sessions in ONE
+            // revision (used by Settings > Fill missing mileage). All-or-nothing: any bad item throws
+            // before the draft is sealed.
+            if (!Array.isArray(p.items) || !p.items.length) throw Error('Corrections required');
+            p.items.forEach(item => {
+              const s=select(w.sessions,[item.id])[0];
+              if (!protectedSession(s.id)) throw Error('Editable session: save it normally');
+              P.validateCorrection(item.fields);
+              draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'correction',fields:clone(item.fields),recordedAt:new Date().toISOString()});
+            });
             break;
           }
           case 'client.save': {

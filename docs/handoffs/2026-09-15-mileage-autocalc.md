@@ -45,3 +45,33 @@ next to Mileage in the session form only showed an "unavailable" toast, and the 
 - MTH: enter Business Address + ORS key in Settings on the live site after deploy, then try the
   pin on a new in-person session.
 - SHIPPED 2026-09-15 (commit bfe7a7f, pushed after MTH created the deploy-gate file); live files verified via curl.
+
+## Follow-up (same day): "Fill missing mileage" + delete question
+
+MTH: "how can we fix other sessions where it hasn't been calculated" and "now I can't delete a session".
+
+**Delete**: not a regression. The trash icon is disabled (title "Read-only record") on every locked
+row: pre-activation archived sessions and any session finalized as completed/cancelled/no-show
+(repository `finalize()` runs on save when status != scheduled). Unlocked (scheduled) rows delete
+normally; verified on localhost (Sep 20 scheduled row deleted, confirm text correct, locked row's
+button disabled). Ruling: keep the lock (MTH's own append-only evidence policy from earlier today);
+the way to void a wrong locked session is pencil -> Status = cancelled, which drops it from revenue,
+hours and miles.
+
+**Fill missing mileage** (Settings > Mileage Calculation):
+- `protected/js/sessions.js` `fillMissingMileage()`: candidates = sessions with 0 miles, type not
+  online, status completed or scheduled, first client has an address. Grouped by address; confirm
+  dialog states sessions/addresses/skipped counts and that N+1 addresses go to ORS. One geocode +
+  one route per distinct address (geocode results cached per page load). Unlocked rows ->
+  `session.update` per address group; locked rows -> one `session.correctMany` (append-only
+  correction events, originals untouched). Key/network/home-address errors abort; "address not
+  found" skips that group. Paced 250 ms (1.6 s when > 30 addresses) for the free ORS tier.
+- `protected/js/repository.js`: new `session.correctMany` (same validation as `session.correct`,
+  all-or-nothing, one revision). Also removed a duplicated, unreachable `case 'session.correct'`.
+- `protected/js/ui.js` action `fill-missing-mileage`; `protected/index.html` button + hint.
+
+Verified on localhost with mocked ORS: 2 candidates at 1 address (one locked completed, one unlocked
+scheduled), 2 skipped (client without address); ORS calls = 2 geocodes + 1 route; locked row got a
+correction (mileage 74.6, mileageManual false, details string), unlocked row updated in place; rows
+with existing miles (10/4/6) unchanged; online row untouched; second run says "Nothing to fill".
+UNVERIFIED: real ORS key; runs > 30 addresses (pacing untested against the live rate limit).

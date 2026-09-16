@@ -711,6 +711,7 @@
           if(await App.runCommand('session.update',{ids:[id],patch:{status:'no-show'}},App.repository.revision)) showToast('Session finalized as no-show','success');
           break;
         case 'calc-mileage': App.calcFormMileage(); break;
+        case 'fill-missing-mileage': App.fillMissingMileage(); break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
 
         case 'add-expense': App.openExpenseForm(); break;
