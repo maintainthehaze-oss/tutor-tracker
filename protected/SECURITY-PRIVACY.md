@@ -64,13 +64,13 @@ finding. Update it whenever a data flow or finding changes.
 2. **OpenRouteService** (`js/sessions.js`, mileage auto-calc) → only when the
    owner clicks the pin button in the session form; sends the home base
    address and that one client's address for geocoding/routing, plus the ORS
-   key. Settings > "Fill missing mileage" does the same for each DISTINCT
-   client address among in-person sessions with 0 miles (one geocode + one
-   route per address, after an explicit confirm that states the count). The
-   key travels in the Authorization header for both calls (never the URL).
-   The key is stored in local settings only and is excluded from the sync
-   allowlist above. Nothing runs in the background; existing miles are never
-   overwritten.
+   key. Settings > "Calculate mileage by day" does the same for each DISTINCT
+   address among the days being routed (one geocode per address, one route
+   per distinct address pair, after an explicit confirm that states the
+   counts). The key travels in the Authorization header for both calls
+   (never the URL). The key is stored in local settings only and is excluded
+   from the sync allowlist above. Nothing runs in the background; hand-entered
+   miles are never overwritten.
 3. **CDNs (inbound only)** — chart.js, jsPDF, jspdf-autotable, all from
    cdn.jsdelivr.net with SRI integrity hashes; Google Fonts. No app data is
    sent; scripts/fonts are fetched.

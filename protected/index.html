@@ -1318,11 +1318,11 @@
                 <small class="form-hint">Free at <a href="https://openrouteservice.org" target="_blank" rel="noopener">openrouteservice.org</a> &mdash; enables automatic mileage calculation</small>
               </div>
               <div class="form-group form-group-full">
-                <small class="form-hint">Use the pin button next to Mileage in the session form: it fills in round-trip driving miles from your Business Address to the client's address. You can edit the number before saving.</small>
+                <small class="form-hint">Use the pin button next to Mileage in the session form: it works out that session's leg of the day's drive (home, each session in time order, then home). A lone session gets the full round trip. You can edit the number before saving.</small>
               </div>
               <div class="form-group form-group-full">
-                <button type="button" class="btn btn-sm" data-action="fill-missing-mileage">Fill missing mileage</button>
-                <small class="form-hint">Adds round-trip miles to every in-person session that has none (0 mi), using each client's address. Sessions that already have miles are never changed. Save your address and key above first.</small>
+                <button type="button" class="btn btn-sm" data-action="calc-mileage-by-day">Calculate mileage by day</button>
+                <small class="form-hint">Routes every day in drive order and gives each in-person session its own leg. Fills sessions with 0 mi and corrects earlier auto-calculated values. Hand-entered miles are never changed. Save your address and key above first.</small>
               </div>
             </div>
           </fieldset>

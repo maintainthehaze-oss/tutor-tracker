@@ -76,3 +76,40 @@ correction (mileage 74.6, mileageManual false, details string), unlocked row upd
 with existing miles (10/4/6) unchanged; online row untouched; second run says "Nothing to fill".
 UNVERIFIED: real ORS key; runs > 30 addresses (pacing untested against the live rate limit).
 SHIPPED 2026-09-15 (commit 053730e); live files verified via curl.
+
+## Follow-up 2 (same day): day-sequential legs (MTH caught the double count)
+
+MTH: "the Ventorinos have different mileage when they're the only session that day. Please check that
+multiple sessions in one day are mapped sequentially." Correct: the fill gave EVERY session a full
+home-and-back round trip, so two sessions on one day double-counted the home legs. The retired root
+app (`js/sessions.js` computeDayMileage) routed each day home -> s1 -> ... -> sn -> home, credited each
+stop the leg that arrived at it, added the return leg to the last stop, never overwrote manual
+values, and never wrote a guess. Ported those exact rules into `protected/js/sessions.js`:
+
+- `sessionAddress(s)`: stored session address, else the first of its clients with an address
+  (family sessions = one stop, one address).
+- `dayStops(date)`: in-person (not online), completed or scheduled, sorted by time (blank first).
+- `planDay(stops)`: legs via `routeMiles(from,to)` (real ORS route only; geocode + route caches per
+  page load; same-address consecutive stops = 0). Details string "Leg i of n [+ return home]
+  (driving route, day order)". The haversine estimate and the round-trip helper are gone.
+- Writable = `isAutoMileage(s)`: mileageManual !== true AND (0 mi OR details from THIS tool:
+  "Driving route, round trip:", "Straight-line estimate", or the new "Leg ... (driving route, day
+  order)"). Root-app "Leg n of m (real route)" values and hand-entered values are never written,
+  but they still shape the day's route. Unchanged values (< 0.05 mi) are not rewritten.
+- Settings button renamed "Calculate mileage by day" (action `calc-mileage-by-day`,
+  `App.calculateMileageByDay`): candidates = days with any writable in-person session, all years;
+  confirm states days/sessions/addresses; fatal ORS errors abort, a day with a missing address or no
+  route is skipped (console lists them); unlocked -> `session.update` per row, locked -> one
+  `session.correctMany`.
+- Pin button is day-aware: inserts the form's session (date/time/first client address) into that
+  day's stops, fills its leg, and warns when other auto sessions that day would change (run the
+  Settings tool after saving). No background writes (policy).
+
+Verified on localhost, mocked ORS with deterministic pair distances, expected values computed
+independently from the mock: lone Springfield day 52.1 (x2 sessions on different days), lone
+New Haven day 88.5 (x2, including the two 74.6 round-trip values from the earlier fill, both
+corrected), two-stop day: leg 1 = 26.1, leg 2 + return = 114.5. 5 days routed with 3 geocodes and
+5 route calls (pair cache). Rows with 10/4/6 mi untouched. Pin on a new 08:00 stop that day: 44.2
+(Leg 1 of 3) and "1 other session that day will change". Re-run: "0 sessions ... 6 already correct",
+revision unchanged. UNVERIFIED: real ORS key; MTH's 35 real sessions (his fill values will be
+rewritten as day legs on the next run of the Settings tool).
