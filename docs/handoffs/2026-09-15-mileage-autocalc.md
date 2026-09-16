@@ -75,3 +75,4 @@ scheduled), 2 skipped (client without address); ORS calls = 2 geocodes + 1 route
 correction (mileage 74.6, mileageManual false, details string), unlocked row updated in place; rows
 with existing miles (10/4/6) unchanged; online row untouched; second run says "Nothing to fill".
 UNVERIFIED: real ORS key; runs > 30 addresses (pacing untested against the live rate limit).
+SHIPPED 2026-09-15 (commit 053730e); live files verified via curl.
