@@ -19,14 +19,26 @@ function documentStub() {
 function recordingDocument() {
   const elements = new Map();
   const element = () => {
-    const attributes = new Map();
-    return { textContent: '', innerHTML: '', title: '', hidden: false, value: '', placeholder: '', dataset: {}, options: [], selectedOptions: [],
-      classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
+    const attributes = new Map(), classes = new Set(), listeners = {};
+    return { textContent: '', innerHTML: '', title: '', hidden: false, value: '', placeholder: '', dataset: {}, options: [], selectedOptions: [], listeners,
+      classList: { add: (...names) => names.forEach(n => classes.add(n)), remove: (...names) => names.forEach(n => classes.delete(n)), contains: n => classes.has(n),
+        toggle(name, force) { const on = force === undefined ? !classes.has(name) : !!force; if (on) classes.add(name); else classes.delete(name); return on; } },
       setAttribute(k, v) { attributes.set(k, String(v)); }, getAttribute: k => (attributes.has(k) ? attributes.get(k) : null),
-      reset() {}, focus() {}, querySelector: () => null, querySelectorAll: () => [], appendChild() {}, addEventListener() {} };
+      reset() {}, focus() {}, click() {}, querySelector: () => element(), querySelectorAll: () => [], closest: () => null, appendChild() {}, removeChild() {},
+      addEventListener(name, fn) { (listeners[name] = listeners[name] || []).push(fn); } };
   };
   return { ...documentStub(), elements,
     getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); } };
+}
+
+/** Controllable clock for the vm context: `new Date()` and Date.now() read `clock.now` (ms). */
+function fakeClock(startLocalIso) {
+  const clock = { now: new Date(startLocalIso).getTime() };
+  class FakeDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [clock.now])); }
+    static now() { return clock.now; }
+  }
+  return { clock, Date: FakeDate };
 }
 
 /** In-memory localStorage so UI-preference code can be exercised without a browser. */
@@ -44,28 +56,34 @@ function memoryStorage(initial = {}) {
  * Build a vm context and run the named protected/js modules in order.
  * `sources` lets a mutation test substitute altered source text for one module.
  */
-function loadApp(modules, { sources = {}, globals = {} } = {}) {
+function loadContext(modules, { sources = {}, globals = {} } = {}) {
   const context = vm.createContext({
     window: {}, document: documentStub(), crypto: webcrypto, TextEncoder, console,
     location: { hostname: 'localhost' }, indexedDB: {}, setTimeout, Date, ...globals,
   });
-  for (const name of modules) {
-    vm.runInContext(sources[name] ?? readSource('js/' + name + '.js'), context, { filename: name + '.js' });
-  }
-  return context.window.App;
+  const run = names => names.forEach(name =>
+    vm.runInContext(sources[name] ?? readSource('js/' + name + '.js'), context, { filename: name + '.js' }));
+  run(modules);
+  return { context, run };
 }
+const loadApp = (modules, options) => loadContext(modules, options).context.window.App;
 
-/** App with an activated in-memory repository seeded from fabricated `data`. */
-async function activate(modules, data, options) {
-  const App = loadApp(modules, options);
-  let stored = null;
+/**
+ * App with an in-memory repository. Seeded from fabricated `data` (activated as a synthetic store), or,
+ * when `options.stored` is given, reopened from that previously saved envelope (a simulated page reload).
+ * `run(['ui'])` loads further modules afterwards, once the repository is the in-memory one.
+ */
+async function activate(modules, data, options = {}) {
+  const { context, run } = loadContext(modules, options), App = context.window.App;
+  let stored = options.stored == null ? null : JSON.parse(JSON.stringify(options.stored));
   App.repository = App.Repository.create({
     read: async () => (stored == null ? stored : JSON.parse(JSON.stringify(stored))),
     compareAndSwap: async (_, next) => { stored = JSON.parse(JSON.stringify(next)); },
   });
-  await App.repository.activateSynthetic(JSON.stringify(data), { definition: 'fabricated test evidence' });
+  if (stored) await App.repository.open();
+  else await App.repository.activateSynthetic(JSON.stringify(data), { definition: 'fabricated test evidence' });
   if (App.refreshReadViews) App.refreshReadViews();
-  return { App, disk: () => JSON.parse(JSON.stringify(stored)) };
+  return { App, context, run, disk: () => JSON.parse(JSON.stringify(stored)) };
 }
 
 const command = (repo, name, payload) => repo.execute(name, payload, repo.revision);
@@ -78,4 +96,4 @@ function stubUi(App) {
   return toasts;
 }
 
-module.exports = { root, readSource, documentStub, recordingDocument, memoryStorage, loadApp, activate, command, stubUi };
+module.exports = { root, readSource, documentStub, recordingDocument, fakeClock, memoryStorage, loadApp, activate, command, stubUi };

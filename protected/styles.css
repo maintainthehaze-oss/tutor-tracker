@@ -292,6 +292,12 @@ button.stat-pill:hover { border-color: var(--accent); }
 .stat-pill-owed.has-owed { border-color: var(--color-warning); background: var(--color-warning-bg); }
 .stat-pill-owed.has-owed .stat-value { color: var(--color-warning); }
 .stat-pill-owed:not(.has-owed) .stat-value { color: var(--color-success); }
+/* .stat-pill sets display:flex, which would otherwise beat the hidden attribute. */
+.stat-pill[hidden] { display: none; }
+/* Backup pill: quiet when recent, amber at 7 days or 10 saved changes since the last backup. */
+.stat-pill-backup .stat-value { color: var(--color-success); }
+.stat-pill-backup.is-amber { border-color: var(--color-warning); background: var(--color-warning-bg); }
+.stat-pill-backup.is-amber .stat-value { color: var(--color-warning); }
 
 /* Header buttons */
 .header-btn {

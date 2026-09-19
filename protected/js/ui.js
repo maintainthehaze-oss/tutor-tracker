@@ -28,10 +28,38 @@
 
   async function backupData() {
     try {
+      // Revision and time are read BEFORE the export so the file name and the bookkeeping describe the same records.
+      const revision = App.repository.revision, now = Date.now();
       const json = await (production() ? App.repository.exportPrivateRecovery() : App.repository.exportPortable());
-      downloadFile(json, production() ? 'tutor-tracker-private-recovery.json' : 'synthetic-protected-backup-v2.json', 'application/json');
+      downloadFile(json, App.backupStatus.backupFilename(now, revision, production()), 'application/json');
+      // Bookkeeping only ({revision, date} in a per-device UI key); recorded only after a successful export.
+      App.backupStatus.recordBackup(revision, now);
+      refreshBackupStatus();
       showToast(production() ? 'Private recovery saved. Keep this file on your device; it may contain credentials.' : 'Protected backup downloaded. Connection settings stay on this device.', 'success');
     } catch(error) { showToast(error.message, 'error'); }
+  }
+
+  /* Backup safety net (audit 2026-09-19): header pill + at-most-daily reminder banner.
+     All decisions come from the pure functions in backup-status.js; this only paints them. */
+  let storagePersisted = null;
+  function refreshBackupStatus() {
+    const B = App.backupStatus, now = Date.now();
+    const state = B.backupState(B.readMeta(), App.repository.ready ? App.repository.revision : null, now);
+    const pill = $('header-backup-pill'), value = $('header-backup');
+    if (pill) {
+      pill.hidden = state.level === 'hidden';
+      pill.classList.toggle('is-amber', state.level === 'amber');
+      pill.title = state.title + (storagePersisted === false ? ' Note: this browser has not marked the tracker\'s storage as persistent.' : '');
+    }
+    if (value) value.textContent = state.label;
+    // The banner is only ever SHOWN here; it is hidden by its two buttons.
+    const banner = $('backup-banner');
+    if (banner && banner.hidden && B.bannerDue(state, B.readSnooze(), now)) {
+      const msg = $('backup-banner-msg');
+      if (msg) msg.textContent = state.message;
+      banner.hidden = false;
+      B.markShown(now);
+    }
   }
   let transferGeneration = 0, pendingTransfer = null;
   const transferStamp = () => App.repository.ready ? App.repository.snapshot().integrity : null;
@@ -761,7 +789,7 @@
         case 'dismiss-backup-banner': {
           const db = $('backup-banner');
           if (db) db.hidden = true;
-
+          App.backupStatus.snooze(Date.now()); // "Remind me later" = 24 hours
           break;
         }
         case 'restore-data': restoreData(); break;
@@ -964,8 +992,10 @@
   async function init() {
     App.initTheme();
     setupEventDelegation(); setupReceiptDragDrop();
-    App.repository.subscribe(()=>{App.refreshReadViews();populateReportYears();updateProtectionStatus();});
+    App.repository.subscribe(()=>{App.refreshReadViews();populateReportYears();updateProtectionStatus();refreshBackupStatus();});
     try { await App.loadData(); } catch(error) { showToast(error.message,'error'); }
+    // Ask the browser not to evict the records (feature-detected; silent on failure or refusal).
+    if (App.repository.ready) App.backupStatus.requestPersistence().then((granted) => { storagePersisted = granted; refreshBackupStatus(); });
     // Scheduled sessions whose date has passed become completed (owner ruling 2026-09-15).
     try { await App.autoCompleteOverdue(); } catch(error) { showToast('Auto-complete skipped: ' + error.message,'warning'); }
     populateReportYears();
@@ -986,6 +1016,7 @@
     }
     const hashTab=(location.hash||'').replace('#','');
     App.switchTab(validTabs.includes(hashTab)?hashTab:'dashboard'); App.updateHeaderStats();
+    refreshBackupStatus();
     // Keep unavailable paths visible with an explicit reason.
     ['settings-ors-key'].forEach(id=>{
       const el=$(id); if(el){el.disabled=true;el.title='Unavailable in protected preview';}
@@ -1006,6 +1037,7 @@
   }
   App.updateProtectionStatus=updateProtectionStatus;
   App.backupData=backupData; App.restoreData=restoreData; App.clearAllData=clearAllData;
+  App.refreshBackupStatus=refreshBackupStatus;
 
   // Listen for hash changes to support bookmark shortcuts
   window.addEventListener('hashchange', () => {

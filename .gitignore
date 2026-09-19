@@ -1,6 +1,8 @@
 # Never commit data files — all session/client data stays local only
 historical_sessions.json
 tutoring-backup-*.json
+# Private recovery downloads (tutor-tracker-recovery-YYYY-MM-DD-rNNN.json and the older names) hold every record
+*recovery*.json
 
 # Private local config (home address, etc.) — never commit
 local-config.js

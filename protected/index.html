@@ -90,6 +90,11 @@
           <span class="stat-label">Owed</span>
           <span class="stat-value" id="header-owed">$0</span>
         </button>
+        <!-- Backup age / saved changes since the last downloaded backup. Amber at 7 days or 10 changes. Click = download. -->
+        <button type="button" class="stat-pill stat-pill-backup" data-stat="backup" data-action="backup-data" id="header-backup-pill" title="Download a backup" hidden>
+          <span class="stat-label">Backup</span>
+          <span class="stat-value" id="header-backup">never</span>
+        </button>
       </div>
     </div>
 
@@ -1477,6 +1482,7 @@
 
   <!-- App JS (modular) -->
   <script src="js/app-core.js" defer></script>
+  <script src="js/backup-status.js" defer></script>
   <script src="js/record-policy.js" defer></script>
   <script src="js/repository.js" defer></script>
   <script src="js/report-model.js" defer></script>
