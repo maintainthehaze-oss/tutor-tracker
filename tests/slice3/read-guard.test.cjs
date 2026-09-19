@@ -3,7 +3,10 @@ const root=path.resolve(__dirname,'../../protected/js');
 // Realized (completed) money must come from App.reportModel. The header "Projected" pill (shipped
 // 2026-09-10) is operational, not a report: it sums sessions that are still SCHEDULED, which the
 // model deliberately does not cover. Only that exact scheduled-only read is exempt.
-const OPERATIONAL_READS=["App.state.sessions.filter((s) => s.status === 'scheduled')"];
+// The "This week" strip (2026-09-19) is operational too: it lists live, tappable session rows (any status)
+// and sums nothing. Only that exact call is exempt; every other direct read in dashboard.js still fails.
+const OPERATIONAL_READS=["App.state.sessions.filter((s) => s.status === 'scheduled')",
+  "weekStripDays(App.state.sessions, App.state.clients, todayISO())"];
 function check(sources){
   const failures=[];
   for(const file of ['reports','dashboard','historical']){
@@ -21,7 +24,7 @@ test('all report/chart readers and report CSV route through the shared model',()
 test('intentional direct report reader bypass fails the guard',()=>assert(check({...sources,reports:'App.state.sessions.reduce(()=>0);\n'+sources.reports}).length));
 test('intentional unfiltered CSV bypass fails the guard',()=>assert(check({...sources,ui:sources.ui.replace('App.getReportFilter()','{}')}).length));
 test('the projection exemption is exact: the dashboard still cannot read realized sessions directly',()=>{
-  assert.equal(sources.dashboard.split(OPERATIONAL_READS[0]).length,2,'projection read moved or duplicated');
+  for(const allowed of OPERATIONAL_READS)assert.equal(sources.dashboard.split(allowed).length,2,'operational read moved or duplicated: '+allowed);
   for(const bypass of ["App.state.sessions.filter((s) => s.status === 'completed');\n","App.state.sessions.filter((s) => s.status !== 'scheduled');\n","App.state.expenses.length;\n","App.computeMetrics({});\n"])
     assert.deepEqual(check({...sources,dashboard:bypass+sources.dashboard}),['dashboard'],bypass);
 });

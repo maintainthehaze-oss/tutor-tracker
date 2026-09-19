@@ -35,6 +35,7 @@
      ========================================================== */
 
   function renderDashboard() {
+    renderWeekStrip();
     const clients = App.state.clients;
 
     const now = new Date();
@@ -434,7 +435,119 @@
     }).join('');
   }
 
+  /* ==========================================================
+     "THIS WEEK" STRIP
+     Every session dated today-7 .. today+7, grouped by day, with one-tap exceptions.
+     The taps are handled in ui.js (strip-status, strip-skip, quick-complete / -noshow / -cancel).
+     ========================================================== */
+
+  const STRIP_DAYS = 7;
+  const STRIP_CHIPS = Object.freeze([
+    { status: 'completed', label: 'Happened', quick: 'quick-complete' },
+    { status: 'no-show', label: 'No-show', quick: 'quick-noshow' },
+    { status: 'cancelled', label: 'Cancelled', quick: 'quick-cancel' },
+  ]);
+  const STRIP_PAID_TITLE = 'Marked paid: un-pay with the pencil first';
+
+  /** 'YYYY-MM-DD' plus n days. UTC arithmetic on the date STRING, so a DST change can never shift a day. */
+  function shiftISO(iso, days) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d) + days * 864e5).toISOString().slice(0, 10);
+  }
+
+  /**
+   * PURE (no DOM, no clock). One entry per calendar day from today-7 to today+7, oldest first, each
+   * holding that day's sessions in time order. `mode` decides which chips a row gets:
+   *   paid     any paid row: chips shown but disabled (un-pay with the pencil first)
+   *   correct  locked (archived or finalized) and unpaid: Happened / No-show / Cancelled as a correction
+   *   skip     unlocked and dated after today: Skip
+   *   status   unlocked and dated today or earlier: Happened / No-show / Cancelled
+   * `isLocked` defaults to the repository's own answer; tests may pass their own.
+   */
+  function weekStripDays(sessions, clients, today, isLocked) {
+    const locked = isLocked || App.isProtectedSession;
+    const names = new Map((clients || []).map((c) => [String(c.id), clientName(c)]));
+    const first = shiftISO(today, -STRIP_DAYS), last = shiftISO(today, STRIP_DAYS);
+    const inWindow = (sessions || []).filter((s) => typeof s.date === 'string' && s.date >= first && s.date <= last);
+    const days = [];
+    for (let offset = -STRIP_DAYS; offset <= STRIP_DAYS; offset++) {
+      const date = shiftISO(today, offset);
+      const rows = inWindow.filter((s) => s.date === date).map((s) => {
+        const status = s.status || 'completed', isLockedRow = !!locked(s.id), waived = App.isWaived(s);
+        return {
+          id: String(s.id), time: typeof s.time === 'string' ? s.time : '', status, waived, paid: !!s.paid,
+          names: (s.clientIds || []).map((cid) => names.get(String(cid)) || 'Unknown').join(', '),
+          duration: num(s.duration), amount: num(s.amount),
+          mode: s.paid ? 'paid' : isLockedRow ? 'correct' : date > today ? 'skip' : 'status',
+          canMarkPaid: isLockedRow && status === 'completed' && !s.paid && !waived,
+        };
+      }).sort((a, b) => a.time.localeCompare(b.time) || a.id.localeCompare(b.id));
+      days.push({ date, isToday: offset === 0, rows });
+    }
+    return days;
+  }
+
+  function stripChips(row) {
+    const id = escapeHtml(row.id);
+    if (row.mode === 'skip') {
+      return '<button type="button" class="duration-chip strip-chip" data-action="strip-skip" data-id="' + id +
+        '" title="Remove this session. Undo is offered for 8 seconds.">Skip</button>';
+    }
+    return STRIP_CHIPS.map((chip) => {
+      const lit = row.mode !== 'status' && row.status === chip.status;
+      const action = row.mode === 'status' ? chip.quick : 'strip-status';
+      return '<button type="button" class="duration-chip strip-chip' + (lit ? ' selected' : '') + '" data-action="' + action +
+        '" data-status="' + chip.status + '" data-id="' + id + '" aria-pressed="' + (lit ? 'true' : 'false') + '"' +
+        (row.mode === 'paid' ? ' disabled title="' + STRIP_PAID_TITLE + '"' : '') + '>' + chip.label + '</button>';
+    }).join('');
+  }
+
+  /** PURE. Markup for the strip body: days that have sessions, plus today (always, so its "+" is there). */
+  function weekStripHtml(days) {
+    const empty = !days.some((day) => day.rows.length);
+    return (empty ? '<p class="empty-state">Nothing scheduled this week. Tap + to add a session.</p>' : '') +
+      days.filter((day) => day.isToday || day.rows.length).map((day) => {
+      const label = new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      return '<section class="strip-day' + (day.isToday ? ' strip-today' : '') + '" data-date="' + day.date + '">' +
+        '<header class="strip-day-head">' +
+          '<span class="strip-day-label">' + (day.isToday ? 'Today &middot; ' : '') + escapeHtml(label) + '</span>' +
+          '<button type="button" class="btn btn-sm btn-icon strip-add" data-action="strip-add" data-date="' + day.date +
+            '" title="Add a session on this day" aria-label="Add a session on ' + escapeHtml(label) + '">+</button>' +
+        '</header>' +
+        (day.rows.length ? '<ul class="strip-rows">' + day.rows.map((row) =>
+          '<li class="strip-row" data-id="' + escapeHtml(row.id) + '">' +
+            '<span class="strip-time">' + escapeHtml(row.time || '-') + '</span>' +
+            '<span class="strip-info">' +
+              '<span class="strip-names">' + escapeHtml(row.names || '-') + '</span>' +
+              '<span class="strip-meta">' + formatDuration(row.duration) + ' &middot; ' + formatCurrency(row.amount) +
+                (row.waived ? ' &middot; waived' : row.paid ? ' &middot; paid' : '') +
+                (row.status === 'scheduled' ? ' &middot; scheduled' : '') + '</span>' +
+            '</span>' +
+            '<span class="strip-chips" role="group" aria-label="What happened">' + stripChips(row) + '</span>' +
+            (row.canMarkPaid ? '<button type="button" class="btn btn-sm btn-mark-paid" data-action="mark-paid" data-id="' +
+              escapeHtml(row.id) + '" title="Mark this session paid">Mark paid</button>' : '') +
+          '</li>').join('') + '</ul>' : '') +
+      '</section>';
+    }).join('');
+  }
+
+  /** Runs first in renderDashboard. It must never stop the rest of the dashboard (or init) from painting. */
+  function renderWeekStrip() {
+    const body = $('week-strip-body');
+    if (!body) return;
+    try {
+      body.innerHTML = weekStripHtml(weekStripDays(App.state.sessions, App.state.clients, todayISO()));
+    } catch (error) {
+      console.error('This-week strip could not be drawn', error);
+      body.innerHTML = '<p class="empty-state">This week could not be shown. The Sessions tab still has everything.</p>';
+    }
+  }
+
   // Expose to App namespace
+  App.weekStripDays = weekStripDays;
+  App.weekStripHtml = weekStripHtml;
+  App.renderWeekStrip = renderWeekStrip;
+  App.STRIP_PAID_TITLE = STRIP_PAID_TITLE;
   App.renderDashboard = renderDashboard;
   App.renderOutstanding = renderOutstanding;
   App.renderOwedList = renderOwedList;

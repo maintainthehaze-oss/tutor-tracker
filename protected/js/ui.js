@@ -388,7 +388,8 @@
      TOAST NOTIFICATIONS
      ========================================================== */
 
-  function showToast(message, type) {
+  /** `action` is optional: { label, run }. It adds one button (Undo) and keeps the toast up for 8 s instead of 3 s. */
+  function showToast(message, type, action) {
     const container = $('toast-container');
     if (!container) return;
 
@@ -396,18 +397,29 @@
     toast.className = 'toast toast-' + (type || 'info');
 
     const icons = { success: '&#10004;', error: '&#10060;', warning: '&#9888;', info: '&#8505;' };
+    const hasAction = !!action && typeof action.run === 'function' && !!action.label;
 
     toast.innerHTML = '<span class="toast-icon">' + (icons[type] || icons.info) + '</span>' +
       '<span class="toast-message">' + escapeHtml(message) + '</span>' +
+      (hasAction ? '<button type="button" class="toast-action">' + escapeHtml(action.label) + '</button>' : '') +
       '<button class="toast-close" aria-label="Close">&times;</button>';
 
     container.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('toast-visible'));
 
-    const timer = setTimeout(() => dismissToast(toast), 3000);
+    const timer = setTimeout(() => dismissToast(toast), hasAction ? 8000 : 3000);
     toast.querySelector('.toast-close').addEventListener('click', () => {
       clearTimeout(timer);
       dismissToast(toast);
+    });
+    if (!hasAction) return;
+    let used = false; // a double click must not run the action twice
+    toast.querySelector('.toast-action').addEventListener('click', async () => {
+      if (used) return;
+      used = true;
+      clearTimeout(timer);
+      dismissToast(toast);
+      try { await action.run(); } catch (error) { showToast(error.message, 'error'); }
     });
   }
 
@@ -576,6 +588,22 @@
     App.renderSessions();
   }
 
+  /* "This week" strip (drawn by dashboard.js). Rules: existing repository commands only; a locked row
+     changes only through a correction; a paid row is never changed from the strip. */
+  const STRIP_WORDS = { completed: 'happened', 'no-show': 'no-show', cancelled: 'cancelled' };
+  function stripRefusesPaid(id) {
+    const row = App.state.sessions.find((s) => String(s.id) === String(id));
+    if (!row || !row.paid) return false;
+    showToast(App.STRIP_PAID_TITLE, 'warning');
+    return true;
+  }
+  /** Undo for a locked row: one more correction, back to `status`. */
+  function undoToStatus(id, status) {
+    return { label: 'Undo', run: async () => {
+      if (await App.runCommand('session.correct', { id, fields: { status } }, App.repository.revision)) showToast('Back to ' + STRIP_WORDS[status], 'success');
+    } };
+  }
+
   function setupEventDelegation() {
     document.body.addEventListener('click', async (e) => {
       const target = e.target.closest('[data-action]');
@@ -737,9 +765,38 @@
         case 'quick-complete':
           if(await App.runCommand('session.update',{ids:[id],patch:{status:'completed'}},App.repository.revision)) showToast('Session finalized','success');
           break;
+        // No-show / Cancelled lock the row, so their Undo is a correction to completed (it cannot return to scheduled).
         case 'quick-noshow':
-          if(await App.runCommand('session.update',{ids:[id],patch:{status:'no-show'}},App.repository.revision)) showToast('Session finalized as no-show','success');
+          if(stripRefusesPaid(id)) break;
+          if(await App.runCommand('session.update',{ids:[id],patch:{status:'no-show'}},App.repository.revision)) showToast('Session finalized as no-show','success',undoToStatus(id,'completed'));
           break;
+        case 'quick-cancel':
+          if(stripRefusesPaid(id)) break;
+          if(await App.runCommand('session.update',{ids:[id],patch:{status:'cancelled'}},App.repository.revision)) showToast('Session finalized as cancelled','success',undoToStatus(id,'completed'));
+          break;
+        case 'strip-status': {
+          // Locked row: one append-only correction per tap. The stored record and its lock evidence never change.
+          const status = target.getAttribute('data-status');
+          const row = App.state.sessions.find((s) => String(s.id) === id);
+          if (!row || (row.status || 'completed') === status || stripRefusesPaid(id)) break;
+          const previous = row.status || 'completed';
+          if (!await App.runCommand('session.correct', { id, fields: { status } }, App.repository.revision)) break;
+          // A pre-activation row that was still scheduled cannot be corrected back to scheduled: no Undo there.
+          showToast('Marked as ' + STRIP_WORDS[status], 'success', Object.hasOwn(STRIP_WORDS, previous) ? undoToStatus(id, previous) : null);
+          break;
+        }
+        case 'strip-skip': {
+          // Unlocked future row: delete it. Undo re-saves the STORED record, never the read view, so it returns byte-identical.
+          const revision = App.repository.revision;
+          if (!App.state.sessions.some((s) => String(s.id) === id) || stripRefusesPaid(id)) break;
+          const original = App.repository.snapshot().working.sessions.find((s) => String(s.id) === id);
+          if (!original || !await App.runCommand('session.delete', { ids: [id] }, revision)) break;
+          showToast('Session skipped', 'success', { label: 'Undo', run: async () => {
+            if (await App.runCommand('session.save', { record: original }, App.repository.revision)) showToast('Session put back', 'success');
+          } });
+          break;
+        }
+        case 'strip-add': App.openSessionForm(null, target.getAttribute('data-date')); break;
         case 'calc-mileage': App.calcFormMileage(); break;
         case 'calc-mileage-by-day': App.calculateMileageByDay(); break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
