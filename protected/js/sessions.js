@@ -313,7 +313,9 @@
     });
   }
 
-  function updateSessionTotals(filtered) {
+  /** Pure arithmetic behind the Sessions Totals row (no DOM), so tests can pin it against
+   *  App.computeMetrics and App.reportModel.metrics. */
+  function sessionTotals(filtered) {
     const completed = filtered.filter((s) => s.status === 'completed');
     const totalDur = completed.reduce((sum, s) => sum + num(s.duration), 0);
     // Waived fees are not revenue (App.revenueAmount returns 0 for them).
@@ -324,6 +326,11 @@
     // Kept separate from realized totals on purpose; the app only counts completed as revenue.
     const scheduled = filtered.filter((s) => s.status === 'scheduled');
     const projectedAmt = scheduled.reduce((sum, s) => sum + App.revenueAmount(s), 0);
+    return { totalDur, totalAmt, totalMiles, projectedAmt, scheduled };
+  }
+
+  function updateSessionTotals(filtered) {
+    const { totalDur, totalAmt, totalMiles, projectedAmt, scheduled } = sessionTotals(filtered);
 
     const durEl = $('total-duration');
     if (durEl) durEl.textContent = formatDuration(totalDur);
@@ -1088,6 +1095,7 @@
   App.autoCompleteOverdue = autoCompleteOverdue;
   App.setArchivedStatus = setArchivedStatus;
   App.applySessionFilters = applySessionFilters;
+  App.sessionTotals = sessionTotals;
   App.calcFormMileage = calcFormMileage;
   App.calculateMileageByDay = calculateMileageByDay;
   App.sessionAddress = sessionAddress;
