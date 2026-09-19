@@ -112,6 +112,12 @@
   padding: 0;
 }
 
+/* The hidden attribute must always win. Any class that sets display (.form-group is flex)
+   otherwise overrides it, which showed "This session is locked" on every NEW session. */
+[hidden] {
+  display: none !important;
+}
+
 html {
   font-size: 15px;
   scroll-behavior: smooth;
