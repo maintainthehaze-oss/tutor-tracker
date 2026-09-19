@@ -56,8 +56,10 @@
   function formatDuration(hours) {
     const h = parseFloat(hours);
     if (isNaN(h) || h <= 0) return '0h';
-    const hrs = Math.floor(h);
-    const mins = Math.round((h - hrs) * 60);
+    // Round to whole minutes FIRST, then split, so 1.999 h reads "2h" and never "1h 60m".
+    const totalMins = Math.round(h * 60);
+    const hrs = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
     if (hrs === 0) return mins + 'm';
     if (mins === 0) return hrs + 'h';
     return hrs + 'h ' + mins + 'm';
