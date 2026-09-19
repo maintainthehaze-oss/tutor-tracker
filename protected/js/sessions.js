@@ -18,6 +18,19 @@
 
   let sessionFormRevision = null;
 
+  /** Round to whole cents. The 6-decimal pass removes floating-point noise first, so a product such as
+   *  62.50 x 0.83 = 51.875 (or 51.87499999999999) becomes 51.88 and 1.005 becomes 1.01. */
+  function roundCents(n) {
+    return Math.round(Number((num(n) * 100).toFixed(6))) / 100;
+  }
+
+  /** Cents for NEW money only (audit 6a). A value equal to the amount already stored on the row is
+   *  passed through untouched, so opening and re-saving a session never re-rounds what is on file. */
+  function newAmount(value, storedAmount) {
+    const typed = num(value);
+    return storedAmount != null && typed === num(storedAmount) ? typed : roundCents(typed);
+  }
+
   function rejectProtected(id) {
     if (!App.isProtectedSession(id)) return false;
     App.showToast('Locked session: use the pencil to save a correction, or Duplicate it.', 'warning');
@@ -654,6 +667,11 @@
       notes: ($('session-notes').value || '').trim(),
     });
 
+    // Cents (audit 6a): a NEW amount on an unlocked session is stored in whole cents. Locked rows
+    // returned above untouched, and an amount left unchanged in the form is never re-rounded.
+    const storedRow = id ? sessions.find((s) => String(s.id) === String(id)) : null;
+    amount = newAmount(amount, storedRow ? storedRow.amount : null);
+
     const sessionData = {
       id: id || generateId(),
       date,
@@ -783,7 +801,8 @@
     const patch = {};
     switch (field) {
       case 'date': case 'time': case 'status': patch[field] = el.value; break;
-      case 'duration': case 'amount': patch[field] = num(el.value); break;
+      case 'duration': patch.duration = num(el.value); break;
+      case 'amount': patch.amount = newAmount(el.value, s.amount); break;
       case 'payment':
         patch.paid = el.value === 'paid';
         patch.payment = el.value;
@@ -1096,6 +1115,8 @@
   App.setArchivedStatus = setArchivedStatus;
   App.applySessionFilters = applySessionFilters;
   App.sessionTotals = sessionTotals;
+  App.roundCents = roundCents;
+  App.newAmount = newAmount;
   App.calcFormMileage = calcFormMileage;
   App.calculateMileageByDay = calculateMileageByDay;
   App.sessionAddress = sessionAddress;

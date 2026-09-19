@@ -18,8 +18,13 @@ function documentStub() {
  *  read what a render function wrote (textContent / innerHTML / hidden / title) without a browser. */
 function recordingDocument() {
   const elements = new Map();
-  const element = () => ({ textContent: '', innerHTML: '', title: '', hidden: false, value: '', dataset: {},
-    classList: { toggle() {}, add() {}, remove() {} }, setAttribute() {}, getAttribute: () => null });
+  const element = () => {
+    const attributes = new Map();
+    return { textContent: '', innerHTML: '', title: '', hidden: false, value: '', placeholder: '', dataset: {}, options: [], selectedOptions: [],
+      classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
+      setAttribute(k, v) { attributes.set(k, String(v)); }, getAttribute: k => (attributes.has(k) ? attributes.get(k) : null),
+      reset() {}, focus() {}, querySelector: () => null, querySelectorAll: () => [], appendChild() {}, addEventListener() {} };
+  };
   return { ...documentStub(), elements,
     getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); } };
 }
@@ -65,4 +70,12 @@ async function activate(modules, data, options) {
 
 const command = (repo, name, payload) => repo.execute(name, payload, repo.revision);
 
-module.exports = { root, readSource, documentStub, recordingDocument, memoryStorage, loadApp, activate, command };
+/** ui.js is not loaded in form tests; these are the inert stand-ins for what it would provide. */
+function stubUi(App) {
+  const toasts = [];
+  Object.assign(App, { showToast: (message, kind) => toasts.push([kind, message]), openModal() {}, closeModal() {},
+    updateProtectionStatus() {}, showConfirm() {} });
+  return toasts;
+}
+
+module.exports = { root, readSource, documentStub, recordingDocument, memoryStorage, loadApp, activate, command, stubUi };
