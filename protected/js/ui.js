@@ -667,6 +667,8 @@
           }, 100);
           break;
         case 'repeat-last-session': App.repeatLastSession(); break;
+        case 'toggle-session-client': App.toggleSessionClient(target); break;
+        case 'set-session-duration': App.setSessionDuration(target.getAttribute('data-minutes')); break;
 
         case 'add-session': App.openSessionForm(); break;
         case 'edit-session': App.openSessionForm(id); break;
@@ -851,7 +853,9 @@
       if (action === 'change-tax-version') { populateReportYears(); App.renderTaxSummary(); return; }
       if (action === 'change-tax-year') { App.renderTaxSummary(); return; }
       if (action === 'search-clients') { App.renderClients(target.value); return; }
-      if (target.id === 'session-clients') { App.updateSessionPrefill(); return; }
+      // New sessions: status follows the date (today or earlier = Completed) until a status is chosen by hand.
+      if (target.id === 'session-date') { App.applySmartStatus(); return; }
+      if (target.id === 'session-status') { App.markStatusTouched(); return; }
       if (target.id === 'session-payment') { App.togglePaymentDate(); return; }
     });
 
@@ -859,7 +863,7 @@
       if (e.target.getAttribute('data-action') === 'search-clients') { App.renderClients(e.target.value); return; }
       if (e.target.id === 'global-search-input') { performGlobalSearch(e.target.value); return; }
       if (e.target.id === 'client-name') { App.suggestFamily(true); return; }
-      if (e.target.id === 'session-duration') { App.updateSessionPrefill(); return; }
+      if (e.target.id === 'session-duration') { App.syncDurationChips(); App.updateSessionPrefill(); return; }
     });
 
     // Restore file input

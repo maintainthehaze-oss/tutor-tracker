@@ -408,9 +408,108 @@
     App.openModal('modal-session-detail');
   }
 
+  /* ==========================================================
+     SESSION FORM: tap-to-pick clients, smart default status, duration chips
+     (ported 2026-09-19 from the retired root app's picker; pure helpers first)
+     ========================================================== */
+
+  /**
+   * PURE. Rows for the client picker: every ACTIVE client, plus whoever is already on the session being
+   * edited even if inactive now (a locked row must still show its own clients). Order is decided once per
+   * open so tiles do not jump while tapping: already-selected first, then most recently tutored, then A-Z.
+   */
+  function clientPickerRows(clients, sessions, selectedIds) {
+    const selected = (selectedIds || []).map(String);
+    const lastDate = {};
+    (sessions || []).forEach((s) => (s.clientIds || []).forEach((cid) => {
+      const k = String(cid), d = s.date || '';
+      if (!lastDate[k] || d > lastDate[k]) lastDate[k] = d;
+    }));
+    return (clients || [])
+      .filter((c) => (c.status || 'active') === 'active' || selected.includes(String(c.id)))
+      .map((c) => ({ id: c.id, name: clientName(c), rate: c.rate, selected: selected.includes(String(c.id)),
+        inactive: (c.status || 'active') !== 'active', last: lastDate[String(c.id)] || '' }))
+      .sort((a, b) => (Number(b.selected) - Number(a.selected)) || b.last.localeCompare(a.last) || a.name.localeCompare(b.name));
+  }
+
+  /** PURE. A new session dated today or earlier has happened (Completed); a future one is Scheduled. */
+  function defaultStatusForDate(date, today) {
+    return typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && date > today ? 'scheduled' : 'completed';
+  }
+
+  /** PURE. Duration chip minutes -> the decimal hours the form and the stored record use (45 -> 0.75). */
+  const DURATION_CHIPS = Object.freeze([30, 45, 60, 90, 120]);
+  function chipHours(minutes) {
+    const m = Number(minutes);
+    return DURATION_CHIPS.includes(m) ? m / 60 : null;
+  }
+
+  // Picker selection, in the order it will be stored. Editing starts from the session's own stored order,
+  // so re-saving without touching the picker never records a client change.
+  let pickedClientIds = [];
+  // The default status follows the date until the owner picks a status himself.
+  let statusTouched = false;
+
+  function renderClientPicker(selectedIds) {
+    pickedClientIds = (selectedIds || []).map(String);
+    const picker = $('session-clients');
+    if (!picker) return;
+    const rows = clientPickerRows(App.state.clients, App.state.sessions, pickedClientIds);
+    if (rows.length === 0) {
+      picker.innerHTML = '<p class="client-picker-empty">No active clients. Add a client, or set someone back to Active on the Clients tab.</p>';
+      return;
+    }
+    picker.innerHTML = rows.map((r) =>
+      '<button type="button" class="client-pick' + (r.selected ? ' selected' : '') + '" data-action="toggle-session-client" data-id="' +
+      escapeHtml(r.id) + '" aria-pressed="' + (r.selected ? 'true' : 'false') + '">' +
+      '<span class="client-pick-name">' + escapeHtml(r.name) + (r.inactive ? ' <em class="client-pick-inactive">(inactive)</em>' : '') + '</span>' +
+      '<span class="client-pick-rate">' + formatCurrency(r.rate) + '/hr</span></button>').join('');
+  }
+
+  /** IDs currently picked, as strings, in stored order. */
+  function getSelectedSessionClientIds() {
+    return [...pickedClientIds];
+  }
+
+  /** One tap toggles one client tile, then refreshes the amount / repeat-last hints. */
+  function toggleSessionClient(btn) {
+    if (!btn) return;
+    const id = String(btn.getAttribute('data-id'));
+    const on = !pickedClientIds.includes(id);
+    pickedClientIds = on ? [...pickedClientIds, id] : pickedClientIds.filter((x) => x !== id);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.classList.toggle('selected', on);
+    updateSessionPrefill();
+  }
+
+  /** New sessions only: keep Status in step with the date until the owner chooses a status himself. */
+  function applySmartStatus() {
+    if ($('session-id').value || statusTouched) return;
+    $('session-status').value = defaultStatusForDate($('session-date').value, todayISO());
+  }
+  function markStatusTouched() { statusTouched = true; }
+
+  /** Duration chip tapped: write decimal hours into the existing field. */
+  function setSessionDuration(minutes) {
+    const hours = chipHours(minutes);
+    if (hours == null) return;
+    $('session-duration').value = hours;
+    syncDurationChips();
+    updateSessionPrefill();
+  }
+  function syncDurationChips() {
+    const hours = num($('session-duration').value);
+    document.querySelectorAll('[data-action="set-session-duration"]').forEach((chip) => {
+      const on = chipHours(chip.getAttribute('data-minutes')) === hours;
+      chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      chip.classList.toggle('selected', on);
+    });
+  }
+
   function openSessionForm(id, prefillDate) {
     const locked = !!id && App.isProtectedSession(id);
     sessionFormRevision = App.repository.revision;
+    statusTouched = false;
     const sessions = App.state.sessions;
     const clients = App.state.clients;
     const settings = App.state.settings;
@@ -431,16 +530,8 @@
     const scheduledOpt = $('session-status') && $('session-status').querySelector('option[value="scheduled"]');
     if (scheduledOpt) scheduledOpt.disabled = locked;
 
-    // Populate client dropdown: active clients, plus whoever is on the session being edited (may be inactive now).
-    const clientSelect = $('session-clients');
-    if (clientSelect) {
-      clientSelect.innerHTML = clients
-        .filter((c) => c.status === 'active' || editingClientIds.includes(String(c.id)))
-        .sort((a, b) => clientName(a).localeCompare(clientName(b)))
-        .map((c) => '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(clientName(c)) +
-          ' (' + formatCurrency(c.rate) + '/hr)</option>')
-        .join('');
-    }
+    // Tap-to-pick client tiles: active clients, plus whoever is on the session being edited (may be inactive now).
+    renderClientPicker(editingClientIds);
 
     if (id) {
       const s = sessions.find((ses) => String(ses.id) === String(id));
@@ -457,21 +548,16 @@
       $('session-payment-date').value = s.paymentDate || todayISO();
       $('session-status').value = s.status || 'completed';
       $('session-notes').value = s.notes || '';
-
-      // Select clients
-      if (clientSelect && s.clientIds) {
-        Array.from(clientSelect.options).forEach((opt) => {
-          opt.selected = s.clientIds.some((cid) => String(cid) === String(opt.value));
-        });
-      }
     } else {
       if (title) title.textContent = 'Add Session';
       $('session-date').value = prefillDate || todayISO();
       $('session-duration').value = settings.defaultDuration || 1;
-      $('session-status').value = 'scheduled';
+      // Today or earlier = it happened (Completed); a future date = Scheduled. Still overridable.
+      applySmartStatus();
       $('session-payment-date').value = todayISO();
     }
 
+    syncDurationChips();
     togglePaymentDate();
     App.openModal('modal-session');
     updateSessionPrefill();
@@ -542,12 +628,11 @@
    */
   function updateSessionPrefill() {
     const clients = App.state.clients;
-    const clientSelect = $('session-clients');
     const amountEl = $('session-amount');
     const banner = $('repeat-last-banner');
     const isEditing = !!$('session-id').value;
 
-    const selected = clientSelect ? Array.from(clientSelect.selectedOptions).map((o) => o.value) : [];
+    const selected = getSelectedSessionClientIds();
 
     // Live amount placeholder = avg rate x duration
     if (amountEl) {
@@ -606,6 +691,7 @@
     $('session-amount').value = last.amount == null ? '' : last.amount;
     $('session-mileage').value = '';
     if (last.notes) $('session-notes').value = last.notes;
+    syncDurationChips();
 
     App.showToast('Filled from ' + formatDate(last.date) + ' session (mileage left blank)', 'success');
     updateSessionPrefill();
@@ -616,13 +702,11 @@
     const clients = App.state.clients;
 
     const date = $('session-date').value;
-    const clientSelect = $('session-clients');
-    const selectedClients = clientSelect
-      ? Array.from(clientSelect.selectedOptions).map((o) => {
-        const client = clients.find((c) => String(c.id) === String(o.value));
-        return client ? client.id : o.value;
-      })
-      : [];
+    // Stored clientIds keep each client's own id type (number or string), exactly as before the picker.
+    const selectedClients = getSelectedSessionClientIds().map((value) => {
+      const client = clients.find((c) => String(c.id) === String(value));
+      return client ? client.id : value;
+    });
     const duration = num($('session-duration').value);
 
     if (!date) {
@@ -989,8 +1073,7 @@
     const input = $('session-mileage');
     const btn = document.querySelector('[data-action="calc-mileage"]');
     if (!input) return false;
-    const clientSelect = $('session-clients');
-    const selected = clientSelect ? Array.from(clientSelect.selectedOptions).map((o) => o.value) : [];
+    const selected = getSelectedSessionClientIds();
     if (selected.length === 0) { App.showToast('Select a client first', 'warning'); return false; }
     if (($('session-type').value || 'in-person') === 'online') {
       App.showToast('Online session: no travel. Change Session Type to In Person to calculate mileage.', 'warning');
@@ -1124,5 +1207,15 @@
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
   App.repeatLastSession = repeatLastSession;
+  App.clientPickerRows = clientPickerRows;
+  App.defaultStatusForDate = defaultStatusForDate;
+  App.chipHours = chipHours;
+  App.DURATION_CHIPS = DURATION_CHIPS;
+  App.toggleSessionClient = toggleSessionClient;
+  App.getSelectedSessionClientIds = getSelectedSessionClientIds;
+  App.applySmartStatus = applySmartStatus;
+  App.markStatusTouched = markStatusTouched;
+  App.setSessionDuration = setSessionDuration;
+  App.syncDurationChips = syncDurationChips;
 
 })();

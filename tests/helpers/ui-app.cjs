@@ -48,15 +48,22 @@ async function bootUi(options = {}) {
   /** Dispatch a delegated click exactly the way ui.js receives it: body listener + closest('[data-action]'). */
   async function click(action, attributes = {}) {
     const all = { 'data-action': action, ...attributes };
-    const target = { getAttribute: k => (k in all ? all[k] : null), classList: { contains: () => false }, dataset: {}, closest: s => (s === '[data-action]' ? target : null) };
+    const target = { getAttribute: k => (k in all ? all[k] : null), setAttribute(k, v) { all[k] = String(v); }, classList: { contains: () => false, toggle() {} }, dataset: {},
+      closest: s => (s === '[data-action]' ? target : null) };
     for (const listener of document.body.listeners.click || []) await listener({ target, preventDefault() {}, stopPropagation() {} });
+    await settle();
+  }
+  /** A committed form-control change, delivered through the same body 'change' delegation ui.js uses. */
+  async function change(id, value) {
+    field(id).value = value;
+    for (const listener of document.body.listeners.change || []) await listener({ target: { id, value, getAttribute: () => null } });
     await settle();
   }
   const save = async (n = 1) => {
     for (let i = 0; i < n; i++) await env.App.runCommand('settings.update', { patch: { businessName: 'Fabricated Tutoring ' + env.App.repository.revision } }, env.App.repository.revision);
     await settle();
   };
-  return { ...env, document, storage, downloads, clock: time.clock, time, field, click, save, settle, waitFor };
+  return { ...env, document, storage, downloads, clock: time.clock, time, field, click, change, save, settle, waitFor };
 }
 
 module.exports = { bootUi, settle, waitFor };

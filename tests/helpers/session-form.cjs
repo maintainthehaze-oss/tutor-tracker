@@ -9,8 +9,13 @@ async function formApp(options = {}) {
   const { App, disk } = await activate(MODULES, options.data || rawFixture(), { ...options, globals: { document, ...(options.globals || {}) } });
   const toasts = stubUi(App);
   const field = id => document.getElementById(id);
-  /** How the form reports the chosen clients. One place to change if the picker markup changes. */
-  const chooseClients = ids => { field('session-clients').selectedOptions = ids.map(value => ({ value: String(value) })); };
+  /** Make the picker selection exactly `ids`, by tapping tiles through the real toggle handler. */
+  const tile = id => ({ getAttribute: k => (k === 'data-id' ? String(id) : null), setAttribute() {}, classList: { toggle() {} } });
+  const chooseClients = ids => {
+    const want = ids.map(String), have = App.getSelectedSessionClientIds();
+    have.filter(id => !want.includes(id)).forEach(id => App.toggleSessionClient(tile(id)));   // tap off
+    want.filter(id => !have.includes(id)).forEach(id => App.toggleSessionClient(tile(id)));   // tap on, in the order given
+  };
   const fill = values => Object.entries(values).forEach(([id, value]) => { field('session-' + id).value = value; });
   const working = id => disk().working.sessions.find(s => String(s.id) === String(id));
   const inline = (id, name, value) => App.handleInlineEdit({ value, getAttribute: k => ({ 'data-id': id, 'data-field': name })[k] });
