@@ -1,5 +1,7 @@
 # HANDOFF
 
+**2026-09-27 (Claude Code, Opus 5.5): INACTIVE CLIENTS COLLAPSED BY DEFAULT, committed on `recurring-slots-1-2` (not pushed, not live). Clients page puts `status === 'inactive'` clients in a closed `<details class="inactive-clients">` at the bottom; paused stay visible; opens automatically while searching; open state kept across re-renders. Files: `protected/js/clients.js` (new `renderClientGroup` helper), `protected/styles.css`. `node --test` 163/163 pass; OBSERVED on the fabricated preview (collapsed on load, opens on click, stays open on re-render, opens on search, closes after). Not observed: real data. Ships with the rest of this branch on MTH's "Ship it". This folder is the ONE working copy; a stray duplicate clone at `C:\Users\dev31\tutor-tracker` was removed.**
+
 **2026-09-19 (Fable): RECURRING SLOTS, SLICES 1-2 ON LOCAL BRANCH `recurring-slots-1-2` (`1d9eacc`, `0178932`, on top of `audit-fixes-2026-09-19` @ `5206337`). ⚠️ NOTHING IS DEPLOYED, PUSHED OR MERGED. Any push needs a fresh "Ship it" from MTH.**
 - ✅ Slice 1 (safe to ship alone): "This week" strip, first on the Dashboard (`#week-strip`): every session from 7 days back to 7 days ahead, one-tap chips (Skip / Happened / No-show / Cancelled), 8-second Undo in the toast. Locked rows change only through a correction; paid rows cannot be changed from the strip. Existing repository commands only.
 - ✅ Slice 2 (inert): `protected/js/recurring.js`, the pure planner `App.recurring.materializeRecurring`. Nothing calls it yet, so it changes nothing the owner sees.

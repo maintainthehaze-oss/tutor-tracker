@@ -785,6 +785,20 @@ button.stat-pill:hover { border-color: var(--accent); }
   gap: 1rem;
 }
 
+.inactive-clients {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}
+.inactive-clients > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0.5rem 0;
+}
+.inactive-clients[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
 .client-card {
   display: flex;
   align-items: flex-start;

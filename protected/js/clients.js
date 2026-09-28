@@ -45,10 +45,32 @@
       return;
     }
 
+    // Inactive clients sit in a collapsed section at the bottom. Keep it open across
+    // re-renders if the user opened it, and open it while searching so matches are not hidden.
+    const prevInactive = grid.querySelector('.inactive-clients');
+    const inactiveOpen = !!query || !!(prevInactive && prevInactive.open);
+    const inactive = filtered.filter((c) => c.status === 'inactive');
+    const shown = filtered.filter((c) => c.status !== 'inactive');
+
+    let html = renderClientGroup(shown);
+    if (inactive.length) {
+      html += '<details class="inactive-clients"' + (inactiveOpen ? ' open' : '') + '>' +
+        '<summary>Inactive clients <span class="badge">' + inactive.length + '</span></summary>' +
+        '<div class="clients-grid">' + renderClientGroup(inactive) + '</div>' +
+        '</details>';
+    }
+
+    grid.innerHTML = html;
+
+    // Update family datalist
+    updateFamilyDatalist();
+  }
+
+  function renderClientGroup(list) {
     // Group by family
     const families = {};
     const noFamily = [];
-    filtered.forEach((c) => {
+    list.forEach((c) => {
       const fg = (c.familyGroup || '').trim();
       if (fg) {
         if (!families[fg]) families[fg] = [];
@@ -72,10 +94,7 @@
     // Individual clients
     noFamily.forEach((c) => { html += renderClientCard(c); });
 
-    grid.innerHTML = html;
-
-    // Update family datalist
-    updateFamilyDatalist();
+    return html;
   }
 
   function renderClientCard(c) {
