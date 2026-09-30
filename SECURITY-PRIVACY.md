@@ -1,121 +1,104 @@
 # Security & Privacy — Master File
 
-Tutoring Tracker Pro. This file is the single source of truth for where data
-lives, what leaves the device, and the current status of every security
-finding. Update it whenever a data flow or finding changes.
+Tutoring Tracker Pro (the protected app under `protected/`). This file is the single
+source of truth for where data lives, what can leave the device, and the status of
+every finding. Update it whenever a data flow or finding changes. Published privacy
+promises are the owner's decision; this file describes what the code does.
 
-**Last full audit:** 2026-07-10 (code + full git history + live-app state)
-**Last updated:** 2026-07-11 (round 4: on-device PDF receipt support added)
+**Last full audit of the original app:** 2026-07-10.
+**Rewritten for the protected app:** 2026-09-29 (traced to live code at `main` 0f26803).
+The original-app audit (CDN scripts, Gist sync, service worker) is history: that app
+is retired and no longer loads (root `index.html` only redirects to `protected/`).
 
 ---
 
-## 1. Data inventory (localStorage — this device only)
+## 1. Data inventory (this device only)
 
-| Key | Contents | Sensitivity |
+| Where | Contents | Sensitivity |
 |---|---|---|
-| `tutoring-clients` | Client names, contact info, addresses, rates, split history | HIGH |
-| `tutoring-sessions` | Session dates, clients, amounts, mileage | HIGH |
-| `tutoring-expenses` | Business expenses | MEDIUM |
-| IndexedDB `tutor-tracker`/`receipts` | Receipt images (~3.4 MB, base64; was localStorage `tutoring-receipts`, migrated on first load) | MEDIUM |
-| `tutoring-tax-payments` | Estimated tax payment log | MEDIUM |
-| `tutoring-settings` | Business address, ORS API key, gist PAT/ID, invoice contact info | HIGH (secrets) |
-| protected store: finalized-session snapshots | Copy of the record, clients and settings at lock time (report evidence). Since 2026-09-29 the settings copy EXCLUDES the ORS key and any gist/token field; snapshots locked before that date may still hold the key and cannot be edited (immutable evidence). | MEDIUM (historical secrets possible) |
-| `tutoring-historical` | 1,652 sessions 2019–2025 | HIGH — **never leaves device** |
-| `tutoring-theme`, `backup-banner-dismissed`, `tutoring-last-backup` | UI state | none |
-| `tutoring-backup-meta`, `tutoring-backup-snooze` | Backup reminder bookkeeping only: the record revision number and time of the last backup downloaded from this browser, and when the reminder banner was last shown/snoozed. No records, names, amounts or secrets. Never synced. | none |
-| `tutor-gist-pat`, `tutor-gist-id` | LEGACY plaintext PAT — dead keys, deleted on app load since SW v25 | HIGH (historical) |
+| IndexedDB `tutor-tracker-protected-production` | The protected store: working records (clients, sessions, expenses, tax payments, settings), the immutable archive of every pre-activation record incl. historical sessions and the raw legacy snapshot, finalize snapshots (record + clients + report settings at lock time), append-only events, receipts | HIGH (settings include the ORS API key) |
+| localStorage `tutoring-clients`, `-sessions`, `-expenses`, `-settings`, `-tax-payments`, `-historical`, and legacy IndexedDB `tutor-tracker`/`receipts` | The retired app's stores. Read ONCE at activation and archived; never deleted, never read again by the protected app | HIGH (contains the same data plus, in `tutoring-settings`, any old ORS key / gist PAT) |
+| localStorage `tutoring-theme`, `tutoring-show-split` | UI state | none |
+| localStorage `tutoring-backup-meta`, `tutoring-backup-snooze` | Backup reminder bookkeeping: record revision number and time of the last backup from this browser; when the reminder was last shown/snoozed. No records, no secrets | none |
+| Finalize snapshots locked before 2026-09-29 | May still contain the ORS key copied from settings at lock time. Immutable; cannot be purged | MEDIUM (historical secret) |
 
-`sessionStorage: gist-token` — mirror of the PAT for the current tab session only.
+Since 2026-09-29 the settings copy inside a finalize snapshot EXCLUDES the ORS key and
+any gist/token-shaped field (`repository.js` `withoutSecrets`, pinned by a test).
 
 ## 2. Every path data can leave the device
 
-1. **GitHub Gist sync** (`js/sync.js`, manual or auto push) → private gist,
-   authed with the user's PAT. Payload: clients, sessions, expenses, receipts,
-   taxPayments, and an **allowlisted** settings subset: businessName,
-   mileageRate, defaultDuration, autoSync, autoBackupDays, lastBackup,
-   darkMode, invoiceBusinessName, invoiceNotes. Everything else — secrets,
-   home address, invoiceEmail/invoicePhone, legacy/unknown keys — never
-   enters the payload, and a pull never overwrites the local copies of them.
-   **Historical data is never included** (verified in code and live state).
-2. **OpenRouteService** (`js/sessions.js`, mileage auto-calc) → sends the home
-   base address and client addresses for geocoding/routing, plus the ORS key.
-   Geocode key travels in the URL query (ORS's documented pattern; HTTPS, but
-   may appear in ORS server logs). Directions key travels in a header.
-3. **CDNs (inbound only)** — chart.js, jsPDF, jspdf-autotable, all from
-   cdn.jsdelivr.net with SRI integrity hashes; Google Fonts. No app data is
-   sent; scripts/fonts are fetched.
-   **Receipt OCR is NOT a data path**: Tesseract.js runs entirely on-device
-   from self-hosted files (`vendor/tesseract/`, same-origin, ~11MB,
-   lazy-loaded on first use). Receipt images are never uploaded anywhere;
-   an OCR run makes zero network requests beyond fetching the app's own
-   engine files (verified live 2026-07-10: two same-origin GETs, nothing else).
-   PDF receipts are likewise rendered to an image on-device by self-hosted
-   pdf.js (`vendor/pdfjs/`, ~1.4MB, lazy-loaded, isEvalSupported:false for
-   CSP safety) before the same local OCR — the PDF never leaves the device.
-4. **GitHub Pages repo (public!)** — code only. `.gitignore` blocks
-   `historical_sessions.json`, `tutoring-backup-*.json`, `local-config.js`,
-   `*.bat`. Anything committed here is world-readable, including history.
+1. **OpenRouteService** (`protected/js/sessions.js`) — only when the owner clicks the
+   mileage pin in the session form or Settings > "Calculate mileage by day" (explicit
+   confirm with counts). Sends the business address and the client addresses being
+   routed, for geocoding and driving directions. The API key travels in the
+   `Authorization` header for BOTH calls (never in a URL). Nothing runs in the
+   background; hand-entered miles are never overwritten.
+2. **Files the owner downloads** — Settings > Backup writes
+   `tutor-tracker-recovery-YYYY-MM-DD-rNNN.json`, the full private snapshot including
+   settings (so it may contain the ORS key). PDF/CSV exports contain report figures and
+   client names. These stay wherever the owner saves them; the app uploads nothing.
+3. **GitHub Pages repo (public)** — code and fabricated test fixtures only. `.gitignore`
+   blocks `historical_sessions.json`, `tutoring-backup-*.json`, `*recovery*.json`,
+   `local-config.js`, `*.bat`. Anything committed is world-readable, including history.
 
-There are no analytics, trackers, or other endpoints. The CSP `connect-src`
-allowlist (self, api.github.com, api.openrouteservice.org, cdn.jsdelivr.net)
-blocks any script from sending data anywhere else.
+There is **no cloud sync**: `protected/js/sync.js` is a local-only rehearsal with no
+network transport, and its controls are hidden on the live site. There are no CDNs
+(reporting libraries are local copies in `protected/vendor/reporting`), no web fonts,
+no analytics. Receipt OCR (Tesseract) and PDF rendering (pdf.js) run on-device from
+same-origin files; a receipt never leaves the browser.
 
-## 3. Controls in place (verified 2026-07-10)
+The Content Security Policy in `protected/index.html` enforces this: `script-src 'self'`,
+`connect-src 'self' https://api.openrouteservice.org`, `object-src 'none'`.
 
-- CSP meta tag restricts scripts (jsdelivr only), styles, fonts, and outbound
-  connections to the known hosts. cdnjs removed from script-src.
-- SRI integrity hashes (sha384) pin all three CDN scripts to exact bytes.
-- Service worker never caches API responses (github/ORS/gstatic skipped).
-- `sanitizedSettings()` is an explicit allowlist; pull restores device-local
-  values (secrets + invoice contact info) over gist values.
-- Sync push/pull warn on unsaved token/gist-ID fields instead of silently
-  using stale saved values.
-- `local-config.js` pattern keeps the home address default out of source.
-- Historical module has no network code at all (by design, header comment).
-- Settings fields for keys are masked in the UI.
-- Legacy plaintext PAT keys deleted on app load.
-- Receipt OCR (js/ocr.js) is fully on-device: self-hosted engine, no new
-  CSP hosts, no API keys, no uploads. Extraction only prefills empty form
-  fields; the user reviews and saves manually.
-- Receipt images are downscaled to ≤1200px JPEG on intake (smaller
-  localStorage footprint and gist payload).
+## 3. Controls in place (traced 2026-09-29)
+
+- Immutable evidence: pre-activation records and finalized sessions cannot be edited or
+  deleted; changes are append-only events with timestamps. Deleting a locked row is
+  impossible by policy.
+- Every write is a named repository command with a revision check (no lost updates).
+- Secrets excluded from finalize snapshots; portable export/import refuses any
+  credential- or connection-shaped field rather than silently redacting it.
+- The ORS key field is `type="password"`; the key is stored in settings only.
+- `escapeHtml()` on every user value inserted into the page, including values used as
+  class names. No inline scripts or `on*` handlers (CSP would block them anyway).
+- Backup reminder: header pill turns amber after 7 days or 10 saved changes without a
+  backup; banner at most once a day. Persistent storage is requested from the browser
+  (grant UNVERIFIED on the owner's device).
+- Service workers: none registered; `upgrade-shim.js` unregisters leftovers and
+  `sw.js` files are kill switches that clear only `tutor-*` caches.
 
 ## 4. Findings log
 
 | # | Finding | Severity | Status |
 |---|---|---|---|
-| F1 | PAT stranded in legacy plaintext localStorage keys; sync silently dead | High | **Closed 2026-07-10** — cleanup on load, deployed (SW v25) |
-| F2 | Old gist revisions contained PAT, ORS key, home address | High | **Closed 2026-07-10** — old gist deleted, old PAT revoked, new gist-scope PAT in use |
-| F3 | Client family surname + three client first names in a public code comment (groupKeyForClient) | Medium | **Fixed in code 2026-07-10 round 2** — comment reworded; deploy pending |
-| F3a | F3 names persist in public repo history (6 of 10 commits) | Low-Med | **Accepted risk** (user decision 2026-07-10): names only, no other data attached; revisit if repo gains visibility |
-| F4 | `sanitizedSettings()` was a denylist; invoiceEmail/invoicePhone/invoiceNotes and any legacy key (e.g. googleMapsApiKey) rode into the gist | Medium | **Fixed round 2** — allowlist; invoiceEmail/invoicePhone excluded and pull-protected; deploy pending |
-| F5 | CDN scripts had no SRI integrity hashes | Low | **Fixed round 2** — sha384 pins on all three, hashes computed from live CDN bytes; deploy pending |
-| F6 | ORS geocode API key in URL query string | Info | Accepted — ORS's documented auth for geocoding; HTTPS in transit |
-| F7 | ~30 s tab freezes seen during 2026-07-10 testing | Info | **Closed** — profiled live: slowest app op 167 ms; browser-tooling artifact, not app code |
-| F8 | Push/Pull buttons read saved settings, silently ignoring unsaved field edits ("No GitHub token configured" trap) | UX/Low | **Fixed round 2** — `syncFieldsDirty()` guard warns "Unsaved settings — click Save Settings first"; deploy pending |
-| F9 | jsPDF cdnjs URL (jspdf 2.5.2) returns 404 — tax PDF export silently broken on live site (`window.jspdf` undefined) | High (functional) | **Fixed round 2** — both jsPDF scripts moved to cdn.jsdelivr.net (verified 200 + hashed); deploy pending |
+| F1–F2 | Original app: PAT stranded in plaintext localStorage; old gist revisions held PAT, ORS key, home address | High | **Closed 2026-07-10** (cleanup on load; gist deleted, PAT revoked). Moot since Gist sync no longer exists |
+| F3 / F3a | Client family surname + first names in a public code comment / in repo history | Medium / Low-Med | Comment fixed and deployed 2026-07; history retention **accepted** by owner (names only) |
+| F4, F5, F8, F9 | Original app: settings denylist, missing SRI, unsaved-field trap, broken jsPDF CDN URL | Medium–High | **Closed**: deployed 2026-07, then made moot by the protected app (no sync, no CDNs) |
+| F6 | ORS geocode key in URL query string | Info | **Closed 2026-09-15** — both ORS calls use the Authorization header |
+| F7 | 30 s tab freezes | Info | **Closed** — tooling artifact |
+| F10 | ORS key copied into every finalize snapshot and every recovery file, immutably | Medium | **Fixed 2026-09-29** for new snapshots (owner ruling); earlier snapshots keep it (see §1) |
+| F11 | No-edit Save on a locked paid session with no payment date wrote a false `paymentDate` correction (moved income across tax years) | Medium | **Fixed 2026-09-29** |
+| F12 | Legacy `tutoring-settings` in localStorage may still hold an old ORS key / gist PAT from the retired app | Low | **Open, owner's call**: the protected app never reads it; clearing it is a manual browser action |
 
 ## 5. Standing rules
 
-- Data files (`historical_sessions.json`, `tutoring-backup-*.json`) are never
-  committed, never pushed, never quoted in commits or docs.
-- No real client names, addresses, emails, or phone numbers anywhere in code,
-  comments, docs, or commit messages — this repo is public.
-- Secrets (PAT, ORS key) live only in `tutoring-settings` on-device; never in
-  source, never in the gist payload, never in URLs except ORS geocode (F6).
-- New settings keys are local-only by default — syncing one requires adding it
-  to `GIST_SETTINGS_ALLOWLIST` in `js/sync.js` deliberately.
-- Any new external endpoint must be added to this file AND the CSP before use.
-- CDN version bumps require recomputing the SRI hash (fetch the new file,
-  sha384, update `integrity` attribute) or the script will refuse to load.
+- Data files and recovery files are never committed, pushed, or quoted in commits/docs.
+- No real client names, addresses, emails, phone numbers or the home address anywhere
+  in code, tests, comments, docs or commit messages — this repo is public. Tests use
+  fabricated fixtures only.
+- Secrets live only in the protected store's working settings on-device. Never in
+  source, never in a finalize snapshot, never in a URL.
+- Any new external endpoint must be added to this file AND the CSP before use. Cloud
+  sync stays off unless the owner rules otherwise.
+- Do not roll back deployed JS once real data holds an event type the older code
+  cannot read.
 
 ## 6. Re-audit checklist
 
-- `git grep` full history (`git rev-list --all`) for: address fragments, ZIP,
-  `ghp_`/`github_pat_`, `AIza`, ORS key prefix, client names.
-- Confirm gist payload key list in `sync.js` still matches §2.1 allowlist.
-- Confirm `.gitignore` still covers data files, local-config.js, *.bat.
-- In live app: verify `tutoring-historical` absent from push payload; check
-  `tutoring-settings` for new stray keys; `typeof window.jspdf` !== 'undefined'.
-- Verify CSP `connect-src` unchanged in index.html; SRI attributes present on
-  all three CDN script tags.
+- `git grep` full history (`git rev-list --all`) for address fragments, ZIP,
+  `ghp_`/`github_pat_`, ORS key prefix, client names.
+- Confirm `connect-src` in `protected/index.html` is still self + api.openrouteservice.org
+  and `script-src` is `'self'` only.
+- Confirm `.gitignore` still covers data, recovery and private config files.
+- `node --test`: the secret-strip, read-guard, transfer-guard and portable tests pass.
+- On the live device: DevTools > Application shows only the databases and keys in §1.

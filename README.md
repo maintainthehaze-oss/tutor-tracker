@@ -1,109 +1,88 @@
 # Tutoring Tracker Pro
 
-A client-side PWA for independent tutors to track clients, sessions, expenses, mileage, and taxes. No server, no framework, no build step — just vanilla HTML/CSS/JS served from GitHub Pages.
+A client-side app for an independent tutor to track clients, sessions, expenses, mileage and Schedule C tax figures. Vanilla HTML/CSS/JS, no framework, no build step, served from GitHub Pages.
 
-**Live:** https://maintainthehaze-oss.github.io/tutor-tracker/
+**Live:** https://maintainthehaze-oss.github.io/tutor-tracker/ — the root page redirects to `protected/`, which is the app.
 
-## Tech Stack
-
-- Vanilla HTML / CSS / JavaScript (no framework, no build tools)
-- localStorage for persistence
-- Optional GitHub Gist sync for cloud backup
-- Chart.js 4.4.7 for dashboard charts
-- jsPDF 2.5.2 for tax PDF export
-- OpenRouteService API for mileage calculation
-- Inter font (Google Fonts)
-- Service worker for offline support (cache-first)
-
-## File Structure
+## What is in this repo
 
 ```
-index.html          — Single-page app shell, all HTML
-styles.css          — Dark/light theme via CSS custom properties
-manifest.json       — PWA manifest with shortcuts
-sw.js               — Service worker
-local-config.js     — Private local-only config (gitignored; home address etc.)
-
-js/
-  app-core.js       — Namespace (window.App), utils, data, theme, tabs (~476 lines)
-  sync.js           — GitHub Gist push/pull/auto-sync (~206 lines)
-  dashboard.js      — Dashboard cards, charts, top clients, heatmap (~570 lines)
-  clients.js        — Client CRUD, cards, family groups, split history (~349 lines)
-  sessions.js       — Session CRUD, filters, sorting, mileage calc (~637 lines)
-  expenses.js       — Expense CRUD, receipt upload/compression (~235 lines)
-  reports.js        — Monthly reports, per-client stats, tax summary, PDF export (~336 lines)
-  ui.js             — Import/export, settings, search, toasts, modals, drag-drop, event delegation, init (~1001 lines)
+index.html, protected-redirect.js   Root entry: redirects to protected/ (loads no app code)
+js/, styles.css, sw.js, manifest.json   The RETIRED original app. Kept as evidence, not loaded by anything.
+                                        Root sw.js is a self-destruct kill switch for browsers that still hold the old worker.
+vendor/pdfjs, vendor/tesseract      Retired copies; the live app uses protected/vendor/.
+protected/                          THE LIVE APP (see below)
+tests/                              Node test suite: `node --test` from the repo root (156 tests). Fabricated fixtures only.
+docs/handoffs/                      Dated work logs; HANDOFF.md at the root is the short pointer to the latest.
+SECURITY-PRIVACY.md                 Where data lives and what can leave the device. Single source of truth.
+CLAUDE-INSTRUCTIONS.md              Working rules for AI-assisted sessions.
 ```
 
-## Architecture
+### protected/ (live app)
 
-All modules use a shared `window.App` namespace. `app-core.js` creates the namespace and exposes shared state, utilities, and constants. Each subsequent file attaches its public functions to `App` (e.g., `App.renderDashboard`, `App.saveClient`). Cross-module calls go through `App.functionName()` and resolve at runtime after all scripts load.
+```
+index.html          Single-page shell; same-origin Content Security Policy (scripts self only; connect-src self + api.openrouteservice.org)
+styles.css          Dark (default) / light theme via CSS custom properties on html[data-theme]; system font stack
+sw.js               Kill switch only. No service worker is registered; nothing is cached. No cache bump on deploy.
+icon.svg            Favicon
+README.md           Release note for the protected entry
+fixtures/synthetic.json, baseline/   Fabricated data and captured report definitions for the local preview
+vendor/reporting    Chart.js 4.4.7, jsPDF 4.2.1, jsPDF-AutoTable 5.0.8 (exact npm distributions; see its README)
+vendor/tesseract, vendor/pdfjs       On-device receipt OCR and PDF-to-image (lazy-loaded, same-origin)
 
-State lives in `App.state` with getter/setter pairs so modules can read and write shared arrays (clients, sessions, expenses, settings, receipts) without import/export syntax.
+js/  (loaded with <script defer> in this order)
+  upgrade-shim.js     Unregisters any leftover service worker; keeps old TrackerUpgrade calls resolving
+  app-core.js         window.App namespace, utils, formatting, settings defaults, migration of legacy record shapes
+  backup-status.js    Backup reminder pill/banner (pure state function + two localStorage bookkeeping keys)
+  record-policy.js    Which record fields are locked, and how append-only events overlay a locked row
+  repository.js       The protected store: IndexedDB, immutable archive of pre-activation records, finalize snapshots,
+                      append-only events (status / payment / correction), commands, private recovery + portable backup
+  report-model.js     The ONE place realized money is computed from (reports, tax, dashboard all read it)
+  sync.js             Local sync rehearsal only. There is no GitHub transport in the protected app.
+  dashboard.js        Summary cards, income trend chart, outstanding/owed, top clients
+  historical.js       Year-over-year chart from captured historical totals
+  clients.js          Client cards, family groups, split history; inactive clients collapsed
+  sessions.js         Session table, form, locked-row corrections, mileage (OpenRouteService), day-order mileage
+  recurring.js        Pure weekly-slot planner. Inert: nothing calls it yet.
+  expenses.js         Expenses, receipt intake (downscale to <=1200px JPEG), PDF receipts via pdf.js
+  ocr.js              On-device Tesseract OCR that prefills EMPTY expense fields
+  reports.js          Monthly report, Schedule C tax summary, NY-source rollup, PDF/CSV export
+  ui.js               Settings, backup/restore, modals, toasts, search, event delegation, init
+```
 
-Script load order matters — `index.html` loads them via `<script defer>` tags in dependency order: core first, then sync, then feature modules, then ui.js (which contains init and event delegation).
+## Architecture in one paragraph
+
+Every module is an IIFE that attaches its public functions to `window.App`. `repository.js` owns the data: records live in IndexedDB (`tutor-tracker-protected-production` on the live site, `tutor-tracker-slice1-preview` locally), every write goes through a named command with a revision check, and anything recorded before activation (or finalized since) is immutable. Changes to a locked row are append-only events that `record-policy.js` overlays on read. `report-model.js` is the only reader allowed to compute realized money; a static test fails if reports, dashboard or historical read session rows directly. Cloud sync is off; the only network call the app makes is OpenRouteService for mileage, and only when the owner asks.
 
 ## Tabs
 
-1. **Dashboard** — Revenue cards, income trend chart, sessions/week chart, top clients, busiest days heatmap
-2. **Clients** — Card grid with avatars, family grouping, split history with start/stop dates
-3. **Sessions** — Sortable/filterable table, inline edit mode, bulk actions, today's schedule
-4. **Expenses** — Category-based tracking, drag-and-drop receipt upload with image compression
-5. **Reports** — Monthly breakdown with income, company split, expenses, net profit, mileage deductions, per-client stats
-6. **Tax Summary** — Annual tax data aggregation with PDF export via jsPDF
+1. **Dashboard** — net/gross revenue cards with month-over-month trend, sessions this month, active clients, average rate, income trend chart, outstanding by family, top clients.
+2. **Clients** — cards with rate, split history, family grouping; inactive clients in a collapsed section.
+3. **Sessions** — month navigator, filters, sortable table, tap-to-pick clients, duration chips, Mark paid, locked rows edited only through corrections ("View original" shows the evidence), mileage pin button.
+4. **Expenses** — categories, drag-and-drop receipts with on-device OCR, PDF receipts.
+5. **Reports** — monthly income, stored historical shares, expenses, mileage deduction, net, per-client/family groups.
+6. **Tax Summary** — Schedule C lines (cash basis), NY-source rollup, mileage detail, estimated tax payments, PDF/CSV export. The amber "Incomplete inputs" note lists records with a missing field; totals are labelled as known subtotals.
 
-## Key Concepts
+## Key concepts
 
-### Company Split
-Stored on the **client** object, not individual sessions. Each client has a `splitHistory` array with `{split, effectiveDate, stopDate, company}` entries. `getEffectiveSplit(client, sessionDate)` finds the applicable split for any given date by checking which entry's date range covers the session date. When a client's split changes, the previous entry's `stopDate` is auto-set. Split can propagate to family members.
-
-### Data Migration
-`migrateData()` in `app-core.js` handles old data formats on load:
-- `hourlyRate` to `rate` on clients
-- `paymentStatus` / `payment` to `paid` (boolean) on sessions
-- `splitHistory[].rate` / `.date` to `.split` / `.effectiveDate`
-- Single `clientId` to `clientIds` array on sessions
-- Recalculates `companyAmount` from client split history if missing
-
-### ID Type Gotcha
-Client IDs are numbers (timestamps like `1768767021189`). When aggregating via `Object.entries()`, keys become strings. All `clients.find()` calls from aggregation use `String(c.id) === String(id)` to avoid strict equality mismatch.
-
-### Service Worker
-Cache-first strategy with network fallback. Cache name must be bumped (`tutor-tracker-vN`) on every deploy so returning users get fresh files. The `ASSETS` array lists all 8 JS modules. API domains (GitHub, OpenRouteService, Google Fonts gstatic) are excluded from caching.
-
-## Theming
-
-Dark mode is the primary theme. CSS custom properties on `html[data-theme]`:
-- Dark: `#0d1117` bg, `#161b22` cards, `#58a6ff` accent, `#f0f6fc` text
-- Light: `#ffffff` bg, `#f6f8fa` cards, `#0969da` accent, `#1f2328` text
-
-Toggle via the sun/moon icon in the header. Persisted in localStorage.
+- **Locked records.** Pre-activation records and completed/cancelled/no-show sessions cannot be edited or deleted. The pencil saves a *correction* event; the trash can offers a cancel correction. Payment and status events are append-only too. Do not roll back deployed JS once any event exists.
+- **Money.** New amounts are stored in whole cents. Cash basis: income counts in the year payment was received. Waived sessions are not revenue. Company split is stored on the client (`splitHistory`), sessions snapshot it; new sessions have a zero share, historical shares are reproduced from stored values.
+- **IDs.** Client and session ids may be numbers or strings; every comparison goes through `String()` / `P.key`. Never coerce.
+- **Backups.** Settings > Backup downloads `tutor-tracker-recovery-YYYY-MM-DD-rNNN.json` (full private snapshot; keep it on the device, it may contain the ORS key). The header pill turns amber after 7 days or 10 saved changes without a backup.
 
 ## Development
 
-No build step. Edit files directly and refresh.
-
 ```bash
-# Serve locally (any static server works)
-npx serve .
+# from protected/
+python -m http.server 8877 --bind 127.0.0.1
+# open http://127.0.0.1:8877/ and click "Initialize fabricated preview" (synthetic data only; real records are never read)
 
-# Deploy
-git add -A
-git commit -m "description"
-git push origin main
-# GitHub Pages auto-deploys from main branch
+# tests, from the repo root
+node --test
 ```
 
-After deploying, users should hard-refresh (Ctrl+Shift+R) or clear the service worker cache to pick up new files. Bump `CACHE_NAME` in `sw.js` on each deploy.
+The browser caches the scripts hard between edits; reload with the cache bypassed (or `fetch(url, {cache: 'reload'})` each script) before judging a change.
 
-## Data Storage
+## Deploy
 
-All data is in localStorage under these keys:
-- `tutoring-clients` — client array
-- `tutoring-sessions` — session array
-- `tutoring-expenses` — expense array
-- `tutoring-settings` — settings object
-- IndexedDB `tutor-tracker` / `receipts` — receipt images (base64), moved out of localStorage to escape its ~5 MB cap
-- `tutoring-theme` — `"dark"` or `"light"`
-
-Optional: configure a GitHub Personal Access Token and Gist ID in Settings for cloud backup/sync.
+`git push origin main`; GitHub Pages serves within about a minute. A pre-push hook blocks pushes to main until the owner authorizes ("Ship it"). After a deploy the owner hard-refreshes once (Ctrl+Shift+R). No service worker, so no cache name to bump.

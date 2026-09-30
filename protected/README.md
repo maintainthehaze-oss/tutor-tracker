@@ -1,12 +1,10 @@
-# Protected tracker release
+# Protected tracker (the live app)
 
-This protected entry preserves legacy device storage before activation. Cloud sync is off.
-Use the in-app recovery-file verification gate before starting the upgraded tracker.
-Private recovery files may contain credentials; retain them locally and never commit them.
+This folder is the deployed application at https://maintainthehaze-oss.github.io/tutor-tracker/protected/ (the root page redirects here). Activated on the owner's device in September 2026: every record that existed before activation is archived and immutable; new records live in the protected IndexedDB store; changes to locked rows are append-only events.
 
-Validation: 86 Node tests, four existing browser suites, production activation browser
-suite, production worker rollout suite, and six generated PDF cases passed. Independent
-review findings were fixed and rechecked. Legacy stores are never deleted by activation.
+- Cloud sync is off. The only outbound request is OpenRouteService for mileage, on the owner's click.
+- Backups: Settings > Backup downloads a private recovery file (full snapshot; may contain the ORS key). Keep it on the device; never commit it.
+- No service worker: `sw.js` here is a kill switch that unregisters any old worker and clears this app's caches.
+- Local preview: serve this folder (`python -m http.server 8877 --bind 127.0.0.1`) and click "Initialize fabricated preview". It uses `fixtures/synthetic.json` and never reads real records.
 
-Source baseline: a5f7394116479974af347d1540a255681fab515c.
-Protected cache revision: protected-2026-09-06-v1.
+Validation as of 2026-09-29: `node --test` from the repo root, 156 tests pass. Data-flow inventory and controls: `../SECURITY-PRIVACY.md`. Work log: `../HANDOFF.md`.
