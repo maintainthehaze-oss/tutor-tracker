@@ -1,6 +1,6 @@
 # 2026-09-29 — Error sweep + "This week" strip removed (Claude Code, Fable 5.1)
 
-Branch: `error-sweep-2026-09-29` (local only, on top of `main` @ `4cc4105`). **Not pushed, not deployed.** Needs "Ship it".
+Branch: `error-sweep-2026-09-29`, fast-forwarded onto `main` and pushed on MTH's "Ship it" (`4cc4105 → dae6aa2`). **Deployed 2026-09-29**; every changed live file verified via curl. Not observed: real data on the real device (MTH should hard-refresh once).
 
 ## Asked
 Go through the whole tracker, find and fix errors; remove the "This week" view from the Dashboard.
