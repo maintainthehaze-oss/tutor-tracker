@@ -783,8 +783,31 @@ button.stat-pill:hover { border-color: var(--accent); }
 /* Client Grid */
 .clients-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.6rem;
+  align-items: start;
+}
+
+/* A family spans the full row and lays its members out in the same grid,
+   so one tall family cell no longer stretches its neighbours into empty boxes. */
+.family-group {
+  grid-column: 1 / -1;
+}
+.family-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.family-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.6rem;
 }
 
 .inactive-clients {
@@ -803,12 +826,12 @@ button.stat-pill:hover { border-color: var(--accent); }
 
 .client-card {
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: 10px;
-  padding: 1.25rem;
+  padding: 0.6rem 0.75rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
 }
@@ -837,9 +860,9 @@ button.stat-pill:hover { border-color: var(--accent); }
 .client-details {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-  font-size: 0.88rem;
+  gap: 0 0.5rem;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
 }
 .client-split {
@@ -856,8 +879,8 @@ button.stat-pill:hover { border-color: var(--accent); }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--accent-subtle);
   color: var(--accent);
@@ -867,16 +890,16 @@ button.stat-pill:hover { border-color: var(--accent); }
 }
 
 .client-subjects {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
 }
 
 .client-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  font-size: 0.88rem;
+  gap: 0 0.5rem;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
 }
 .client-meta span {
@@ -2130,7 +2153,8 @@ select.input[multiple] {
     grid-template-columns: 1fr;
   }
 
-  .clients-grid {
+  .clients-grid,
+  .family-members {
     grid-template-columns: 1fr;
   }
 
@@ -2200,7 +2224,8 @@ select.input[multiple] {
     grid-template-columns: 1fr;
   }
 
-  .clients-grid {
+  .clients-grid,
+  .family-members {
     grid-template-columns: repeat(2, 1fr);
   }
 }
