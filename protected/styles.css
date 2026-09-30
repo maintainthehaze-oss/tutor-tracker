@@ -785,7 +785,7 @@ button.stat-pill:hover { border-color: var(--accent); }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.6rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 /* A family spans the full row and lays its members out in the same grid,
@@ -847,15 +847,17 @@ button.stat-pill:hover { border-color: var(--accent); }
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
+.client-name-row .status-badge { flex-shrink: 0; }
 .client-name {
+  min-width: 0;
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 .client-details {
   display: flex;

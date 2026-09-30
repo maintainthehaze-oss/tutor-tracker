@@ -116,7 +116,8 @@
       '<div class="client-info">' +
         '<div class="client-name-row">' +
           '<strong class="client-name">' + escapeHtml(name) + '</strong>' +
-          '<span class="status-badge ' + statusClass + '">' + escapeHtml(c.status || 'active') + '</span>' +
+          // Active is the norm, so only paused/inactive get a badge; keeps every card one name line tall.
+          ((c.status || 'active') !== 'active' ? '<span class="status-badge ' + statusClass + '">' + escapeHtml(c.status) + '</span>' : '') +
         '</div>' +
         '<div class="client-details">' +
           (c.rate ? '<span>' + formatCurrency(c.rate) + '/hr</span>' : '') +
