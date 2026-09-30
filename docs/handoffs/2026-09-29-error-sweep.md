@@ -33,12 +33,18 @@ Three read-only Opus reviewers swept `protected/` by module (core/data, sessions
 18. Status/type values are HTML-escaped where they become class names (`clients.js`, `sessions.js`); `.text-muted` notices are actually muted.
 19. Parent folder `.claude/launch.json` still pointed at the old OneDrive paths (project moved 2026-09-19) — repointed.
 
-## NOT changed — MTH rulings needed
+## Follow-up the same evening (MTH replies)
+- MTH: only one device is used → ruling B (backup-merge event order) is moot; left as is.
+- MTH: paused-client behaviour is fine → ruling D closed.
+- MTH asked for `SECURITY-PRIVACY.md` → the two backup-bookkeeping keys are now in the data inventory (ruling E closed).
+- MTH: "Why is there an error on the Tax page" → it is the amber **data notice** ("Incomplete inputs…"), not a failure: the report engine lists every record with a missing/unknown field (payment date, work type, companyAmount, duration, mileage) so totals are labelled as known subtotals. On real data with archived legacy records that list is long and reads like an error. Change: `App.reportModel.renderNotice` now prints one sentence with the record COUNT and puts the per-record lines in a collapsible "Show the N records" (`<details>`), on the Tax page, Reports page, Dashboard and YoY notices. PDF/CSV still carry the full list. OBSERVED on the fixture (9 records, list opens). 155/155.
+
+## NOT changed — MTH rulings still open
 - **A. ORS API key is copied into every finalized session's settings snapshot** (`repository.js` finalize) and so into every recovery file, immutably. Security posture: strip `orsApiKey`/gist fields from the snapshot (or keep the key in a per-device key). Existing copies can't be purged.
-- **B. Backup merge applies events in append order, not `recordedAt` order** (`reconcileSnapshots`). Only bites with two devices both recording events. Changing overlay order is a one-way door for existing data.
+- ~~B~~ (moot: single device) Backup merge applies events in append order, not `recordedAt` order** (`reconcileSnapshots`). Only bites with two devices both recording events. Changing overlay order is a one-way door for existing data.
 - **C. Schedule C line placement**: `advertising`, `travel`, `equipment` categories fall to line 27b "Other" (`reports.js`). Tax treatment is a CPA question; totals (28/31) are unaffected.
-- **D. Paused clients** are excluded from the session client picker but shown with actives on the Clients tab; picker labels them "(inactive)". Intent unclear.
-- **E. `SECURITY-PRIVACY.md`** still owes the two backup-bookkeeping localStorage keys (carried from 2026-09-27).
+- ~~D~~ (closed: fine as is) Paused clients are excluded from the session client picker but shown with actives on the Clients tab; picker labels them "(inactive)". Intent unclear.
+- ~~E~~ (done) `SECURITY-PRIVACY.md` owed the two backup-bookkeeping localStorage keys (carried from 2026-09-27).
 
 ## UNVERIFIED
 Real data on the real device; ORS key end to end on live (fix 4); fixes 3, 5, 8, 9, 10, 13–17 are code-traced and unit-tested where a test existed, not all browser-observed.

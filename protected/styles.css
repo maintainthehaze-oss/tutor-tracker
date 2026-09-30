@@ -2513,6 +2513,11 @@ select.input[multiple] {
 }
 
 /* Tax flag note (meals 50% reminder) */
+.report-notice-details { margin: -0.25rem 0 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+.report-notice-details summary { cursor: pointer; color: var(--accent); }
+.report-notice-details ul { margin: 0.35rem 0 0 1.1rem; padding: 0; }
+.report-notice-details li { margin: 0.15rem 0; }
+
 .tax-flag-note {
   background: var(--color-warning-bg);
   border: 1px solid var(--color-warning);

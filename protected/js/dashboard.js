@@ -26,7 +26,7 @@
       notice.setAttribute('role', 'status');
       anchor.parentNode.insertBefore(notice, anchor);
     }
-    notice.textContent = warnings.length ? App.reportModel.notice(warnings, 'current-v2') : '';
+    if (warnings.length) App.reportModel.renderNotice(notice, warnings, 'current-v2'); else { notice.textContent = ''; App.reportModel.renderNotice(notice, [], 'current-v2'); notice.textContent = ''; }
     notice.hidden = !warnings.length;
   }
 

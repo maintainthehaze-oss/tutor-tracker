@@ -141,5 +141,32 @@
       'Captured inputs do not prove reproduction of previously filed reports.' +
       (warnings.length ? ' Incomplete inputs: amounts shown are known subtotals, not complete totals. '+unique(warnings).join(' ') : '');
   }
-  App.reportModel=Object.freeze({context,metrics,period,rate,mode,notice,numeric,validNumber,validDate,clients:(v)=>context(v).clients});
+  /** Same words as notice(), split for the screen: one summary sentence in `el`, and the per-record list
+   *  in a collapsible sibling (`<el.id>-details`) so a long list of legacy gaps reads as a note, not an error.
+   *  PDF/CSV keep the full text from notice(). */
+  function renderNotice(el, warnings = [], version = 'current-v2') {
+    if (!el) return;
+    const list = unique(warnings);
+    const head = version==='captured-v1' ? 'Captured v1: original sessions and legacy arithmetic. ' : 'Current v2: stored historical shares; new shares are zero. ';
+    el.textContent = head + 'Captured inputs do not prove reproduction of previously filed reports.' +
+      (list.length ? ' Incomplete inputs: ' + list.length + (list.length === 1 ? ' record has' : ' records have') +
+        ' a missing or unknown field, so amounts shown are known subtotals, not complete totals.' : '');
+    const id = el.id ? el.id + '-details' : '';
+    let details = id ? document.getElementById(id) : el.nextElementSibling && el.nextElementSibling.classList.contains('report-notice-details') ? el.nextElementSibling : null;
+    if (!list.length) { if (details) details.remove(); return; }
+    if (!details) {
+      details = document.createElement('details');
+      if (id) details.id = id;
+      details.className = 'report-notice-details';
+      el.parentNode.insertBefore(details, el.nextSibling);
+    }
+    const open = details.open;
+    details.textContent = '';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Show the ' + list.length + (list.length === 1 ? ' record' : ' records');
+    const ul = document.createElement('ul');
+    list.forEach((w) => { const li = document.createElement('li'); li.textContent = w; ul.appendChild(li); });
+    details.appendChild(summary); details.appendChild(ul); details.open = open;
+  }
+  App.reportModel=Object.freeze({context,metrics,period,rate,mode,notice,renderNotice,numeric,validNumber,validDate,clients:(v)=>context(v).clients});
 })();

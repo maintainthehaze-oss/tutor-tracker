@@ -68,8 +68,7 @@
 
     // Net profit = your cut (gross - company split) - expenses - mileage deduction
     const netProfit = M.netProfit;
-    const notice = $('report-notice');
-    if (notice) notice.textContent = App.reportModel.notice(M.warnings, mode);
+    App.reportModel.renderNotice($('report-notice'), M.warnings, mode);
     const shareCard = $('report-company-split');
     if (shareCard) shareCard.closest('article').hidden = !M.hasLegacyShare;
 
@@ -374,8 +373,7 @@
     const yearSelect = $('tax-year');
     const year = yearSelect ? parseInt(yearSelect.value) : new Date().getFullYear();
     const data = getTaxData(year);
-    const notice = $('tax-notice');
-    if (notice) notice.textContent = App.reportModel.notice(data.warnings, data.mode);
+    App.reportModel.renderNotice($('tax-notice'), data.warnings, data.mode);
 
     // Part I - Income (cash basis: counted when payment received)
     const l1 = $('tax-line1'); if (l1) l1.textContent = formatCurrency(data.grossIncome);

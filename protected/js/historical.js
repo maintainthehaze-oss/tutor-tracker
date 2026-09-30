@@ -73,7 +73,7 @@
       notice.setAttribute('role', 'status');
       canvas.parentNode.parentNode.insertBefore(notice, canvas.parentNode);
     }
-    notice.textContent = warnings.length ? App.reportModel.notice(warnings, 'current-v2') : '';
+    if (warnings.length) App.reportModel.renderNotice(notice, warnings, 'current-v2'); else { App.reportModel.renderNotice(notice, [], 'current-v2'); notice.textContent = ''; }
     notice.hidden = !warnings.length;
 
     const isDark    = document.documentElement.getAttribute('data-theme') !== 'light';

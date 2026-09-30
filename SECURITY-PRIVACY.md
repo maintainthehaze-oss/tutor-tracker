@@ -21,6 +21,7 @@ finding. Update it whenever a data flow or finding changes.
 | `tutoring-settings` | Business address, ORS API key, gist PAT/ID, invoice contact info | HIGH (secrets) |
 | `tutoring-historical` | 1,652 sessions 2019–2025 | HIGH — **never leaves device** |
 | `tutoring-theme`, `backup-banner-dismissed`, `tutoring-last-backup` | UI state | none |
+| `tutoring-backup-meta`, `tutoring-backup-snooze` | Backup reminder bookkeeping only: the record revision number and time of the last backup downloaded from this browser, and when the reminder banner was last shown/snoozed. No records, names, amounts or secrets. Never synced. | none |
 | `tutor-gist-pat`, `tutor-gist-id` | LEGACY plaintext PAT — dead keys, deleted on app load since SW v25 | HIGH (historical) |
 
 `sessionStorage: gist-token` — mirror of the PAT for the current tab session only.
