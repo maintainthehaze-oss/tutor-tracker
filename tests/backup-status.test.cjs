@@ -20,8 +20,13 @@ test('backupState (pure): label, age, changes since, amber at 7 days or 10 chang
   assert.deepEqual(state(meta(100, DAY + 1), 101), ['ok', '1d / 1 change']);
   assert.deepEqual(state(meta(100, 0), 109), ['ok', 'today / 9 changes']);
   assert.deepEqual(state(meta(100, 0), 110), ['amber', 'today / 10 changes']);
-  assert.deepEqual(state(meta(100, 7 * DAY - 1), 100), ['ok', '6d / 0 changes']);
+  // Age is counted in calendar days, not 24-hour spans (NOW is noon): 6 days 23 h ago is still the 7th day back.
+  assert.deepEqual(state(meta(100, 6 * DAY + 11 * 60 * 60 * 1000), 100), ['ok', '6d / 0 changes']);
+  assert.deepEqual(state(meta(100, 7 * DAY - 1), 100), ['amber', '7d / 0 changes']);
   assert.deepEqual(state(meta(100, 7 * DAY), 100), ['amber', '7d / 0 changes']);
+  // A backup at 11 pm is "1d" the next morning, not "today".
+  assert.deepEqual(state(meta(100, 13 * 60 * 60 * 1000), 100), ['ok', '1d / 0 changes']);
+  assert.deepEqual(state(meta(100, 11 * 60 * 60 * 1000), 100), ['ok', 'today / 0 changes']);
   assert.deepEqual(state(meta(100, 400 * DAY), 100), ['amber', '400d / 0 changes']);
   // Never backed up from this browser: every saved change counts.
   assert.deepEqual(state(null, 0), ['ok', 'never / 0 changes']);

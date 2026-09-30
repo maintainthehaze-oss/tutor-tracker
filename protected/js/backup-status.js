@@ -50,7 +50,8 @@
       const message = 'These records are not the ones last backed up from this browser.';
       return { level: 'amber', days: null, changes: null, label: 'check', message, title: message + click };
     }
-    const days = Math.max(0, Math.floor((nowMs - last.at) / DAY_MS));
+    // Calendar days, not 24-hour spans: a backup at 11 pm is "1 day ago" the next morning.
+    const days = Math.max(0, Math.round((Date.parse(localDay(nowMs) + 'T00:00:00') - Date.parse(localDay(last.at) + 'T00:00:00')) / DAY_MS));
     const changes = revision - last.revision;
     const level = days >= AMBER_DAYS || changes >= AMBER_CHANGES ? 'amber' : 'ok';
     const message = 'Last backup ' + (days === 0 ? 'today' : plural(days, 'day') + ' ago') + ', ' + plural(changes, 'saved change') + ' since.' +

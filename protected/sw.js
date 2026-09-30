@@ -7,7 +7,7 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.map(key => caches.delete(key)));
+    await Promise.all(keys.filter(key => key.startsWith('tutor-')).map(key => caches.delete(key))); // github.io origin is shared
     await self.registration.unregister();
     const tabs = await self.clients.matchAll({type:'window', includeUncontrolled:true});
     tabs.forEach(tab => tab.navigate(tab.url).catch(() => {}));

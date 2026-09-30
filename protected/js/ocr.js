@@ -61,7 +61,7 @@
 
   function parseTotal(lines) {
     const isTotalLine = (l) => /\b(grand\s*total|amount\s*due|balance\s*due|total)\b/i.test(l) &&
-      !/sub\s*-?\s*total/i.test(l);
+      !/sub\s*-?\s*total|savings|discount|total\s*(items|qty|quantity)/i.test(l);
     const amountsOn = (l) => {
       const out = [];
       let m;

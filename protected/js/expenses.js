@@ -191,8 +191,8 @@
         App.pdfToImage(dataUrl).then((img) => {
           if (stale()) return;
           if (!img) {
+            // Not stored: a raw PDF data URL would only ever render as a broken image.
             App.showToast('Could not read this PDF — enter details manually', 'warning');
-            setReceiptPreview(dataUrl);
             return;
           }
           compressImage(img, (compressed) => {
@@ -237,6 +237,7 @@
       ctx.drawImage(img, 0, 0, w, h);
       callback(canvas.toDataURL('image/jpeg', 0.7));
     };
+    img.onerror = function () { App.showToast('Could not read this image. Try a JPG or PNG.', 'error'); };
     img.src = dataUrl;
   }
 

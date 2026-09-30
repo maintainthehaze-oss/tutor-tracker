@@ -51,10 +51,11 @@
       if (!Array.isArray(s.clientIds)) s.clientIds = Object.hasOwn(s,'clientId') ? [s.clientId] : [];
       if (s.paid == null && (s.paymentStatus != null || s.payment != null)) s.paid = (s.paymentStatus || s.payment) === 'paid';
       if (!captured) {
-        s.clientIds = unique(s.clientIds.map(String));
         if (!legacy) s.companyAmount = 0;
         // Append-only events (status, payment, correction) overlay archived and finalized rows alike; the stored original is untouched.
         App.recordPolicy.applyEvents(s, e.events);
+        // Normalize after the overlay: a correction may have replaced clientIds.
+        s.clientIds = unique((Array.isArray(s.clientIds) ? s.clientIds : []).map(String));
       }
       for (const field of ['amount','companyAmount','duration','mileage']) {
         if (!validNumber(s[field])) rowWarnings.push('Record ' + id + ': ' + field + ' is ' +
@@ -79,7 +80,9 @@
   }
   function metrics(filter = {}, version = 'current-v2') {
     const ctx = context(version), number = version === 'captured-v1' ? App.num : numeric;
-    const find = (s,id) => s._report.clients.find(c=>key(c.id)===String(id));
+    // A correction can point a locked row at a client added after its snapshot; current mode then falls back to today's list.
+    const find = (s,id) => s._report.clients.find(c=>key(c.id)===String(id)) ||
+      (version==='captured-v1' ? undefined : ctx.clients.find(c=>key(c.id)===String(id)));
     let rows = ctx.sessions.filter(s=>s.status==='completed' && typeof s.date==='string' &&
       (version==='captured-v1' ? !!s.date : validDate(s.date)));
     if(filter.year)rows=rows.filter(s=>s.date.slice(0,4)===String(filter.year));

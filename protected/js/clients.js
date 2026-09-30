@@ -102,7 +102,7 @@
     const name = clientName(c);
     const completedForClient = sessions.filter((s) => (s.clientIds || []).some((cid) => String(cid) === String(c.id)) && s.status === 'completed');
     const sessionCount = completedForClient.length;
-    const statusClass = 'status-' + (c.status || 'active');
+    const statusClass = 'status-' + escapeHtml(c.status || 'active');
 
     // Sessions this month (momentum at a glance)
     const monthKey = App.currentMonth();

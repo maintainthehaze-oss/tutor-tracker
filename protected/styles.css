@@ -554,15 +554,17 @@ button.stat-pill:hover { border-color: var(--accent); }
   color: var(--color-warning);
   margin-top: 0.1rem;
 }
+.text-muted { color: var(--text-muted); font-size: 0.85rem; }
+
 .card-trend {
   font-size: 0.85rem;
   font-weight: 600;
   margin-top: 0.25rem;
 }
-.card-trend.up {
+.card-trend.trend-up {
   color: var(--color-success);
 }
-.card-trend.down {
+.card-trend.trend-down {
   color: var(--color-danger);
 }
 
@@ -1294,6 +1296,14 @@ button.stat-pill:hover { border-color: var(--accent); }
 }
 
 /* Receipt thumbnails in table */
+.receipt-thumb-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  line-height: 0;
+  cursor: pointer;
+}
+.receipt-thumb-img,
 .receipt-thumb {
   width: 40px;
   height: 40px;
@@ -2407,27 +2417,6 @@ select.input[multiple] {
   transition: background 0.15s ease;
 }
 .btn-mark-paid:hover { background: var(--color-success); color: var(--text-inverse); }
-
-/* --- "This week" strip (dashboard): every session a week back and a week ahead, one-tap exceptions --- */
-.week-strip { margin-bottom: 1.5rem; }
-.week-strip-hint { font-size: 0.75rem; color: var(--text-muted); }
-.strip-day { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border-muted); border-radius: 6px; }
-.strip-day:last-child { border-bottom: none; }
-.strip-today { background: var(--accent-subtle); }
-.strip-day-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-.strip-day-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
-.strip-today .strip-day-label { color: var(--accent); }
-.strip-add { min-width: 28px; min-height: 28px; padding: 0.1rem 0.45rem; font-size: 1rem; line-height: 1; }
-.strip-rows { list-style: none; }
-.strip-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; padding: 0.4rem 0; font-size: 0.85rem; }
-.strip-time { flex: 0 0 3.2rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.strip-info { display: flex; flex-direction: column; gap: 0.1rem; flex: 1 1 9rem; min-width: 0; }
-.strip-names { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.strip-meta { font-size: 0.72rem; color: var(--text-muted); }
-.strip-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-.strip-chip:disabled { opacity: 0.45; cursor: not-allowed; }
-.strip-chip:disabled:hover { background: var(--bg-card); border-color: var(--border-default); }
-.strip-chip.selected:disabled:hover { background: var(--accent-subtle); border-color: var(--accent); }
 
 /* Toast action button (Undo) */
 .toast-action {

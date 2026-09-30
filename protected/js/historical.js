@@ -37,6 +37,16 @@
     unavailable.hidden = typeof Chart !== 'undefined';
     canvas.parentNode.hidden = !unavailable.hidden;
     if (!unavailable.hidden) return;
+    let empty = document.getElementById('yoy-chart-empty');
+    if (!empty) {
+      empty = document.createElement('p');
+      empty.id = 'yoy-chart-empty';
+      empty.className = 'empty-state';
+      empty.setAttribute('role', 'status');
+      empty.textContent = 'No completed sessions yet. Yearly totals appear here once sessions are recorded.';
+      canvas.parentNode.parentNode.insertBefore(empty, canvas.parentNode);
+    }
+    empty.hidden = true;
 
     const sessions = App.reportModel.context().sessions;
     const sorted = Array.from(new Set(sessions.filter((s) => s.status === 'completed' && typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.date) && Number.isFinite(Date.parse(s.date + 'T00:00:00'))).map((s) => s.date.slice(0, 4)))).sort();
@@ -82,6 +92,8 @@
     if (sorted.length === 0) {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      empty.hidden = false;
+      canvas.parentNode.hidden = true;
       return;
     }
 
@@ -117,7 +129,7 @@
             borderRadius: 4,
             order: 3,
           },
-        ].filter((dataset) => dataset.label !== 'Historical share' || hasLegacyShare),
+        ].filter((dataset) => dataset.label !== 'Historical share' || (hasLegacyShare && App.showSplit())),
       },
       options: {
         responsive: true,

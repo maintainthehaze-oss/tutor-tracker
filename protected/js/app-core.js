@@ -38,7 +38,8 @@
   function formatCurrency(n) {
     const val = parseFloat(n);
     if (isNaN(val)) return '$0.00';
-    return '$' + val.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const sign = val < 0 && Math.abs(val) >= 0.005 ? '-' : '';
+    return sign + '$' + Math.abs(val).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
 
   /** Format ISO date string to readable */

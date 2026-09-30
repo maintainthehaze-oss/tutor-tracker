@@ -528,11 +528,11 @@
             // its outcome as an append-only status event; the last event wins so a mistake can be corrected.
             const rows=select(w.sessions,p.ids);
             if (!STATUS_EVENT_VALUES.includes(p.status)) throw Error('Invalid session status');
-            const statuses=statusOverlay(draft.events);
             rows.forEach(s => {
               const k=P.key(s.id);
               if (!archived('sessions',s.id) || s.status !== 'scheduled') throw Error('Only pre-activation scheduled sessions take a status event: '+k);
-              if ((Object.hasOwn(statuses,k)?statuses[k]:s.status) === p.status) throw Error('Session is already '+p.status);
+              // Corrections can set status too, so compare against the full overlay, not status events alone.
+              if (P.applyEvents(clone(s),draft.events).status === p.status) throw Error('Session is already '+p.status);
               if (p.status !== 'completed' && P.applyEvents(clone(s),draft.events).paid) throw Error('A paid session cannot be changed to '+p.status);
               draft.events.push({id:crypto.randomUUID(),sessionId:s.id,type:'status',status:p.status,recordedAt:new Date().toISOString()});
             }); break;

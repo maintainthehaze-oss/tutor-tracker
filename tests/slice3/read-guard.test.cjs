@@ -3,10 +3,7 @@ const root=path.resolve(__dirname,'../../protected/js');
 // Realized (completed) money must come from App.reportModel. The header "Projected" pill (shipped
 // 2026-09-10) is operational, not a report: it sums sessions that are still SCHEDULED, which the
 // model deliberately does not cover. Only that exact scheduled-only read is exempt.
-// The "This week" strip (2026-09-19) is operational too: it lists live, tappable session rows (any status)
-// and sums nothing. Only that exact call is exempt; every other direct read in dashboard.js still fails.
-const OPERATIONAL_READS=["App.state.sessions.filter((s) => s.status === 'scheduled')",
-  "weekStripDays(App.state.sessions, App.state.clients, todayISO())"];
+const OPERATIONAL_READS=["App.state.sessions.filter((s) => s.status === 'scheduled')"];
 function check(sources){
   const failures=[];
   for(const file of ['reports','dashboard','historical']){

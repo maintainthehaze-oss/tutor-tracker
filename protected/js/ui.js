@@ -588,29 +588,13 @@
     App.renderSessions();
   }
 
-  /* "This week" strip (drawn by dashboard.js). Rules: existing repository commands only; a locked row
-     changes only through a correction; a paid row is never changed from the strip. */
-  const STRIP_WORDS = { completed: 'happened', 'no-show': 'no-show', cancelled: 'cancelled' };
-  function stripRefusesPaid(id) {
-    const row = App.state.sessions.find((s) => String(s.id) === String(id));
-    if (!row || !row.paid) return false;
-    showToast(App.STRIP_PAID_TITLE, 'warning');
-    return true;
-  }
-  /** Undo for a locked row: one more correction, back to `status`. */
-  function undoToStatus(id, status) {
-    return { label: 'Undo', run: async () => {
-      if (await App.runCommand('session.correct', { id, fields: { status } }, App.repository.revision)) showToast('Back to ' + STRIP_WORDS[status], 'success');
-    } };
-  }
-
   function setupEventDelegation() {
     document.body.addEventListener('click', async (e) => {
       const target = e.target.closest('[data-action]');
       if (!target) {
         const tabBtn = e.target.closest('[data-tab]');
         if (tabBtn) { e.preventDefault(); App.switchTab(tabBtn.getAttribute('data-tab')); return; }
-        const sortHeader = e.target.closest('[data-sort]');
+        const sortHeader = e.target.closest('th.sortable[data-sort]');
         if (sortHeader && sortHeader.closest('#sessions-table')) {
           applySessionSort(sortHeader.getAttribute('data-sort'));
           return;
@@ -689,9 +673,12 @@
           App.switchTab('sessions');
           setTimeout(() => {
             const el = $('filter-client');
+            const fds = $('filter-date-start'); if (fds) fds.value = '';
+            const fde = $('filter-date-end'); if (fde) fde.value = '';
             if (el) { el.value = id; App.setSessionMonth('all', false); App.renderSessions(); }
             const filterPanel = $('session-filters');
             if (filterPanel) filterPanel.hidden = false;
+            const toggle = document.querySelector('[data-action="toggle-filters"]'); if (toggle) toggle.setAttribute('aria-expanded', 'true');
           }, 100);
           break;
         case 'repeat-last-session': App.repeatLastSession(); break;
@@ -762,41 +749,6 @@
         case 'mark-paid':
           if(await App.runCommand('session.payment',{ids:[id],date:todayISO()},App.repository.revision)) showToast('Marked paid','success');
           break;
-        case 'quick-complete':
-          if(await App.runCommand('session.update',{ids:[id],patch:{status:'completed'}},App.repository.revision)) showToast('Session finalized','success');
-          break;
-        // No-show / Cancelled lock the row, so their Undo is a correction to completed (it cannot return to scheduled).
-        case 'quick-noshow':
-          if(stripRefusesPaid(id)) break;
-          if(await App.runCommand('session.update',{ids:[id],patch:{status:'no-show'}},App.repository.revision)) showToast('Session finalized as no-show','success',undoToStatus(id,'completed'));
-          break;
-        case 'quick-cancel':
-          if(stripRefusesPaid(id)) break;
-          if(await App.runCommand('session.update',{ids:[id],patch:{status:'cancelled'}},App.repository.revision)) showToast('Session finalized as cancelled','success',undoToStatus(id,'completed'));
-          break;
-        case 'strip-status': {
-          // Locked row: one append-only correction per tap. The stored record and its lock evidence never change.
-          const status = target.getAttribute('data-status');
-          const row = App.state.sessions.find((s) => String(s.id) === id);
-          if (!row || (row.status || 'completed') === status || stripRefusesPaid(id)) break;
-          const previous = row.status || 'completed';
-          if (!await App.runCommand('session.correct', { id, fields: { status } }, App.repository.revision)) break;
-          // A pre-activation row that was still scheduled cannot be corrected back to scheduled: no Undo there.
-          showToast('Marked as ' + STRIP_WORDS[status], 'success', Object.hasOwn(STRIP_WORDS, previous) ? undoToStatus(id, previous) : null);
-          break;
-        }
-        case 'strip-skip': {
-          // Unlocked future row: delete it. Undo re-saves the STORED record, never the read view, so it returns byte-identical.
-          const revision = App.repository.revision;
-          if (!App.state.sessions.some((s) => String(s.id) === id) || stripRefusesPaid(id)) break;
-          const original = App.repository.snapshot().working.sessions.find((s) => String(s.id) === id);
-          if (!original || !await App.runCommand('session.delete', { ids: [id] }, revision)) break;
-          showToast('Session skipped', 'success', { label: 'Undo', run: async () => {
-            if (await App.runCommand('session.save', { record: original }, App.repository.revision)) showToast('Session put back', 'success');
-          } });
-          break;
-        }
-        case 'strip-add': App.openSessionForm(null, target.getAttribute('data-date')); break;
         case 'calc-mileage': App.calcFormMileage(); break;
         case 'calc-mileage-by-day': App.calculateMileageByDay(); break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
@@ -811,7 +763,8 @@
           { const prvw = $('expense-receipt-preview'); if (prvw) prvw.hidden = true; }
           break;
         case 'view-receipt': {
-          const rData = (App.state.receipts || {})[id] || '';
+          const legacy = (App.state.expenses || []).find((x) => String(x.id) === String(id));
+          const rData = (App.state.receipts || {})[id] || (legacy && legacy.receiptData) || '';
           if (rData) {
             const viewerImg = $('receipt-viewer-img');
             if (viewerImg) viewerImg.src = rData;
@@ -945,7 +898,7 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
-        const sortHeader = e.target.closest && e.target.closest('[data-sort]');
+        const sortHeader = e.target.closest && e.target.closest('th.sortable[data-sort]');
         if (sortHeader && sortHeader.closest('#sessions-table')) {
           e.preventDefault();
           applySessionSort(sortHeader.getAttribute('data-sort'));
@@ -969,8 +922,8 @@
         return;
       }
       if (e.key === 'Escape') {
-        const openModalEl = document.querySelector('.modal-overlay:not([hidden])');
-        if (openModalEl) closeModal(openModalEl.id);
+        const openModals = document.querySelectorAll('.modal-overlay:not([hidden])'); // last in page order is on top (Confirm over Settings)
+        if (openModals.length) closeModal(openModals[openModals.length - 1].id);
         return;
       }
     });
@@ -1078,8 +1031,8 @@
     const hashTab=(location.hash||'').replace('#','');
     App.switchTab(validTabs.includes(hashTab)?hashTab:'dashboard'); App.updateHeaderStats();
     refreshBackupStatus();
-    // Keep unavailable paths visible with an explicit reason.
-    ['settings-ors-key'].forEach(id=>{
+    // Keep unavailable paths visible with an explicit reason (preview only; the live site saves and uses the key).
+    if(!production()) ['settings-ors-key'].forEach(id=>{
       const el=$(id); if(el){el.disabled=true;el.title='Unavailable in protected preview';}
     });
     $('initialize-preview').addEventListener('click',async()=>{

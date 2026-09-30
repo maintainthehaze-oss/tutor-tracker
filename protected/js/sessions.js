@@ -17,6 +17,7 @@
   const clientName = App.clientName;
 
   let sessionFormRevision = null;
+  const SESSION_TYPES = ['in-person', 'online', 'hybrid', 'group']; // the Session Type select's options
 
   /** Round to whole cents. The 6-decimal pass removes floating-point noise first, so a product such as
    *  62.50 x 0.83 = 51.875 (or 51.87499999999999) becomes 51.88 and 1.005 becomes 1.01. */
@@ -132,6 +133,11 @@
     const editMode = App.state.editMode;
     const checkCols = document.querySelectorAll('.col-check');
     checkCols.forEach((el) => el.hidden = !editMode);
+    const selectAll = document.querySelector('[data-action="select-all-sessions"]');
+    if (selectAll) {
+      const selectable = filtered.filter((s) => !App.isProtectedSession(s.id));
+      selectAll.checked = selectable.length > 0 && selectable.every((s) => sel.has(s.id));
+    }
 
     // Render table
     const tbody = $('sessions-tbody');
@@ -179,10 +185,10 @@
     }).join(', ');
 
     const typeLabels = { 'in-person': 'In Person', 'online': 'Online', 'hybrid': 'Hybrid', 'group': 'Group' };
-    const typeClass = 'type-badge type-' + (s.type || 'in-person');
+    const typeClass = 'type-badge type-' + escapeHtml(s.type || 'in-person');
     const paymentClass = s.paid ? 'payment-paid' : (s.payment === 'waived' ? 'payment-waived' : 'payment-unpaid');
     const paymentLabel = s.paid ? 'Paid' : (s.payment === 'waived' ? 'Waived' : 'Unpaid');
-    const statusClass = 'status-badge status-' + (s.status || 'completed');
+    const statusClass = 'status-badge status-' + escapeHtml(s.status || 'completed');
     const isSelected = selectedSessions.has(s.id);
 
     const splitAmount = num(s.companyAmount);
@@ -545,7 +551,8 @@
       $('session-amount').value = s.amount == null ? '' : s.amount;
       $('session-mileage').value = s.mileage || '';
       $('session-payment').value = s.paid ? 'paid' : (s.payment === 'waived' ? 'waived' : 'unpaid');
-      $('session-payment-date').value = s.paymentDate || todayISO();
+      // Blank when the stored row has no payment date: a no-edit save must not invent one (see saveSession).
+      $('session-payment-date').value = s.paymentDate || (s.paid ? '' : todayISO());
       $('session-status').value = s.status || 'completed';
       $('session-notes').value = s.notes || '';
     } else {
@@ -584,6 +591,10 @@
     const shown = { date: prev.date || '', time: prev.time || '', type: prev.type || 'in-person', status: prev.status || 'completed',
       notes: prev.notes || '', payment: prev.paid ? 'paid' : (prev.payment === 'waived' ? 'waived' : 'unpaid') };
     Object.keys(shown).forEach((k) => { if (!same(form[k], shown[k])) fields[k] = form[k]; });
+    // The form cannot display a legacy time that is not HH:MM, or a type outside its list; a no-edit save shows
+    // '' / 'In Person' for those, and that default must not be written back as a correction.
+    if (fields.time === '' && prev.time && !/^\d{2}:\d{2}$/.test(String(prev.time))) delete fields.time;
+    if (fields.type === 'in-person' && prev.type && !SESSION_TYPES.includes(prev.type)) delete fields.type;
     if (num(form.duration) !== num(prev.duration)) fields.duration = num(form.duration);
     if (num(form.amount) !== num(prev.amount)) fields.amount = num(form.amount);
     if (num(form.mileage) !== num(prev.mileage)) {
@@ -743,7 +754,9 @@
 
     const id = $('session-id').value;
     const isNew = !id;
-    const paidOn = paid ? ($('session-payment-date').value || todayISO()) : null;
+    // Today is only assumed when the row BECOMES paid in this save; an already-paid row keeps its stored date (or none).
+    const wasPaid = id ? sessions.find((s) => String(s.id) === String(id)) : null;
+    const paidOn = paid ? ($('session-payment-date').value || (wasPaid && wasPaid.paid ? (wasPaid.paymentDate == null ? null : wasPaid.paymentDate) : todayISO())) : null;
     if (id && App.isProtectedSession(id)) return saveCorrection(id, {
       date, time: $('session-time').value || '', clientIds: selectedClients, type: $('session-type').value || 'in-person',
       duration, amount, paid, payment: paymentVal, paymentDate: paidOn, status: $('session-status').value || 'completed',
@@ -786,6 +799,8 @@
       if (idx === -1) return;
       const prev = sessions[idx];
       sessionData.id = prev.id;
+      // Same clients as before: keep the address the row already had (mileage routing depends on it).
+      if (prev.address && JSON.stringify((prev.clientIds || []).map(String)) === JSON.stringify(selectedClients.map(String))) sessionData.address = prev.address;
       if (num(sessionData.mileage) === num(prev.mileage)) {
         delete sessionData.mileageDetails;
         delete sessionData.mileageCalculated;
@@ -1083,11 +1098,15 @@
     if (!date) { App.showToast('Enter the session date first', 'warning'); return false; }
     const address = sessionAddress({ clientIds: selected });
     if (btn) btn.disabled = true;
+    // The lookup waits on the network; if the form was closed or reopened meanwhile, the result belongs to nobody.
+    const gen = App.getModalGeneration ? App.getModalGeneration() : null;
+    const stale = () => gen != null && App.getModalGeneration && App.getModalGeneration() !== gen;
     try {
       requireMileageSetup();
       if (!address) throw new Error('This client has no address on file. Add it on the Clients tab.');
       const extra = { session: null, address, time: $('session-time').value || '' };
       const planned = await planDay(dayStops(date, extra, $('session-id').value));
+      if (stale()) return false;
       const mine = planned.find((x) => x.session === null);
       input.value = mine.miles;
       input.dataset.details = mine.details;
