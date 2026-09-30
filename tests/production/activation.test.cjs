@@ -114,7 +114,8 @@ test('every fresh production import binds existing legacy records at stage and c
   const routes=[['stagePrivateRecovery',await source.repo.exportPrivateRecovery()],['stagePortable',await source.repo.exportPortable()]];
   const empty={format:'tutor-tracker-legacy-capture-v1',localStorage:[],receipts:{databasePresent:false,storePresent:false,rows:[]}};
   for(const [method,text] of routes){
-    const mismatch=copy(clean);mismatch.localStorage.push(['tutoring-theme','different']);
+    // A RECORD store that differs from the archive is a different device's data (UI keys such as the theme are ignored since F13).
+    const mismatch=copy(clean);mismatch.localStorage.push(['tutoring-tax-payments','[{"id":"other-device","amount":"1"}]']);
     const bad=repository(mismatch),before=copy(mismatch);
     await assert.rejects(bad.repo[method](text),/does not match/);assert.equal(await bad.adapter.read(),null);assert.deepEqual(mismatch,before);
     const stale=repository(copy(clean)),stage=await stale.repo[method](text);
@@ -152,4 +153,19 @@ test('capture refuses shared object references instead of losing alias identity'
   const shared={receipt:'data'},native=fakeLegacy([{key:'aliased',value:{a:shared,b:shared}}]);
   const adapter=memory();await assert.rejects(setup(native).create(adapter).stageLegacyActivation(),/Unsupported legacy receipt value/);
   assert.equal(await adapter.read(),null);assert.deepEqual(native.writes,[]);
+});
+test('fresh-restore guard: settings/UI keys never block a recovery on the owner device; different records still do',async()=>{
+  const source=repository(),stage=await source.repo.stageLegacyActivation();
+  // Same records, but the old settings key was cleared and bookkeeping/theme keys appeared after activation (F13).
+  const drifted=copy(fixture());
+  drifted.localStorage=drifted.localStorage.filter(([k])=>k!=='tutoring-settings').concat([['tutoring-backup-meta','{"revision":3}'],['tutoring-theme','dark']]);
+  const same=repository(drifted),restore=await same.repo.stagePrivateRecovery(stage.recoveryText);
+  await same.repo.commitPortable(restore.id);
+  assert.equal(same.repo.read().sessions.length,1);
+  // A device whose SESSIONS differ from the archive is still refused.
+  const other=copy(fixture());other.localStorage[1]=['tutoring-sessions','[{"id":"someone-else","status":"completed","date":"2024-01-01","amount":"5"}]'];
+  await assert.rejects(repository(other).repo.stagePrivateRecovery(stage.recoveryText),/does not match this device/);
+  // A device with extra receipt rows is refused too.
+  const moreReceipts=copy(fixture());moreReceipts.receipts.rows.push({key:['number','9'],displayKey:'9',value:['string','extra']});
+  await assert.rejects(repository(moreReceipts).repo.stagePrivateRecovery(stage.recoveryText),/does not match this device/);
 });

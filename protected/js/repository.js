@@ -420,12 +420,18 @@
       if (!equal(first,second)) throw Error('Legacy records changed during capture. Stage again.');
       legacyOriginals(first); return first;
     }
+    // The fresh-import guard compares RECORD stores only. Settings (may hold secrets and may be cleared),
+    // UI/bookkeeping keys added after activation and corrupt-key evidence never decide whether a recovery
+    // file belongs to this device (F13, 2026-09-29).
+    const RECORD_STORE_KEYS=new Set(['tutoring-clients','tutoring-sessions','tutoring-expenses','tutoring-tax-payments','tutoring-historical','tutoring-receipts']);
+    const recordStores=capture=>({localStorage:(capture.localStorage||[]).filter(entry=>RECORD_STORE_KEYS.has(entry[0])),receipts:capture.receipts});
     async function guardFreshImport(expected, incoming, stagedCapture) {
       if (expected || !productionMode()) return null;
       const capture=await stableCapture();
       if (stagedCapture !== undefined && !equal(capture,stagedCapture)) throw Error('Legacy records changed after recovery staging. Stage again.');
-      if ((capture.localStorage.length || capture.receipts.rows.length) && !equal(JSON.parse(incoming.archive.rawSnapshot),capture)) {
-        throw Error('Recovery archive does not match this device\'s existing legacy records. Preserve and activate those records first.');
+      const device=recordStores(capture);
+      if ((device.localStorage.length || capture.receipts.rows.length) && !equal(recordStores(JSON.parse(incoming.archive.rawSnapshot)),device)) {
+        throw Error("Recovery archive does not match this device's existing legacy records. Preserve and activate those records first.");
       }
       return capture;
     }
