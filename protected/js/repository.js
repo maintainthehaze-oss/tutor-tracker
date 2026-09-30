@@ -473,9 +473,19 @@
       if (old) rows[rows.indexOf(old)] = record; else rows.push(record);
       return record;
     }
+    // Secrets never enter immutable evidence: the finalize snapshot keeps the settings a report needs
+    // (rates, address, split) and drops connection/credential fields (owner ruling 2026-09-29).
+    function withoutSecrets(settings) {
+      const out = {};
+      Object.entries(settings || {}).forEach(([key, value]) => {
+        const normalized = key.toLowerCase().replace(/[^a-z0-9]/g,'');
+        if (!/^(orsapikey|gist(id|token|url|version)?|github(token|pat|connection)|token|accesstoken|apikey|apitoken|apisecret|secret|password|passwd|credentials?|personalaccesstoken|syncgistid|synctoken)$/.test(normalized)) out[key] = value;
+      });
+      return out;
+    }
     function finalize(draft, record) {
       if (record.status !== 'scheduled') Object.defineProperty(draft.finalized,P.key(record.id),{
-        value:{record:clone(record),clients:clone(draft.working.clients),settings:clone(draft.working.settings)},
+        value:{record:clone(record),clients:clone(draft.working.clients),settings:clone(withoutSecrets(draft.working.settings))},
         enumerable:true,writable:true,configurable:true
       });
     }

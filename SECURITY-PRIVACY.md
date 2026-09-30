@@ -19,6 +19,7 @@ finding. Update it whenever a data flow or finding changes.
 | IndexedDB `tutor-tracker`/`receipts` | Receipt images (~3.4 MB, base64; was localStorage `tutoring-receipts`, migrated on first load) | MEDIUM |
 | `tutoring-tax-payments` | Estimated tax payment log | MEDIUM |
 | `tutoring-settings` | Business address, ORS API key, gist PAT/ID, invoice contact info | HIGH (secrets) |
+| protected store: finalized-session snapshots | Copy of the record, clients and settings at lock time (report evidence). Since 2026-09-29 the settings copy EXCLUDES the ORS key and any gist/token field; snapshots locked before that date may still hold the key and cannot be edited (immutable evidence). | MEDIUM (historical secrets possible) |
 | `tutoring-historical` | 1,652 sessions 2019–2025 | HIGH — **never leaves device** |
 | `tutoring-theme`, `backup-banner-dismissed`, `tutoring-last-backup` | UI state | none |
 | `tutoring-backup-meta`, `tutoring-backup-snooze` | Backup reminder bookkeeping only: the record revision number and time of the last backup downloaded from this browser, and when the reminder banner was last shown/snoozed. No records, names, amounts or secrets. Never synced. | none |

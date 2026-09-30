@@ -262,3 +262,15 @@ test('runtime frozen read views reject direct and derived-alias writes',async()=
   assert.throws(()=>{repo.snapshot().archive.originals.sessions=[];},TypeError);
   assert.equal(JSON.stringify(repo.snapshot()),before);
 });
+test('finalize snapshot never carries secrets: ORS key and gist fields are dropped, report settings kept', async () => {
+  const { repo } = await setup();
+  await run(repo,'settings.update',{patch:{orsApiKey:'synthetic-key-only',gistId:'synthetic-gist',gistToken:'synthetic-token',businessAddress:'1 Fixture Way',mileageRate:0.7}});
+  await run(repo,'session.save',{record:session('secret-check')});
+  await run(repo,'session.update',{ids:['secret-check'],patch:{status:'completed'}});
+  const snap = copy(repo.snapshot().finalized['secret-check'].settings);
+  assert.equal(snap.orsApiKey,undefined); assert.equal(snap.gistId,undefined); assert.equal(snap.gistToken,undefined);
+  assert.equal(snap.businessAddress,'1 Fixture Way'); assert.equal(snap.mileageRate,0.7);
+  assert.equal(JSON.stringify(repo.snapshot().finalized['secret-check']).includes('synthetic-key-only'),false);
+  // The working settings still hold the key on-device; only the immutable evidence is clean.
+  assert.equal(repo.snapshot().working.settings.orsApiKey,'synthetic-key-only');
+});
