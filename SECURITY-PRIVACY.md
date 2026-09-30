@@ -17,7 +17,7 @@ is retired and no longer loads (root `index.html` only redirects to `protected/`
 | Where | Contents | Sensitivity |
 |---|---|---|
 | IndexedDB `tutor-tracker-protected-production` | The protected store: working records (clients, sessions, expenses, tax payments, settings), the immutable archive of every pre-activation record incl. historical sessions and the raw legacy snapshot, finalize snapshots (record + clients + report settings at lock time), append-only events, receipts | HIGH (settings include the ORS API key) |
-| localStorage `tutoring-clients`, `-sessions`, `-expenses`, `-settings`, `-tax-payments`, `-historical`, and legacy IndexedDB `tutor-tracker`/`receipts` | The retired app's stores. Read ONCE at activation and archived; never deleted, never read again by the protected app | HIGH (contains the same data plus, in `tutoring-settings`, any old ORS key / gist PAT) |
+| localStorage `tutoring-clients`, `-sessions`, `-expenses`, `-tax-payments`, `-historical`, `-recurring`, and legacy IndexedDB `tutor-tracker`/`receipts` | The retired app's stores. Read ONCE at activation and archived; never deleted, never read again by the protected app. `tutoring-settings` (which held old secrets) was removed 2026-09-29 | HIGH (same records as the archive) |
 | localStorage `tutoring-theme`, `tutoring-show-split` | UI state | none |
 | localStorage `tutoring-backup-meta`, `tutoring-backup-snooze` | Backup reminder bookkeeping: record revision number and time of the last backup from this browser; when the reminder was last shown/snoozed. No records, no secrets | none |
 | Finalize snapshots locked before 2026-09-29 | May still contain the ORS key copied from settings at lock time. Immutable; cannot be purged | MEDIUM (historical secret) |
@@ -78,7 +78,8 @@ The Content Security Policy in `protected/index.html` enforces this: `script-src
 | F7 | 30 s tab freezes | Info | **Closed** — tooling artifact |
 | F10 | ORS key copied into every finalize snapshot and every recovery file, immutably | Medium | **Fixed 2026-09-29** for new snapshots (owner ruling); earlier snapshots keep it (see §1) |
 | F11 | No-edit Save on a locked paid session with no payment date wrote a false `paymentDate` correction (moved income across tax years) | Medium | **Fixed 2026-09-29** |
-| F12 | Legacy `tutoring-settings` in localStorage may still hold an old ORS key / gist PAT from the retired app | Low | **Open, owner's call**: the protected app never reads it; clearing it is a manual browser action |
+| F12 | Legacy `tutoring-settings` in localStorage still held an old ORS key, gist token and Google Maps key from the retired app | Low | **Closed 2026-09-29** — key removed from the owner's browser at his request; app reloaded with all 144 sessions / 12 clients intact. Other legacy `tutoring-*` keys left in place |
+| F13 | Fresh-restore guard (`repository.js` `guardFreshImport`) compares EVERY `tutoring-*` localStorage key against the activation snapshot, including UI/bookkeeping keys added since (`tutoring-backup-meta`, `-snooze`, `-theme`) and now the removed settings key. A recovery restore into an EMPTY protected store on this same browser would be refused with "does not match this device's existing legacy records" until those keys are cleared | Low (only on disaster recovery) | **Open** — fix: compare record keys only, or ignore keys absent from the snapshot. Workaround: clear all `tutoring-*` keys and the legacy `tutor-tracker` database before restoring |
 
 ## 5. Standing rules
 
