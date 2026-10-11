@@ -60,5 +60,5 @@ NEW vs the old strip: an **"N sessions auto-completed since your last visit"** s
 
 ## 5. Next
 
-- MTH: "Ship it" (push `this-week-group` → `main`, curl-verify the 9 changed files, hard-refresh once, confirm counts match the last recovery file); read the new `SECURITY-PRIVACY.md` row.
+- SHIPPED 2026-10-11: `main` `b7e7394 → 99ba1b8`, 5 live files + SECURITY-PRIVACY.md curl-verified. MTH: hard-refresh once, confirm counts match the last recovery file, read the new `SECURITY-PRIVACY.md` row.
 - Then Slice C ("Usual" tiles on the session form, reuses `App.sessionSignatures`).
