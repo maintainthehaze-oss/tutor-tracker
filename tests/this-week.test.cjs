@@ -358,5 +358,15 @@ test('static: group sits above the Owed panel in the Sessions tab, renders first
   assert.match(sessions, /!protectedRow && s\.status === 'scheduled' \? '<button class="btn btn-sm btn-complete" data-action="quick-complete"/, 'Completed button on unlocked scheduled rows');
   assert.equal((html.match(/data-action="calc-mileage-by-day"/g) || []).length, 2, 'Mileage button on the Sessions toolbar and in Settings');
   assert.ok(module.includes("label: 'Completed', quick: 'quick-complete'"), 'the chip says Completed');
+  // 2026-10-11 simplification: 4-button toolbar + More menu, no Type column, Payment+Status one column, no Duplicate, no table Mark paid, 3 header pills.
+  const toolbar = html.slice(html.indexOf('id="panel-sessions"'), html.indexOf('<!-- Month Navigator -->'));
+  assert.deepEqual([...toolbar.matchAll(/data-action="([a-z-]+)"/g)].map(m => m[1]),
+    ['toggle-filters', 'calc-mileage-by-day', 'toggle-split', 'toggle-edit-mode', 'export-sessions-csv', 'add-session', 'open-week-log'], 'toolbar actions in order');
+  assert.ok(toolbar.includes('<details class="toolbar-more"') && toolbar.indexOf('toggle-split') > toolbar.indexOf('toolbar-more-menu'), 'split / edit / CSV sit under More');
+  const thead = html.slice(html.indexOf('<table class="data-table" id="sessions-table">'), html.indexOf('<tbody id="sessions-tbody">'));
+  assert.deepEqual([...thead.matchAll(/data-sort="([a-z]+)"/g)].map(m => m[1]), ['date', 'time', 'client', 'duration', 'amount', 'split', 'mileage', 'payment'], 'table columns');
+  assert.ok(!sessions.includes('duplicate-session') && !uiSource.includes('duplicate-session'), 'Duplicate is gone');
+  assert.ok(!sessions.includes('data-action="mark-paid"'), 'the table has no Mark paid (week group and Owed panel only)');
+  assert.deepEqual([...html.matchAll(/data-stat="([a-z]+)"/g)].map(m => m[1]), ['projected', 'owed', 'backup'], 'header pills');
   assert.match(readSource('../SECURITY-PRIVACY.md'), /`tutoring-last-seen`/, 'the published privacy table must list the key');
 });

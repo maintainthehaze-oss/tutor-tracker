@@ -605,6 +605,12 @@
   }
 
   function setupEventDelegation() {
+    // The toolbar "More" menu (a <details>) closes after one of its tools is used, or on a click anywhere else.
+    document.body.addEventListener('click', (e) => {
+      document.querySelectorAll('details.toolbar-more[open]').forEach((menu) => {
+        if (!menu.contains(e.target) || e.target.closest('.toolbar-more-menu [data-action]')) menu.open = false;
+      });
+    });
     document.body.addEventListener('click', async (e) => {
       const target = e.target.closest('[data-action]');
       if (!target) {
@@ -704,7 +710,6 @@
         case 'week-toggle': App.toggleWeekCell(target.getAttribute('data-key'), target.getAttribute('data-date')); break;
         case 'week-repeat-last': App.repeatWeek(); break;
         case 'save-week': App.saveWeek(); break;
-        case 'duplicate-session': App.duplicateSession(id); break;
         case 'toggle-filters': {
           const filters = $('session-filters');
           if (filters) { filters.hidden = !filters.hidden; target.setAttribute('aria-expanded', !filters.hidden); }

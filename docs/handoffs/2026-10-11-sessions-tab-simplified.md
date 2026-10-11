@@ -43,3 +43,14 @@ Changes (commit after `43c03dc`):
 Verification: `node --test` 216/216 pass (count moved from 214 to 216 with no new `test(` added — UNVERIFIED why; ✔ lines = 215). Static guard PASS. `node --check` clean. OBSERVED on the fabricated preview: Oct 14 and Oct 16 scheduled rows show "Completed"; tapping Oct 14 → status completed, revision 6 → 7, button gone from that row; week chips read Completed / No-show / Cancelled; Mileage button on the toolbar → "Set your Business Address in Settings first." (the fixture has no address/key; real data has both). NOT observed: a real ORS run from the toolbar, light mode, 640 px.
 
 Preview gotcha: the browser kept stale copies of some `js/*.js` (`P.normalizeLegacy is not a function`); fixed by `fetch(url, {cache:'reload'})` on every script then reload. On the live site: hard-refresh once after the push.
+
+## Round 3 the same evening: five simplifications (MTH: "I agree with all")
+
+1. **Toolbar 7 → 4 buttons + More** (`index.html`, `ui.js`, `styles.css`): Filters, Mileage, More ▾, Add Session, Week. Show split / Edit Mode / CSV sit in a `<details class="toolbar-more">` menu, same `data-action`s and handlers. ui.js: one small listener closes the menu after a tool is used or on any click outside it.
+2. **Table 11 → 9 columns** (`index.html`, `sessions.js`, `styles.css`): Type column removed (a non-in-person type is noted after the client names as `.type-note`); Payment and Status share one cell (`.col-pay-status`, two badges; two selects in edit mode). Split column still exists and still obeys the Show split preference. Footer colspans adjusted (3 / 2). Sorting by status from the header is gone (filter panel still has Status).
+3. **Duplicate removed** (`sessions.js`, `ui.js`): row icon, `duplicateSession` function and its click case. Usual tiles and the Week grid cover the use.
+4. **Header pills 6 → 3** (`index.html`, `dashboard.js`): Projected (auto-hides when nothing is scheduled; kept because the money-pins test pins it and it is not on the dashboard), Owed, Backup. Revenue / Sessions / Clients pills and their updater code removed; dashboard cards unchanged.
+5. **Mark paid out of the table** (`sessions.js`): stays in the "This week" group and the Owed panel (Record payment).
+
+Tests: `tests/this-week.test.cjs` static test pins toolbar action order, the More menu, the 8 sortable columns, no Duplicate, no table Mark paid, the 3 header pills. `node --test` 216/216; static guard PASS; `node --check` clean.
+OBSERVED on the fabricated preview (dark): pills Projected/Owed/Backup; toolbar Filters/Mileage/More/Add Session/Week; More opens, closes after Show split, closes on outside click; table heads Date/Time/Client(s)/Duration/Amount/(Split hidden)/Mileage/Payment · Status/Actions, 9 cells per row, actions Completed/Edit/Delete; edit mode 10 cells vs 10 heads with both selects in the merged cell; totals row aligned. NOT observed: light mode, 640 px, real data, print stylesheet.

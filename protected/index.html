@@ -65,21 +65,9 @@
 
     <div class="header-center">
       <div class="live-stats" aria-label="Quick stats">
-        <div class="stat-pill" data-stat="revenue">
-          <span class="stat-label">Revenue</span>
-          <span class="stat-value" id="header-revenue">$0</span>
-        </div>
         <div class="stat-pill stat-pill-projected" data-stat="projected" id="header-projected-pill" hidden>
           <span class="stat-label">Projected</span>
           <span class="stat-value" id="header-projected">$0</span>
-        </div>
-        <div class="stat-pill" data-stat="sessions">
-          <span class="stat-label">Sessions</span>
-          <span class="stat-value" id="header-sessions">0</span>
-        </div>
-        <div class="stat-pill" data-stat="clients">
-          <span class="stat-label">Clients</span>
-          <span class="stat-value" id="header-clients">0</span>
         </div>
         <button type="button" class="stat-pill stat-pill-owed" data-stat="owed" data-action="show-owed" id="header-owed-pill" title="Owed, all time. Click to see unpaid sessions.">
           <span class="stat-label">Owed</span>
@@ -346,20 +334,26 @@
           <span class="badge" id="session-count">0</span>
         </div>
         <div class="toolbar-right">
-          <button class="btn btn-sm" data-action="toggle-split" aria-pressed="false" title="Show or hide company split figures">Show split</button>
           <button class="btn btn-sm" data-action="toggle-filters" aria-expanded="false" aria-controls="session-filters">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
             Filters
           </button>
-          <button class="btn btn-sm" data-action="toggle-edit-mode" aria-pressed="false">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-            Edit Mode
-          </button>
-          <button class="btn btn-sm" data-action="export-sessions-csv" aria-label="Export sessions to CSV">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            CSV
-          </button>
           <button class="btn btn-sm" data-action="calc-mileage-by-day" title="Work out mileage for every in-person session that has none, by day, in drive order">Mileage</button>
+          <!-- Rarely used tools live under More (ruled 2026-10-11): same actions, same handlers -->
+          <details class="toolbar-more" id="sessions-more">
+            <summary class="btn btn-sm" aria-label="More session tools">More &#9662;</summary>
+            <div class="toolbar-more-menu" role="menu">
+              <button class="btn btn-sm" data-action="toggle-split" aria-pressed="false" title="Show or hide company split figures">Show split</button>
+              <button class="btn btn-sm" data-action="toggle-edit-mode" aria-pressed="false">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                Edit Mode
+              </button>
+              <button class="btn btn-sm" data-action="export-sessions-csv" aria-label="Export sessions to CSV">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                CSV
+              </button>
+            </div>
+          </details>
           <button class="btn btn-primary" data-action="add-session" aria-label="Add new session">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Add Session
@@ -462,30 +456,28 @@
               <th data-sort="date" class="sortable" aria-sort="none" tabindex="0" role="button">Date</th>
               <th data-sort="time" class="sortable" aria-sort="none" tabindex="0" role="button">Time</th>
               <th data-sort="client" class="sortable col-client" aria-sort="none" tabindex="0" role="button">Client(s)</th>
-              <th data-sort="type">Type</th>
               <th data-sort="duration" class="sortable" aria-sort="none" tabindex="0" role="button">Duration</th>
               <th data-sort="amount" class="sortable" aria-sort="none" tabindex="0" role="button">Amount</th>
               <th data-sort="split" class="split-info">Split</th>
               <th data-sort="mileage">Mileage</th>
-              <th data-sort="payment" class="sortable" aria-sort="none" tabindex="0" role="button">Payment</th>
-              <th data-sort="status" class="sortable" aria-sort="none" tabindex="0" role="button">Status</th>
+              <th data-sort="payment" class="sortable col-pay-status" aria-sort="none" tabindex="0" role="button">Payment &middot; Status</th>
               <th class="col-actions">Actions</th>
             </tr>
           </thead>
           <tbody id="sessions-tbody">
             <tr class="empty-row">
-              <td colspan="11">No sessions recorded yet</td>
+              <td colspan="9">No sessions recorded yet</td>
             </tr>
           </tbody>
           <tfoot id="sessions-tfoot">
             <tr>
               <td class="col-check" hidden></td>
-              <td colspan="4"><strong>Totals</strong></td>
+              <td colspan="3"><strong>Totals</strong></td>
               <td id="total-duration">0h</td>
               <td id="total-amount">$0</td>
               <td class="split-info"></td>
               <td id="total-mileage">0 mi</td>
-              <td colspan="3"></td>
+              <td colspan="2"></td>
             </tr>
           </tfoot>
         </table>

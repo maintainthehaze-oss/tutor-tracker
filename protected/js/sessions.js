@@ -148,7 +148,7 @@
       const hint = sessionMonth
         ? 'No sessions in ' + escapeHtml(monthLabel(sessionMonth)) + '. <button class="btn btn-sm" data-action="session-month-all">Show all time</button>'
         : 'No sessions match your filters';
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="11">' + hint + '</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">' + hint + '</td></tr>';
       updateSessionTotals([]);
       updateBulkBar();
       return;
@@ -186,7 +186,8 @@
     }).join(', ');
 
     const typeLabels = { 'in-person': 'In Person', 'online': 'Online', 'hybrid': 'Hybrid', 'group': 'Group' };
-    const typeClass = 'type-badge type-' + escapeHtml(s.type || 'in-person');
+    // No Type column (ruled 2026-10-11): anything other than in-person is noted after the client names.
+    const typeNote = (s.type || 'in-person') === 'in-person' ? '' : ' <span class="type-note">' + escapeHtml(typeLabels[s.type] || s.type) + '</span>';
     const paymentClass = s.paid ? 'payment-paid' : (s.payment === 'waived' ? 'payment-waived' : 'payment-unpaid');
     const paymentLabel = s.paid ? 'Paid' : (s.payment === 'waived' ? 'Waived' : 'Unpaid');
     const statusClass = 'status-badge status-' + escapeHtml(s.status || 'completed');
@@ -220,18 +221,17 @@
         '<td class="col-check"><input type="checkbox" data-action="select-session" data-id="' + escapeHtml(s.id) + '"' + (isSelected ? ' checked' : '') + ' aria-label="Select session"></td>' +
         '<td><input type="date" class="input input-sm" value="' + escapeHtml(s.date || '') + '" data-field="date" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td><input type="time" class="input input-sm" value="' + escapeHtml(s.time || '') + '" data-field="time" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
-        '<td class="col-client">' + escapeHtml(clientNames) + '</td>' +
-        '<td><span class="' + typeClass + '">' + escapeHtml(typeLabels[s.type] || s.type || 'In Person') + '</span></td>' +
+        '<td class="col-client">' + escapeHtml(clientNames) + typeNote + '</td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.duration) + '" step="0.25" min="0.25" data-field="duration" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.amount) + '" step="0.01" min="0" data-field="amount" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td class="split-info">' + splitDisplay + '</td>' +
         '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
-        '<td><select class="input input-sm" data-field="payment" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
+        '<td class="col-pay-status"><select class="input input-sm" data-field="payment" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
           '<option value="paid"' + (s.paid ? ' selected' : '') + '>Paid</option>' +
           '<option value="unpaid"' + (!s.paid && s.payment !== 'waived' ? ' selected' : '') + '>Unpaid</option>' +
           '<option value="waived"' + (s.payment === 'waived' ? ' selected' : '') + '>Waived</option>' +
-        '</select></td>' +
-        '<td><select class="input input-sm" data-field="status" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
+        '</select> ' +
+        '<select class="input input-sm" data-field="status" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
           '<option value="completed"' + (s.status === 'completed' ? ' selected' : '') + '>Completed</option>' +
           '<option value="scheduled"' + (s.status === 'scheduled' ? ' selected' : '') + '>Scheduled</option>' +
           '<option value="cancelled"' + (s.status === 'cancelled' ? ' selected' : '') + '>Cancelled</option>' +
@@ -245,20 +245,17 @@
       (editMode ? '<td class="col-check" title="Read-only record">Locked</td>' : '') +
       '<td>' + escapeHtml(formatDate(s.date)) + '</td>' +
       '<td>' + escapeHtml(s.time || '-') + '</td>' +
-      '<td class="col-client">' + escapeHtml(clientNames || '-') + '</td>' +
-      '<td><span class="' + typeClass + '">' + escapeHtml(typeLabels[s.type] || s.type || 'In Person') + '</span></td>' +
+      '<td class="col-client">' + escapeHtml(clientNames || '-') + typeNote + '</td>' +
       '<td>' + formatDuration(s.duration) + '</td>' +
       '<td>' + amountDisplay + '</td>' +
       '<td class="split-info">' + splitDisplay + '</td>' +
       '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
-      '<td>' + paymentCell + '</td>' +
-      '<td>' + statusCell + '</td>' +
+      '<td class="col-pay-status">' + paymentCell + ' ' + statusCell + '</td>' +
       '<td class="col-actions">' +
         // One tap for a scheduled row he has not opened: same path as the "This week" chip (session.update).
         (!protectedRow && s.status === 'scheduled' ? '<button class="btn btn-sm btn-complete" data-action="quick-complete" data-id="' + escapeHtml(s.id) + '" title="Mark this session completed">Completed</button>' : '') +
-        (protectedRow && s.status === 'completed' && !s.paid && !App.isWaived(s) ? '<button class="btn btn-sm" data-action="mark-paid" data-id="' + escapeHtml(s.id) + '" title="Mark this session paid">Mark paid</button>' : '') +
+        // Mark paid lives in the "This week" group and the Owed panel only; no Duplicate: Usual tiles and Week cover it (ruled 2026-10-11).
         '<button class="btn btn-sm btn-icon" data-action="edit-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="View (read-only record)"' : ' title="Edit"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
-        '<button class="btn btn-sm btn-icon" data-action="duplicate-session" data-id="' + escapeHtml(s.id) + '" title="Duplicate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
         '<button class="btn btn-sm btn-icon btn-danger" data-action="delete-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="Locked: kept on file. Click to cancel it instead"' : ' title="Delete"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
       '</td>' +
     '</tr>';
@@ -888,36 +885,6 @@
     App.showToast(isNew ? 'Session added' : 'Session updated', 'success');
     return true;
   }
-
-  async function duplicateSession(id) {
-    const revision = App.repository.revision;
-    const sessions = App.state.sessions;
-    const s = sessions.find((ses) => String(ses.id) === String(id));
-    if (!s) return;
-
-    // Copy only the scheduling shape, never archive/finalization/payment evidence.
-    const dup = {
-      time: s.time || '', type: s.type || 'in-person',
-      duration: s.duration, amount: s.amount,
-      clientIds: [...(s.clientIds || [])], address: s.address || '', notes: s.notes || '',
-      mileage: 0, mileageCalculated: false, mileageManual: false, mileageDetails: ''
-    };
-    dup.id = generateId();
-    dup.date = todayISO();
-    dup.paid = false;
-    dup.payment = 'unpaid';
-    dup.paymentDate = null;
-    dup.status = 'scheduled';
-    dup.createdAt = new Date().toISOString();
-    dup.updatedAt = new Date().toISOString();
-
-    if (!await App.runCommand('session.save', { record: dup }, revision)) return false;
-    showMonthOf(dup.date);
-    renderSessions();
-    App.showToast('Session duplicated', 'success');
-    return true;
-  }
-
   /** Trash can on a locked row: deletion is impossible (append-only evidence), so offer a cancel
    *  correction instead. The original stays on file; the row drops out of revenue, hours and miles. */
   function voidLockedSession(s) {
@@ -1276,7 +1243,6 @@
   App.togglePaymentDate = togglePaymentDate;
   App.openSessionDetail = openSessionDetail;
   App.saveSession = saveSession;
-  App.duplicateSession = duplicateSession;
   App.deleteSession = deleteSession;
   App.handleInlineEdit = handleInlineEdit;
   App.updateBulkBar = updateBulkBar;

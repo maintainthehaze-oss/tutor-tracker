@@ -124,17 +124,8 @@
   }
 
   function updateHeaderStats() {
-    const clients = App.state.clients;
-
-    const thisMonth = App.currentMonth();
-    const month = App.reportModel.metrics({ month: thisMonth });
-    const active = clients.filter((c) => c.status === 'active').length;
-
-    const hrEl = $('header-revenue');
-    if (hrEl) {
-      hrEl.textContent = formatCurrency(month.yourCut);
-      hrEl.title = month.warnings.length ? App.reportModel.notice(month.warnings, 'current-v2') : '';
-    }
+    // Header pills: Projected (hidden when nothing is scheduled), Owed, Backup (ruled 2026-10-11).
+    // Revenue, session and client counts are on the dashboard cards.
     // Projected pill: every scheduled (not-yet-realized) session, any date.
     // Past-dated scheduled sessions get auto-completed on load, so this is
     // effectively "upcoming". Waived fees count as $0 via App.revenueAmount.
@@ -148,11 +139,6 @@
       hpPill.title = 'Projected from ' + scheduled.length + ' scheduled session' + (scheduled.length === 1 ? '' : 's') +
         ' not yet completed (all dates, not yet realized). Waived fees excluded.';
     }
-    const hsEl = $('header-sessions');
-    if (hsEl) hsEl.textContent = month.sessionCount;
-    const hcEl = $('header-clients');
-    if (hcEl) hcEl.textContent = active;
-
     // Operational payment targets remain live sessions; imported evidence is read-only.
     // Owed pill: ALL TIME, independent of the month shown elsewhere
     const owed = App.computeOwedByFamily();
