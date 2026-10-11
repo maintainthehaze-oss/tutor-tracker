@@ -11,7 +11,7 @@ Client-side tutoring tracker. Vanilla HTML/CSS/JS, no framework, no build step. 
 
 ## Module pattern
 
-Every file is an IIFE. `app-core.js` creates `window.App`; each module exposes its public functions at the bottom (`App.fn = fn`). `protected/index.html` loads `<script defer>` in this order: upgrade-shim, app-core, backup-status, record-policy, repository, report-model, sync, dashboard, historical, clients, sessions, recurring, expenses, ocr, reports, ui. `ui.js` runs last and contains `init()` and the `data-action` click delegation.
+Every file is an IIFE. `app-core.js` creates `window.App`; each module exposes its public functions at the bottom (`App.fn = fn`). `protected/index.html` loads `<script defer>` in this order: upgrade-shim, app-core, backup-status, record-policy, repository, report-model, sync, dashboard, historical, clients, sessions, signatures, week-log, recurring, expenses, ocr, reports, ui. `ui.js` runs last and contains `init()` and the `data-action` click delegation.
 
 ## Invariants (tests pin these; do not work around them)
 

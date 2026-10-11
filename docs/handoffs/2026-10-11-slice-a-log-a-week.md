@@ -79,6 +79,14 @@ A3 (Sonnet, after A1–A2 land): `week-log.js` UI + `index.html` + `styles.css` 
 5. Week starts Monday; Sunday is the last column. Veto: "SundayFirst".
 6. Rows = active clients alone + every multi-client combo seen in the last 60 days + any combo present in the week being repeated. Veto: "SinglesOnly".
 
-## 7. Closeout record
+## 7. Closeout record (2026-10-11, Fable 5.1)
 
-(filled at closeout)
+Branch `log-a-week`: `7e23690` (A1 repository case + A2 signatures.js + 20 tests), `41c9809` (A3 UI by a Sonnet subagent, reviewed line by line by the primary; one defect fixed: editing a tick in the review list did not refresh the grid cell). NOT pushed, NOT merged.
+
+Gates: `node --check protected/js/*.js` clean; `node tests/slice1/static-guard.cjs` PASS; `node --test` 187 tests, 187 pass, 0 fail (was 157; +30).
+Mutation-verified (each applied, suite red, file restored byte-identical by `cmp`): sequential `session.save` instead of `saveMany` → 4 red; cents rounding removed from `buildRecords` + review edit → 2 red; `finalize` skipped in `saveMany` → 5 red; existing-id check removed → 2 red.
+
+OBSERVED on the fabricated preview (127.0.0.1:8877, "Initialize fabricated preview"): Week button on the Sessions tab opens the modal; 3 ticks + Save took the revision 1 → 2 and added 3 rows (past dates Completed + locked, mileage 0, recurring null); the Monday cell showed "logged" after an earlier save; review-list amount edit 123.456 → 123.46 stored; month view, Totals and Owed updated; "Repeat last week" on the next week ticked the 4 matching cells and kept a tick from another week; Scheduled vs "Completed (locks)" pills correct; dark and light themes at 1024 px; no console errors.
+
+UNVERIFIED: real data on the real device (how the rows/combos look with 6 active clients and the family trio); the 640 px breakpoint; keyboard focus order inside the new modal; `node --test` only proves wiring, not pixels.
+Follow-ups (not done, out of scope): Slice B (this-week group), Slice C reuses `App.sessionSignatures`; the plan's "three un-auto-completed rows" item is CLOSED (§0).
