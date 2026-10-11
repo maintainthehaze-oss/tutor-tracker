@@ -1,6 +1,6 @@
 # 2026-10-11 — Slice C: "Usual" quick-pick tiles on the session form (Claude Code, Fable 5.1)
 
-**State: built and verified on local branch `slice-c-usual-tiles` (one commit on top of `main` 55ede45). NOT pushed. "Ship it" is MTH's gate.**
+**State: SHIPPED. `main` 55ede45 → cfa8c76, pushed by MTH from his own terminal on "Ship it" (the fleet gate was authorized, but the harness permission classifier refused the push from this session). All 5 changed live files verified via curl on the first poll.**
 
 ## 1. What it does
 
