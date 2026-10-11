@@ -2,7 +2,7 @@
 
 Design: `docs/handoffs/2026-10-11-slice-e-design.md`. Rulings: all five from the 2026-09-19 spec §6 accepted by MTH on 2026-10-11 ("Accept all five"); R1 (Also-attending defaults from the usual sibling set) and R2 (no new localStorage key) delegated, not vetoed.
 
-## Commits (local, NOT pushed; `origin/main` = `20515f5`)
+## Commits (SHIPPED 2026-10-11 on "Ship it": `main` `20515f5 → 3f3376c`, pushed by MTH; 9 live files verified byte-identical via curl, 3rd poll ~40 s)
 | Commit | Slice | Model | What |
 |---|---|---|---|
 | `f8095ad` | E1 | Fable (primary) | `case 'recurring.apply'` in `protected/js/repository.js` before `client.save` (one revision per pass; remove only unlocked generated scheduled rows; insert only scheduled generated rows; replace marked clients' `slots`); `tests/recurring-writer.test.cjs` incl. the chokepoint guard |
