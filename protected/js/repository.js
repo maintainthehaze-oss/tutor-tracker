@@ -623,7 +623,8 @@
             if (!(create.length+removeIds.length+marks.length)) throw Error('Nothing to apply');
             if (removeIds.length) {
               const rows=select(w.sessions,removeIds); assertEditableSessions(rows);
-              rows.forEach(s=>{ if (s.status!=='scheduled' || !s.recurring) throw Error('Only generated scheduled sessions can be removed: '+P.key(s.id)); });
+              rows.forEach(s=>{ if (s.status!=='scheduled' || !s.recurring) throw Error('Only generated scheduled sessions can be removed: '+P.key(s.id));
+                if (s.paid || s.payment==='waived' || (s.notes && String(s.notes).trim()) || Number(s.mileage) > 0) throw Error('Edited generated sessions stay: '+P.key(s.id)); });
               const gone=new Set(rows.map(s=>P.key(s.id))); w.sessions=w.sessions.filter(s=>!gone.has(P.key(s.id)));
             }
             const seen=new Set(), existing=index(w.sessions);

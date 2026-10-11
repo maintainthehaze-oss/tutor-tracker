@@ -69,6 +69,13 @@ test('refusals are all-or-nothing: existing id, duplicate in batch, non-schedule
   await refused({ create: [{ ...fresh, clientIds: [] }] }, /./);                                           // validateNewSession still bites
   await refused({ removeIds: ['hand1'], create: [fresh] }, /Only generated scheduled sessions can be removed/); // the valid create does not land
   await refused({ removeIds: ['a1'] }, /Read-only sessions block/);                                        // locked row
+  // A generated row he touched (notes, miles, paid, waived) is not the writer's to remove, whatever the planner says.
+  for (const patch of [{ notes: 'moved to the library' }, { mileage: 12 }, { paid: true, payment: 'paid', paymentDate: '2026-09-22' }, { payment: 'waived' }]) {
+    const touched = rid('2026-10-13');
+    await App.repository.execute('session.update', { ids: [touched], patch }, App.repository.revision);
+    await refused({ removeIds: [touched] }, /Edited generated sessions stay/);
+    await App.repository.execute('session.update', { ids: [touched], patch: { notes: '', mileage: 0, paid: false, payment: 'unpaid', paymentDate: null } }, App.repository.revision);
+  }
   await refused({ removeIds: ['nope'] }, /Record no longer exists/);
   await refused({ clients: [{ id: 'c1' }] }, /Slots required/);
   await refused({ clients: [{ id: 'zz', slots: [] }] }, /Record no longer exists/);
