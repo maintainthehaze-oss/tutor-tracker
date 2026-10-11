@@ -45,7 +45,7 @@
 4. Existing `session.payment` extended with an optional field instead of a new command. Veto: "New command".
 5. Statement controls live on the Tax Summary tab next to Export PDF, not in the Owed panel. Veto: "Panel".
 6. `defaultPaymentMethod` is written as '' on every client save (so clearing it sticks through the merge). Veto: "Omit".
-7. ⚠️ Privacy row added to `SECURITY-PRIVACY.md` §1 (published text). Veto: "No row".
+7. ~~Privacy row added to `SECURITY-PRIVACY.md` §1~~ — VETOED by MTH ("No row") after the push; row removed in the closeout commit. The live file still shows it until the next push.
 
 ## 5. Next
 
