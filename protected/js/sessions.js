@@ -666,9 +666,13 @@
     if (num(form.duration) !== num(prev.duration)) fields.duration = num(form.duration);
     if (num(form.amount) !== num(prev.amount)) fields.amount = num(form.amount);
     if (!same(form.inPersonMinutes, prev.inPersonMinutes == null ? null : prev.inPersonMinutes)) fields.inPersonMinutes = form.inPersonMinutes;
+    // Switched to a no-travel type in THIS edit (online, or hybrid with 0 minutes): its miles are stale, clear them.
+    // Rows that were already no-travel keep whatever they hold; a no-edit save must stay "No changes".
+    const switchedToNoTravel = noTravel(form) && !noTravel(prev) && num(prev.mileage) > 0;
+    if (switchedToNoTravel) form.mileage = 0;
     if (num(form.mileage) !== num(prev.mileage)) {
       fields.mileage = num(form.mileage);
-      fields.mileageManual = !form.mileageDetails;
+      fields.mileageManual = !form.mileageDetails && !switchedToNoTravel;
       if (form.mileageDetails) fields.mileageDetails = form.mileageDetails;
     }
     if (form.paid !== !!prev.paid) fields.paid = form.paid;
@@ -888,6 +892,12 @@
       const mileageAuto = !!$('session-mileage').dataset.details;
       sessionData.mileageManual = !mileageAuto && (prev.mileageManual === true ||
         (mileageVal > 0 && mileageVal !== num(prev.mileage)));
+      // Switched to a no-travel type in THIS edit: the pre-filled miles are stale (review finding, Slice F).
+      if (noTravel(sessionData) && !noTravel(prev) && num(sessionData.mileage) > 0) {
+        Object.assign(sessionData, { mileage: 0, mileageManual: false, mileageCalculated: false, mileageDetails: '' });
+      }
+      // An old row that never had the key stays byte-stable on a no-edit save.
+      if (sessionData.inPersonMinutes == null && !('inPersonMinutes' in prev)) delete sessionData.inPersonMinutes;
       // Cash-basis integrity: the "Paid on" field is pre-filled with the stored payment date, so an
       // already-paid session keeps its date unless the owner deliberately changes it.
 
@@ -1090,7 +1100,11 @@
 
   /** Slice F: a hybrid session with 0 minutes in person happened entirely remotely. (Unset = legacy hybrid, still a stop.) */
   function hybridNoTravel(s) {
-    return s.type === 'hybrid' && s.inPersonMinutes != null && num(s.inPersonMinutes) === 0;
+    return s.type === 'hybrid' && typeof s.inPersonMinutes === 'number' && s.inPersonMinutes === 0;
+  }
+  /** No travel leg at all: online, or hybrid with 0 minutes in person. */
+  function noTravel(s) {
+    return (s.type || 'in-person') === 'online' || hybridNoTravel(s);
   }
   function isDriveStop(s) {
     return (s.type || 'in-person') !== 'online' && !hybridNoTravel(s) && ['completed', 'scheduled'].includes(s.status || 'completed');

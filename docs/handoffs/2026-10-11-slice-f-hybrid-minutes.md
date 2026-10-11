@@ -31,6 +31,16 @@ stay two rows; the form helper text says so instead of modelling per-client dura
 - NOT observed: light theme, 640 px, mileage-by-day skipping a 0-minute row on a real route (needs ORS),
   real data.
 
+## Review fixes (fleet-reviewer: GO with fixes; 2nd commit)
+1. Stale miles: a row switched in THIS edit to a no-travel type (online, or hybrid with 0 minutes) had kept
+   its pre-filled miles (pre-existing for online). Now cleared at save: unlocked rows get mileage 0 /
+   manual false / details ''; locked rows get a `mileage: 0, mileageManual: false` correction. Rows that
+   were already no-travel are untouched, so a no-edit save stays "No changes".
+2. An old unlocked row without the key no longer gains `inPersonMinutes: null` on a no-edit save.
+3. `hybridNoTravel` requires a real number 0 (an imported `""` no longer drops the leg).
+Tests +1 (`review fix: …`) and one more pure pin; `node --test` 254/254; 3 more mutations red then restored.
+OBSERVED at 588 px: the modal and the new group fit (document and modal scrollWidth = 588, group x 297–540).
+
 ## Next
 "Ship it" → MTH pushes → curl index.html / sessions.js / ui.js / record-policy.js. Then 4.4 split (use
 `buildRealistic()` from 4.7 for before/after timing).

@@ -19,6 +19,7 @@ test('isDriveStop (pure): hybrid with 0 minutes in person is not a stop; >0 or u
   assert.equal(isDriveStop({ type: 'hybrid', status: 'completed' }), true, 'legacy hybrid rows (no minutes) keep their leg');
   assert.equal(isDriveStop({ type: 'in-person', inPersonMinutes: 0, status: 'completed' }), true, 'minutes mean nothing outside hybrid');
   assert.equal(isDriveStop({ type: 'online', status: 'completed' }), false);
+  assert.equal(isDriveStop({ type: 'hybrid', inPersonMinutes: '', status: 'completed' }), true, 'only a real number 0 drops the leg (imported "" does not)');
   assert.equal(isDriveStop({ type: 'hybrid', inPersonMinutes: 90, status: 'cancelled' }), false);
 });
 
@@ -96,4 +97,46 @@ test('static: the field is wired (markup hidden by default with the two-rows not
   assert.match(html, /Uneven sibling hours stay two sessions\./);
   assert.match(readSource('js/ui.js'), /target\.id === 'session-type'\) \{ App\.syncInPersonGroup\(\)/);
   assert.match(readSource('js/record-policy.js'), /'paymentDate','inPersonMinutes'\]/);
+});
+
+test('review fix: switching a row to a no-travel type in THIS edit clears its stale miles; already-no-travel rows are left alone', async () => {
+  const ui = await bootUi();
+  // Unlocked row: save in-person with 12 mi, then edit to Hybrid / 0 minutes.
+  await ui.click('add-session');
+  await ui.click('toggle-session-client', { 'data-id': 'c1' });
+  ui.field('session-amount').value = '100';
+  ui.field('session-mileage').value = '12';
+  ui.field('session-status').value = 'scheduled';                                  // stays unlocked
+  await ui.click('save-session');
+  await ui.waitFor(() => lastSaved(ui).date === TODAY, 'the row to save');
+  const row = lastSaved(ui);
+  assert.equal(row.mileage, 12);
+  await ui.click('edit-session', { 'data-id': row.id });
+  await ui.change('session-type', 'hybrid');
+  ui.field('session-in-person-minutes').value = '0';
+  await ui.click('save-session');
+  await ui.waitFor(() => ui.disk().working.sessions.find(s => s.id === row.id).mileage === 0, 'the stale miles to clear');
+  const edited = ui.disk().working.sessions.find(s => s.id === row.id);
+  assert.equal(edited.inPersonMinutes, 0); assert.equal(edited.mileageManual, false); assert.equal(edited.mileageDetails, '');
+  // Locked row a1 (in-person, 10 mi): switching to Online records a correction that zeroes the miles.
+  const events = ui.disk().events.length;
+  await ui.click('edit-session', { 'data-id': 'a1' });
+  await ui.change('session-type', 'online');
+  await ui.click('save-session');
+  await ui.waitFor(() => ui.disk().events.length === events + 1, 'the correction to save');
+  assert.deepEqual(copy(ui.disk().events.at(-1).fields), { type: 'online', mileage: 0, mileageManual: false });
+  // Re-saving the now-online row untouched is "No changes": its miles were already cleared, nothing new to write.
+  await ui.click('edit-session', { 'data-id': 'a1' });
+  await ui.click('save-session');
+  await ui.settle();
+  assert.equal(ui.disk().events.length, events + 1);
+  // An old unlocked in-person row never gains the key on a no-edit save.
+  await ui.click('add-session');
+  await ui.click('toggle-session-client', { 'data-id': 'c1' });
+  await ui.change('session-type', 'in-person');
+  ui.field('session-amount').value = '50'; ui.field('session-status').value = 'scheduled';
+  await ui.click('save-session');
+  await ui.waitFor(() => lastSaved(ui).amount === 50, 'the plain row to save');
+  const plain = lastSaved(ui);
+  assert.equal(plain.inPersonMinutes, null, 'the form writes null on a new row');
 });
