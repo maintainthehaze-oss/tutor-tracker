@@ -363,6 +363,10 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Add Session
           </button>
+          <button class="btn" data-action="open-week-log" aria-label="Log a week of sessions">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            Week
+          </button>
         </div>
       </div>
 
@@ -1213,6 +1217,32 @@
     </div>
   </div>
 
+  <!-- Log a Week Modal -->
+  <div class="modal-overlay" id="modal-week" role="dialog" aria-modal="true" aria-labelledby="modal-week-title" hidden>
+    <div class="modal modal-lg" data-modal="week">
+      <header class="modal-header">
+        <h2 id="modal-week-title">Log a week</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body">
+        <div class="week-nav">
+          <button type="button" class="btn btn-sm" data-action="week-prev" aria-label="Previous week">&lsaquo;</button>
+          <span id="week-label" class="week-label"></span>
+          <button type="button" class="btn btn-sm" data-action="week-next" aria-label="Next week">&rsaquo;</button>
+          <button type="button" class="btn btn-sm btn-repeat" data-action="week-repeat-last">Repeat last week</button>
+        </div>
+        <div id="week-grid" class="week-grid" role="group" aria-label="Sessions by client and day"></div>
+        <small class="form-hint">Tap a day to add that client's usual session. "logged" means a session already exists that day. Past days save as Completed and lock; future days save as Scheduled.</small>
+        <div id="week-review" class="week-review"></div>
+      </div>
+      <footer class="modal-footer">
+        <span id="week-summary" class="week-summary"></span>
+        <button class="btn" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="save-week" id="save-week">Save</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Expense Modal -->
   <div class="modal-overlay" id="modal-expense" role="dialog" aria-modal="true" aria-labelledby="modal-expense-title" hidden>
     <div class="modal" data-modal="expense">
@@ -1492,6 +1522,8 @@
   <script src="js/historical.js?v=2" defer></script>
   <script src="js/clients.js" defer></script>
   <script src="js/sessions.js" defer></script>
+  <script src="js/signatures.js" defer></script>
+  <script src="js/week-log.js" defer></script>
   <script src="js/recurring.js" defer></script>
   <script src="js/expenses.js" defer></script>
   <script src="js/ocr.js" defer></script>

@@ -690,6 +690,12 @@
         case 'view-original': App.openSessionDetail($('session-id').value); break;
         case 'delete-session': App.deleteSession(id); break;
         case 'save-session': App.saveSession(); break;
+        case 'open-week-log': App.openWeekLog(); break;
+        case 'week-prev': App.shiftWeek(-1); break;
+        case 'week-next': App.shiftWeek(1); break;
+        case 'week-toggle': App.toggleWeekCell(target.getAttribute('data-key'), target.getAttribute('data-date')); break;
+        case 'week-repeat-last': App.repeatWeek(); break;
+        case 'save-week': App.saveWeek(); break;
         case 'duplicate-session': App.duplicateSession(id); break;
         case 'toggle-filters': {
           const filters = $('session-filters');
@@ -857,6 +863,7 @@
       if (action === 'inline-edit') { App.handleInlineEdit(target); return; }
       if (action === 'archived-status') { App.setArchivedStatus(target); return; }
       if (action === 'filter-sessions') { App.renderSessions(); return; }
+      if (action === 'week-edit') { App.editWeekTick(target); return; }
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
       if (action === 'report-filter') { App.renderReports(); return; }
       if (action === 'change-report-version') { populateReportYears(); App.renderReports(); return; }

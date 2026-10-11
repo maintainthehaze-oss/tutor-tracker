@@ -2601,3 +2601,50 @@ select.input[multiple] {
   border-radius: 6px;
 }
 #session-detail-content dd { overflow-wrap: anywhere; }
+
+/* ---- Log a week: client-set x weekday grid + review list ---- */
+.modal[data-modal="week"] { max-width: 960px; }
+.week-nav { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.week-label { font-weight: 600; min-width: 12rem; text-align: center; }
+.week-nav .btn-repeat { margin-left: auto; }
+.week-grid {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.4fr) repeat(7, minmax(0, 1fr));
+  gap: 0.25rem;
+  align-items: stretch;
+  margin-bottom: 0.5rem;
+}
+.week-head {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 0.2rem 0; border-radius: 6px; color: var(--text-muted); font-size: 0.75rem; line-height: 1.2;
+}
+.week-head strong { color: var(--text-primary); font-size: 0.95rem; }
+.week-head.week-today { background: var(--accent-subtle); color: var(--accent); }
+.week-row-label { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 0.15rem 0.35rem; font-size: 0.85rem; }
+.week-row-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.week-row-label small { color: var(--text-muted); font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.week-cell {
+  min-height: 2.4rem; padding: 0.15rem; border-radius: 6px; font-family: inherit; font-size: 0.72rem;
+  color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-default);
+  cursor: pointer; transition: background 0.12s ease, border-color 0.12s ease;
+}
+.week-cell:focus-visible { outline: none; box-shadow: var(--shadow-glow); border-color: var(--border-focus); }
+.week-cell-open { border-style: dashed; color: var(--text-muted); font-size: 1rem; }
+.week-cell-open:hover { background: var(--bg-hover); border-color: var(--border-focus); }
+.week-cell-ticked { background: var(--accent-subtle); border-color: var(--accent); font-weight: 600; }
+.week-cell-logged, .week-cell-blocked { background: var(--bg-elevated); color: var(--text-muted); cursor: not-allowed; opacity: 0.75; }
+.week-review { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.week-review-row {
+  display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) 4.5rem 6rem auto auto; gap: 0.5rem; align-items: center;
+  padding: 0.3rem 0.5rem; background: var(--bg-elevated); border-radius: 6px; font-size: 0.85rem;
+}
+.week-review-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-review-row .input { width: 100%; padding: 0.3rem 0.4rem; }
+.week-pill { padding: 0.1rem 0.5rem; border-radius: 100px; background: var(--color-success-bg); font-size: 0.72rem; white-space: nowrap; }
+.week-pill-scheduled { background: var(--accent-subtle); }
+.week-summary { margin-right: auto; color: var(--text-muted); font-size: 0.85rem; }
+@media (max-width: 640px) {
+  .week-grid { grid-template-columns: minmax(5rem, 1fr) repeat(7, minmax(0, 1fr)); }
+  .week-review-row { grid-template-columns: 1fr 4.5rem 5.5rem auto; }
+  .week-review-date, .week-pill { display: none; }
+}
