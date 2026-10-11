@@ -26,3 +26,20 @@ Writing CSS escapes through the Bash tool's python heredoc turned `\25B8` into a
 ## Next
 
 "Ship it" → MTH pushes from his own terminal, hard-refreshes once, looks at the Sessions tab on real data. If the collapsed Owed line hides something he reaches for daily, flip the `<details>` to `open` (one attribute).
+
+## Follow-up the same evening: one-tap "Completed" + Mileage on the toolbar
+
+MTH: "I would rather be able to hit a button that says 'Completed' if it doesn't automatically do that once the date passes, rather than opening up each session each time. Also, make sure that we can calculate mileage without going into each individual session."
+
+What was already true: past-dated scheduled rows auto-complete on load (`autoCompleteOverdue`); a bulk "Calculate mileage by day" button existed, but only in Settings under the ORS key field.
+
+Changes (commit after `43c03dc`):
+1. `protected/js/sessions.js` table row: unlocked `scheduled` rows get a **"Completed"** button in Actions (`data-action="quick-complete"`, the same ui.js case the week chip uses → `session.update` status completed). Any date, so a session finished early in the day can be closed without the pencil.
+2. `protected/js/this-week.js`: chip label "Happened" → **"Completed"** (same action/status; comments updated; tests relabelled).
+3. `protected/index.html`: **"Mileage"** button on the Sessions toolbar, same `calc-mileage-by-day` action as Settings. `runCalculateMileageByDay` now shows its "Routing day N of M" progress on every button with that action (was: first match only).
+4. `protected/styles.css`: `.btn-complete` (accent outline).
+5. `tests/this-week.test.cjs` static test: pins the Completed button on scheduled rows, exactly 2 Mileage buttons in index.html, the chip label.
+
+Verification: `node --test` 216/216 pass (count moved from 214 to 216 with no new `test(` added — UNVERIFIED why; ✔ lines = 215). Static guard PASS. `node --check` clean. OBSERVED on the fabricated preview: Oct 14 and Oct 16 scheduled rows show "Completed"; tapping Oct 14 → status completed, revision 6 → 7, button gone from that row; week chips read Completed / No-show / Cancelled; Mileage button on the toolbar → "Set your Business Address in Settings first." (the fixture has no address/key; real data has both). NOT observed: a real ORS run from the toolbar, light mode, 640 px.
+
+Preview gotcha: the browser kept stale copies of some `js/*.js` (`P.normalizeLegacy is not a function`); fixed by `fetch(url, {cache:'reload'})` on every script then reload. On the live site: hard-refresh once after the push.

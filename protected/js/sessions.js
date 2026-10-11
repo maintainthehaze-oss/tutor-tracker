@@ -254,6 +254,8 @@
       '<td>' + paymentCell + '</td>' +
       '<td>' + statusCell + '</td>' +
       '<td class="col-actions">' +
+        // One tap for a scheduled row he has not opened: same path as the "This week" chip (session.update).
+        (!protectedRow && s.status === 'scheduled' ? '<button class="btn btn-sm btn-complete" data-action="quick-complete" data-id="' + escapeHtml(s.id) + '" title="Mark this session completed">Completed</button>' : '') +
         (protectedRow && s.status === 'completed' && !s.paid && !App.isWaived(s) ? '<button class="btn btn-sm" data-action="mark-paid" data-id="' + escapeHtml(s.id) + '" title="Mark this session paid">Mark paid</button>' : '') +
         '<button class="btn btn-sm btn-icon" data-action="edit-session" data-id="' + escapeHtml(s.id) + '"' + (protectedRow ? ' title="View (read-only record)"' : ' title="Edit"') + '><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
         '<button class="btn btn-sm btn-icon" data-action="duplicate-session" data-id="' + escapeHtml(s.id) + '" title="Duplicate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>' +
@@ -1218,9 +1220,11 @@
   }
 
   async function runCalculateMileageByDay(dates) {
-    const btn = document.querySelector('[data-action="calc-mileage-by-day"]');
-    const label = btn ? btn.textContent : '';
-    if (btn) btn.disabled = true;
+    // The same action sits on the Sessions toolbar and in Settings: every button shows the progress.
+    const btns = [...document.querySelectorAll('[data-action="calc-mileage-by-day"]')];
+    const labels = btns.map((b) => b.textContent);
+    btns.forEach((b) => { b.disabled = true; });
+    const btn = { set textContent(t) { btns.forEach((b) => { b.textContent = t; }); } };
     const updates = [], corrections = [], skipped = [];
     let unchanged = 0;
     try {
@@ -1259,7 +1263,7 @@
       App.showToast(e.message || 'Mileage calculation failed', 'error');
       return false;
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = label; }
+      btns.forEach((b, i) => { b.disabled = false; b.textContent = labels[i]; });
     }
   }
 

@@ -128,15 +128,15 @@ test('thisWeekDays (pure): 15 days around today, window edges, row modes, time o
 
 test('markup: chips per row state, paid rows disabled, today highlighted, names escaped, empty state, badge count', async () => {
   const ui = await boot(), html = ui.html();
-  // Locked, completed, unpaid (dated 09-16): three chips, Happened lit, plus Mark paid.
+  // Locked, completed, unpaid (dated 09-16): three chips, Completed lit, plus Mark paid.
   assert.deepEqual(chips(rowHtml(html, 'w-locked')).map(c => [c.label, c.action, c.status, c.lit, c.pressed, c.disabled]), [
-    ['Happened', 'this-week-status', 'completed', true, 'true', false], ['No-show', 'this-week-status', 'no-show', false, 'false', false], ['Cancelled', 'this-week-status', 'cancelled', false, 'false', false]]);
+    ['Completed', 'this-week-status', 'completed', true, 'true', false], ['No-show', 'this-week-status', 'no-show', false, 'false', false], ['Cancelled', 'this-week-status', 'cancelled', false, 'false', false]]);
   assert.match(rowHtml(html, 'w-locked'), /data-action="mark-paid" data-id="w-locked"/);
   // Unlocked future row: only Skip.
   assert.deepEqual(chips(rowHtml(html, 'w-future')).map(c => [c.label, c.action]), [['Skip', 'this-week-skip']]);
   assert.equal((rowHtml(html, 'w-future').match(/<button/g) || []).length, 1);
   // Unlocked row dated today: the three outcomes through session.update, none lit.
-  assert.deepEqual(chips(rowHtml(html, 'w-today')).map(c => [c.label, c.action, c.lit]), [['Happened', 'quick-complete', false], ['No-show', 'quick-noshow', false], ['Cancelled', 'quick-cancel', false]]);
+  assert.deepEqual(chips(rowHtml(html, 'w-today')).map(c => [c.label, c.action, c.lit]), [['Completed', 'quick-complete', false], ['No-show', 'quick-noshow', false], ['Cancelled', 'quick-cancel', false]]);
   // Paid rows (finalized, archived, and a prepaid future one): every chip disabled with the reason; no Mark paid.
   for (const id of ['w-paid', 'arch-paid', 'w-prepaid']) {
     const row = rowHtml(html, id), found = chips(row);
@@ -144,7 +144,7 @@ test('markup: chips per row state, paid rows disabled, today highlighted, names 
     assert.deepEqual(found.map(c => [c.disabled, c.title]), Array(3).fill([true, PAID_TITLE]), id + ' must render its chips disabled');
     assert.equal((row.match(/<button/g) || []).length, 3, id + ' has a button that is not a disabled chip');
   }
-  assert.deepEqual(chips(rowHtml(html, 'w-paid')).filter(c => c.lit).map(c => c.label), ['Happened']);
+  assert.deepEqual(chips(rowHtml(html, 'w-paid')).filter(c => c.lit).map(c => c.label), ['Completed']);
   assert.ok(!html.includes('edge-out-before') && !html.includes('edge-out-after'));
   assert.match(html, new RegExp('<section class="tw-day tw-today" data-date="' + TODAY + '">'));
   assert.equal((html.match(/tw-today/g) || []).length, 1, 'exactly one today section');
@@ -242,7 +242,7 @@ test('paid rows cannot be changed from the group, whatever the DOM sends', async
   assert.equal(ui.toasts.length, 6);
 });
 
-test('unlocked row dated today: the outcome locks it; Undo of No-show / Cancelled is a correction to completed; Happened has no Undo', async () => {
+test('unlocked row dated today: the outcome locks it; Undo of No-show / Cancelled is a correction to completed; Completed has no Undo', async () => {
   const ui = await boot();
   for (const [action, id, status] of [['quick-noshow', 'w-today', 'no-show'], ['quick-cancel', 'w-today-2', 'cancelled']]) {
     const events = ui.events().length;
@@ -354,5 +354,9 @@ test('static: group sits above the Owed panel in the Sessions tab, renders first
   assert.deepEqual(analyzeSource(module, 'this-week.js'), []);
   assert.ok(analyzeSource(module.replace("'tutoring-last-seen'", "'tutoring-sessions'"), 'this-week.js').length > 0, 'the guard must refuse a record key');
   assert.ok(readSource('styles.css').includes('.tw-chip:disabled'));
+  // 2026-10-11: one-tap "Completed" on scheduled table rows reuses the chip's quick-complete path; the bulk mileage tool is on the toolbar too.
+  assert.match(sessions, /!protectedRow && s\.status === 'scheduled' \? '<button class="btn btn-sm btn-complete" data-action="quick-complete"/, 'Completed button on unlocked scheduled rows');
+  assert.equal((html.match(/data-action="calc-mileage-by-day"/g) || []).length, 2, 'Mileage button on the Sessions toolbar and in Settings');
+  assert.ok(module.includes("label: 'Completed', quick: 'quick-complete'"), 'the chip says Completed');
   assert.match(readSource('../SECURITY-PRIVACY.md'), /`tutoring-last-seen`/, 'the published privacy table must list the key');
 });

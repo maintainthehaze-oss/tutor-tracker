@@ -1,7 +1,7 @@
 /* ============================================================
    Tutoring Tracker Pro — "This week" group (Sessions tab)
    Every session dated today-7 .. today+7, grouped by day, with one-tap
-   exceptions (Happened / No-show / Cancelled / Skip / Mark paid). Above the
+   exceptions (Completed / No-show / Cancelled / Skip / Mark paid). Above the
    days: the rows auto-completed on load since the owner last cleared the notice.
    The taps themselves are handled in ui.js (this-week-* and quick-* actions).
    Pure model + pure markup; the only writes are App.runCommand (ui.js) and the
@@ -21,7 +21,7 @@
 
   const DAYS = 7;
   const CHIPS = Object.freeze([
-    { status: 'completed', label: 'Happened', quick: 'quick-complete' },
+    { status: 'completed', label: 'Completed', quick: 'quick-complete' },
     { status: 'no-show', label: 'No-show', quick: 'quick-noshow' },
     { status: 'cancelled', label: 'Cancelled', quick: 'quick-cancel' },
   ]);
@@ -56,9 +56,9 @@
    * PURE (no DOM, no clock). One entry per calendar day from today-7 to today+7, oldest first, each
    * holding that day's sessions in time order. `mode` decides which chips a row gets:
    *   paid     any paid row: chips shown but disabled (un-pay with the pencil first)
-   *   correct  locked (archived or finalized) and unpaid: Happened / No-show / Cancelled as a correction
+   *   correct  locked (archived or finalized) and unpaid: Completed / No-show / Cancelled as a correction
    *   skip     unlocked and dated after today: Skip
-   *   status   unlocked and dated today or earlier: Happened / No-show / Cancelled
+   *   status   unlocked and dated today or earlier: Completed / No-show / Cancelled
    * `isLocked` defaults to the repository's own answer; tests may pass their own.
    * `exclude` (optional Set of ids) leaves out rows that are drawn in the auto-completed notice instead.
    */
