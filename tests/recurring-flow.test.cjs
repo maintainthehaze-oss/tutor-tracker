@@ -12,7 +12,7 @@ const { bootUi } = require('./helpers/ui-app.cjs');
 
 const TUESDAYS = ['2026-09-22', '2026-09-29', '2026-10-06', '2026-10-13'];
 const rid = date => 'rec:' + SLOT + ':' + date;
-const MODAL = '(query) .modal-overlay:not([hidden])';
+const MODAL = '(query) .modal-overlay.modal-active:not([hidden])';
 
 async function boot({ withSlot = false } = {}) {
   const data = rawFixture();
@@ -59,11 +59,11 @@ test('pause removes future pristine rows and pulls the watermark to today; un-pa
 test('an open modal blocks the pass; a hidden or absent one does not', async () => {
   const t = await boot(); await t.give();
   const el = t.document.getElementById(MODAL), r0 = t.rev();
-  el.classList.add('modal-overlay');                       // the fake can say "open": a visible .modal-overlay
+  el.classList.add('modal-active');                        // the fake can say "open": an overlay still carrying modal-active
   await t.App.runRecurringPass();
   assert.equal(t.rev(), r0); assert.deepEqual(t.generated(), []);
   el.hidden = true;                                        // hidden overlay does not count
-  el.classList.remove('modal-overlay');                    // and the default fake (no overlay) is closed
+  el.classList.remove('modal-active');                     // closeModal drops the class at once: closed
   await t.App.runRecurringPass();
   assert.equal(t.rev(), r0 + 1);
 });

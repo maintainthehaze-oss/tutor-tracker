@@ -46,6 +46,7 @@
       names: (s.clientIds || []).map((cid) => names.get(String(cid)) || 'Unknown').join(', '),
       duration: num(s.duration), amount: num(s.amount),
       mode: s.paid ? 'paid' : isLockedRow ? 'correct' : date > today ? 'skip' : 'status',
+      weekly: !!(s.recurring && s.recurring.slotId),
       canMarkPaid: isLockedRow && status === 'completed' && !s.paid && !waived,
     };
   }
@@ -112,6 +113,7 @@
       '<span class="tw-time">' + (withDate ? escapeHtml(dayLabel(row.date)) + (row.time ? ' &middot; ' : '') : '') + escapeHtml(row.time || (withDate ? '' : '-')) + '</span>' +
       '<span class="tw-info">' +
         '<span class="tw-names">' + escapeHtml(row.names || '-') + '</span>' +
+        (row.weekly ? ' <span class="outstanding-tag">weekly</span>' : '') +
         '<span class="tw-meta">' + formatDuration(row.duration) + ' &middot; ' + formatCurrency(row.amount) +
           (row.waived ? ' &middot; waived' : row.paid ? ' &middot; paid' : '') +
           (row.status === 'scheduled' ? ' &middot; scheduled' : '') + '</span>' +
@@ -135,8 +137,64 @@
     return { ordered: [...today, ...past, ...ahead], firstAhead: ahead.length ? ahead[0].date : '' };
   }
 
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const WEEKDAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+  const shortDate = (iso) => MONTHS[Number(iso.slice(5, 7)) - 1] + ' ' + Number(iso.slice(8, 10));
+
+  /**
+   * PURE. One plain-words notice from the last recurring pass's report ({ skipped, gaps }), or ''.
+   * Gaps: dates never filled in while the app was closed. Skipped: dates left alone because the client
+   * already had a session that day (malformed-slot entries carry no date and are not listed here).
+   * Per load only: never dismissed, never stored.
+   */
+  function recurringNotice(report, clients) {
+    const dates = (list) => [...new Set((list || []).filter((e) => e && typeof e.date === 'string').map((e) => e.date))].sort();
+    const gaps = dates(report && report.gaps), clash = dates(report && report.skipped);
+    const parts = [];
+    if (gaps.length) parts.push(gaps.length + (gaps.length === 1 ? ' date was' : ' dates were') + ' skipped while the app was closed (never filled in): ' + gaps.map(shortDate).join(', ') + '.');
+    if (clash.length) parts.push(clash.length + (clash.length === 1 ? ' date already had' : ' dates already had') + ' a session for that client and ' + (clash.length === 1 ? 'was' : 'were') + ' not added: ' + clash.map(shortDate).join(', ') + '.');
+    return parts.length ? 'Weekly schedule: ' + parts.join(' ') : '';
+  }
+
+  /**
+   * PURE. Weekly slots that look abandoned: the slot's owner is active and its last 4 or more generated
+   * rows dated on or before `today` are all completed and unpaid (a paid, waived, cancelled or no-show row
+   * ends the run). -> [{ clientId, slotId, names, weekday, count }], count = the whole unbroken run.
+   */
+  function staleSlots(clients, sessions, today) {
+    const out = [], names = nameMap(clients);
+    (clients || []).forEach((owner) => {
+      if (!owner || (owner.status || 'active') !== 'active') return;
+      (Array.isArray(owner.slots) ? owner.slots : []).forEach((slot) => {
+        if (!slot || typeof slot.id !== 'string' || typeof slot.anchor !== 'string') return;
+        const rows = (sessions || []).filter((s) => s && s.recurring && s.recurring.slotId === slot.id && typeof s.date === 'string' && s.date <= today)
+          .sort((a, b) => a.date.localeCompare(b.date));
+        let run = 0;
+        for (let i = rows.length - 1; i >= 0; i--) {
+          const s = rows[i];
+          if ((s.status || 'completed') === 'completed' && !s.paid && !App.isWaived(s)) run++; else break;
+        }
+        if (run < 4) return;
+        const last = rows[rows.length - 1];
+        const who = (last.clientIds || []).map((cid) => names.get(String(cid)) || 'Unknown').join(', ');
+        out.push({ clientId: owner.id, slotId: slot.id, names: who, weekday: WEEKDAYS[new Date(slot.anchor + 'T00:00:00Z').getUTCDay()] || 'weeks', count: run });
+      });
+    });
+    return out;
+  }
+
+  function recurringHtml(extra) {
+    if (!extra) return '';
+    const text = extra.recurringText || '', stale = extra.stale || [];
+    return (text ? '<section class="tw-notice" aria-label="Weekly schedule"><p class="tw-day-label tw-notice-label">' + escapeHtml(text) + '</p></section>' : '') +
+      (stale.length ? '<section class="tw-notice" aria-label="Weekly schedule check">' + stale.map((st) =>
+        '<p class="tw-day-label tw-notice-label">Still tutoring ' + escapeHtml(st.names) + ' on ' + escapeHtml(st.weekday) + '? ' + st.count +
+        ' sessions auto-logged and unpaid. <button type="button" class="duration-chip tw-chip" data-action="this-week-pause" data-id="' +
+        escapeHtml(st.clientId) + '" title="Pause this client: upcoming unedited weekly sessions are removed">Pause</button></p>').join('') + '</section>' : '');
+  }
+
   /** PURE. Markup for the group body: the auto-completed notice (if any), then days that have sessions, plus today. */
-  function thisWeekHtml(days, notice) {
+  function thisWeekHtml(days, notice, extra) {
     const pending = notice || [];
     const empty = !pending.length && !days.some((day) => day.rows.length);
     const { ordered, firstAhead } = displayOrder(days);
@@ -150,6 +208,7 @@
         '</header>' +
         '<ul class="tw-rows">' + pending.map((row) => rowHtml(row, true)).join('') + '</ul>' +
       '</section>' : '') +
+      recurringHtml(extra) +
       (empty ? '<p class="empty-state">Nothing scheduled this week. Tap + to add a session.</p>' : '') +
       ordered.filter((day) => day.isToday || day.rows.length).map((day) => {
         const label = dayLabel(day.date);
@@ -196,7 +255,8 @@
       // A reviewed row (no longer completed) or a deleted one leaves the key, so it never grows.
       if (notice.length !== pendingIds.length) writePending(notice.map((row) => row.id));
       const days = thisWeekDays(App.state.sessions, App.state.clients, today, null, new Set(notice.map((row) => row.id)));
-      body.innerHTML = thisWeekHtml(days, notice);
+      const report = App.recurringLastReport ? App.recurringLastReport() : null;
+      body.innerHTML = thisWeekHtml(days, notice, { recurringText: recurringNotice(report, App.state.clients), stale: staleSlots(App.state.clients, App.state.sessions, today) });
       const count = $('this-week-count');
       if (count) count.textContent = String(notice.length + days.reduce((n, day) => n + day.rows.length, 0));
       const details = $('this-week');
@@ -214,6 +274,8 @@
   App.thisWeekDays = thisWeekDays;
   App.thisWeekNotice = thisWeekNotice;
   App.thisWeekHtml = thisWeekHtml;
+  App.recurringNotice = recurringNotice;
+  App.staleSlots = staleSlots;
   App.thisWeekDisplayOrder = displayOrder;
   App.renderThisWeek = renderThisWeek;
   App.THIS_WEEK_PAID_TITLE = PAID_TITLE;

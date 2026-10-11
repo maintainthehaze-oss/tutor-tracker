@@ -122,6 +122,7 @@
         '<div class="client-details">' +
           (c.rate ? '<span>' + formatCurrency(c.rate) + '/hr</span>' : '') +
           (c.subjects ? '<span class="client-subjects">' + escapeHtml(c.subjects) + '</span>' : '') +
+          (Array.isArray(c.slots) ? c.slots.map((slot) => '<span class="client-slot-line">' + escapeHtml(slotLine(slot)) + '</span>').join('') : '') +
         '</div>' +
         '<div class="client-meta">' +
           '<span>' + sessionCount + ' session' + (sessionCount !== 1 ? 's' : '') + '</span>' +
@@ -207,6 +208,155 @@
 
   let clientFormRevision;
 
+  /* ---- Weekly schedule (slice E3): slots edited in the client modal ----
+     formSlots is this form's own working copy: [{ key, slot, original }]. `original` is the stored JSON of
+     a slot as loaded (null for a new one). Save keeps an unchanged slot byte-identical and gives any
+     edited or new slot a fresh id and through:null; the planner then replaces its pristine future rows. */
+  const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const SLOT_TYPES = [['in-person', 'In person'], ['online', 'Online'], ['hybrid', 'Hybrid'], ['group', 'Group']];
+  const DURATION_CHIPS = [0.5, 1, 1.5, 2];
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  let formSlots = [];
+  let formSlotKey = 0;
+
+  /** First date on or after `from` that falls on weekday `day` (0 = Monday). */
+  function nextOnOrAfter(from, day) {
+    const wp = App.weekPlan;
+    return wp.isoOf(wp.dayNum(from) + ((day - wp.weekdayOf(from) + 7) % 7));
+  }
+  function timeLabel(hhmm) {
+    const m = /^(\d{2}):(\d{2})$/.exec(hhmm || '');
+    if (!m) return String(hhmm || '');
+    const h = Number(m[1]);
+    return (h % 12 || 12) + ':' + m[2] + ' ' + (h < 12 ? 'AM' : 'PM');
+  }
+  /** "Tue 4:00 PM weekly" / "Tue 4:00 PM every 2 weeks". */
+  function slotLine(slot) {
+    if (!slot || !ISO_DATE.test(slot.anchor || '')) return 'Weekly slot';
+    return DAY_LABELS[App.weekPlan.weekdayOf(slot.anchor)] + ' ' + timeLabel(slot.time) + (slot.every === 2 ? ' every 2 weeks' : ' weekly');
+  }
+
+  /** Same-family active clients other than the one being edited (the "Also attending" candidates). */
+  function familyMates() {
+    const key = App.familyKey($('client-family').value || '');
+    const editing = $('client-id').value;
+    if (!key) return [];
+    return App.state.clients.filter((c) => String(c.id) !== String(editing) && (c.status || 'active') === 'active' && App.familyKey(c.familyGroup) === key);
+  }
+
+  /** A new slot starts from this client's usual session (time, duration, type, sibling set) when one exists. */
+  function newSlotDefaults() {
+    const today = App.todayISO();
+    const slot = { id: 'new', anchor: today, every: 1, time: '16:00', duration: num(App.state.settings && App.state.settings.defaultDuration) || 1, type: 'in-person', with: [], through:null };
+    const editing = $('client-id').value;
+    if (!editing) return slot;
+    const mates = new Set(familyMates().map((c) => String(c.id)));
+    const fits = (sig) => sig.clientIds.map(String).includes(String(editing)) && sig.clientIds.every((id) => String(id) === String(editing) || mates.has(String(id)));
+    const wp = App.weekPlan;
+    const sig = App.sessionSignatures(App.state.sessions, App.state.clients, wp.isoOf(wp.dayNum(today) - 90)).find(fits) ||
+      App.sessionSignatures(App.state.sessions, App.state.clients).find(fits);
+    if (!sig) return slot;
+    if (/^\d{2}:\d{2}$/.test(sig.time || '')) slot.time = sig.time;
+    if (sig.duration > 0) slot.duration = sig.duration;
+    if (SLOT_TYPES.some((t) => t[0] === sig.type)) slot.type = sig.type;
+    slot.with = sig.clientIds.map(String).filter((id) => id !== String(editing));
+    const top = Math.max(...sig.weekdays);
+    if (top > 0) slot.anchor = nextOnOrAfter(today, sig.weekdays.indexOf(top));
+    return slot;
+  }
+
+  function renderSlotRows() {
+    const list = $('client-slot-list');
+    if (!list) return;
+    const mates = familyMates();
+    list.innerHTML = formSlots.map((entry, i) => {
+      const slot = entry.slot, k = escapeHtml(entry.key);
+      const attr = (field) => ' data-slot-key="' + k + '" data-slot-field="' + field + '"';
+      const day = ISO_DATE.test(slot.anchor || '') ? App.weekPlan.weekdayOf(slot.anchor) : -1;
+      const sel = (cond) => (cond ? ' selected' : '');
+      return '<div class="slot-row" data-slot-row="' + k + '">' +
+        '<div class="slot-row-head"><strong>Slot ' + (i + 1) + '</strong>' +
+          '<button type="button" class="btn btn-sm btn-icon" data-action="remove-client-slot" data-slot-key="' + k + '" aria-label="Remove weekly slot ' + (i + 1) + '">&times;</button></div>' +
+        '<div class="slot-grid">' +
+          '<label>Day<select class="input"' + attr('day') + '>' + DAY_NAMES.map((n, d) => '<option value="' + d + '"' + sel(d === day) + '>' + n + '</option>').join('') + '</select></label>' +
+          '<label>Time<input type="time" class="input"' + attr('time') + ' value="' + escapeHtml(slot.time || '') + '"></label>' +
+          '<label>Type<select class="input"' + attr('type') + '>' + SLOT_TYPES.map((t) => '<option value="' + t[0] + '"' + sel(slot.type === t[0]) + '>' + t[1] + '</option>').join('') + '</select></label>' +
+          '<label>Every<select class="input"' + attr('every') + '><option value="1"' + sel(slot.every === 1) + '>Weekly</option><option value="2"' + sel(slot.every === 2) + '>Every 2 weeks</option></select></label>' +
+          '<label>First session<input type="date" class="input"' + attr('anchor') + ' value="' + escapeHtml(slot.anchor || '') + '"></label>' +
+        '</div>' +
+        '<div class="slot-duration"><span class="slot-label">Duration (hours)</span><div class="duration-chips" role="group" aria-label="Quick duration">' +
+          DURATION_CHIPS.map((d) => '<button type="button" class="duration-chip' + (slot.duration === d ? ' selected' : '') + '" data-action="set-slot-duration" data-slot-key="' + k + '" data-hours="' + d + '" aria-pressed="' + (slot.duration === d) + '">' + d + ' h</button>').join('') +
+          '<input type="number" class="input slot-duration-input" min="0.25" step="0.25"' + attr('duration') + ' value="' + escapeHtml(slot.duration) + '" aria-label="Duration in hours"></div></div>' +
+        (mates.length ? '<div class="slot-with"><span class="slot-label">Also attending</span><div class="client-picker">' + mates.map((c) => {
+          const on = (slot.with || []).map(String).includes(String(c.id));
+          return '<button type="button" class="client-pick' + (on ? ' selected' : '') + '" data-action="toggle-slot-with" data-slot-key="' + k + '" data-id="' + escapeHtml(c.id) + '" aria-pressed="' + on + '">' +
+            '<span class="client-pick-name">' + escapeHtml(clientName(c)) + '</span></button>';
+        }).join('') + '</div></div>' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  function updateSlotsPaused() {
+    const note = $('client-slots-paused');
+    if (note) note.hidden = ($('client-status').value || 'active') === 'active';
+  }
+
+  const slotEntry = (key) => formSlots.find((e) => e.key === String(key)) || null;
+
+  function onSlotClick(event) {
+    const target = event.target && event.target.closest ? event.target.closest('[data-action]') : null;
+    if (!target) return;
+    const action = target.getAttribute('data-action');
+    if (action === 'add-client-slot') {
+      formSlots = formSlots.concat([{ key: String(++formSlotKey), slot: newSlotDefaults(), original: null }]);
+      renderSlotRows();
+      return;
+    }
+    const entry = slotEntry(target.getAttribute('data-slot-key'));
+    if (!entry) return;
+    if (action === 'remove-client-slot') formSlots = formSlots.filter((e) => e !== entry);
+    else if (action === 'set-slot-duration') entry.slot.duration = Number(target.getAttribute('data-hours'));
+    else if (action === 'toggle-slot-with') {
+      const id = String(target.getAttribute('data-id'));
+      const has = (entry.slot.with || []).map(String).includes(id);
+      entry.slot.with = has ? entry.slot.with.filter((x) => String(x) !== id) : (entry.slot.with || []).concat([id]);
+    } else return;
+    renderSlotRows();
+  }
+
+  /** change/input from any slot control (delegated on body, so the rows can be re-rendered freely). */
+  function onSlotInput(event) {
+    const target = event.target;
+    if (!target) return;
+    if (target.id === 'client-status') { updateSlotsPaused(); return; }
+    if (target.id === 'client-family') { if (event.type === 'change') renderSlotRows(); return; }
+    const field = target.getAttribute && target.getAttribute('data-slot-field');
+    const entry = field && slotEntry(target.getAttribute('data-slot-key'));
+    if (!entry) return;
+    const slot = entry.slot, value = target.value, committed = event.type === 'change';
+    if (field === 'time') slot.time = value;
+    else if (field === 'type') slot.type = value;
+    else if (field === 'every') slot.every = Number(value);
+    else if (field === 'duration') { const n = Number(value); slot.duration = value !== '' && Number.isFinite(n) ? n : 0; if (committed) renderSlotRows(); }
+    else if (field === 'anchor') { slot.anchor = value; if (committed) renderSlotRows(); }
+    else if (field === 'day') { slot.anchor = nextOnOrAfter(App.todayISO(), Number(value)); renderSlotRows(); }
+  }
+
+  if (document.body && document.body.addEventListener) {
+    document.body.addEventListener('click', onSlotClick);
+    document.body.addEventListener('change', onSlotInput);
+    document.body.addEventListener('input', onSlotInput);
+  }
+
+  /** The slots to store: unchanged ones byte-identical, edited/new ones with a fresh id and through:null. */
+  function slotsToSave() {
+    return formSlots.map((entry) => {
+      if (entry.original !== null && JSON.stringify(entry.slot) === entry.original) return JSON.parse(entry.original);
+      return { ...JSON.parse(JSON.stringify(entry.slot)), id: generateId(), through:null };
+    });
+  }
+
   function renderLegacyClientDetails(client) {
     const section = $('client-legacy-details');
     const content = $('client-legacy-content');
@@ -229,6 +379,7 @@
 
     form.reset();
     $('client-id').value = '';
+    formSlots = [];
     renderLegacyClientDetails(null);
     const more = $('client-more');
     if (more) more.open = false;
@@ -256,10 +407,16 @@
       $('client-status').value = c.status || 'active';
       $('client-default-payment-method').value = c.defaultPaymentMethod || '';
       renderLegacyClientDetails(c);
+      formSlots = (Array.isArray(c.slots) ? c.slots : []).map((slot) => {
+        const copy = JSON.parse(JSON.stringify(slot));
+        return { key: String(++formSlotKey), slot: copy, original: JSON.stringify(copy) };
+      });
     } else {
       if (title) title.textContent = 'Add Client';
     }
 
+    renderSlotRows();
+    updateSlotsPaused();
     updateFamilyDatalist();
     // Surface family grouping hint (don't auto-fill an existing client's blank field)
     suggestFamily(false);
@@ -290,6 +447,12 @@
     const id = $('client-id').value;
     const isNew = !id;
 
+    const slots = slotsToSave();
+    for (let i = 0; i < slots.length; i++) {
+      const problem = App.recurring.slotProblem(slots[i]);
+      if (problem) { App.showToast('Weekly slot ' + (i + 1) + ': ' + problem, 'error'); return; }
+    }
+
     const clientData = {
       id: id || generateId(),
       firstName,
@@ -305,6 +468,8 @@
       status: $('client-status').value || 'active',
       // Slice D: how this family usually pays; pre-fills the Record payment modal. '' = not set.
       defaultPaymentMethod: ($('client-default-payment-method').value || '').trim(),
+      // Slice E3: weekly slots. Unchanged ones are byte-identical; edited or new ones carry a fresh id and through:null.
+      slots,
       updatedAt: new Date().toISOString(),
     };
 

@@ -1135,6 +1135,14 @@
             </select>
           </div>
 
+          <fieldset class="form-group-full weekly-slots" id="client-slots">
+            <legend>Weekly schedule</legend>
+            <div id="client-slot-list"></div>
+            <button type="button" class="btn btn-sm" data-action="add-client-slot">+ Add weekly slot</button>
+            <small class="form-hint">Sessions are created 4 weeks ahead as Scheduled.</small>
+            <small class="form-hint" id="client-slots-paused" hidden>No sessions are being created; upcoming unedited ones were removed.</small>
+          </fieldset>
+
           <!-- Rarely used fields (roadmap 4.6): folded shut, stored exactly as before -->
           <details class="form-group-full form-more" id="client-more">
             <summary>More <span class="form-more-hint">Subjects, learning goals</span></summary>

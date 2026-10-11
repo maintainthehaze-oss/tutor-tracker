@@ -108,7 +108,7 @@ test('chokepoint guard: one writer, one planner, no other file forges generated 
   for (const [f, src] of others) {
     if (f === 'recurring.js') continue;
     assert.doesNotMatch(src, /materializeRecurring|'rec:'|"rec:"/, f + ' must not plan or forge generated ids');
-    assert.doesNotMatch(src, /through\s*:\s*(?!null\b)[^,}\n]/, f + ' may only ever write through: null');
+    assert.doesNotMatch(src, /through\s*:(?!\s*null\b)/, f + ' may only ever write through: null');
   }
   // repository.js: the case sits inside the switch, the mutation anchor is intact, and the case body touches no
   // events, finalized entries, hashing or sealing: it composes select / assertEditableSessions / mergeRecord /

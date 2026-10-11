@@ -206,6 +206,7 @@
       ? escapeHtml(num(s.companySplit)) + '% / ' + formatCurrency(splitAmount)
       : '-';
 
+    const weeklyTag = s.recurring && s.recurring.slotId ? ' <span class="outstanding-tag">weekly</span>' : '';
     const protectedRow = App.isProtectedSession(s.id);
     // Pre-activation sessions that were still scheduled at activation are read-only, so their outcome is
     // recorded as a status event (last wins). Offer the choice in place of the badge.
@@ -221,7 +222,7 @@
         '<td class="col-check"><input type="checkbox" data-action="select-session" data-id="' + escapeHtml(s.id) + '"' + (isSelected ? ' checked' : '') + ' aria-label="Select session"></td>' +
         '<td><input type="date" class="input input-sm" value="' + escapeHtml(s.date || '') + '" data-field="date" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td><input type="time" class="input input-sm" value="' + escapeHtml(s.time || '') + '" data-field="time" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
-        '<td class="col-client">' + escapeHtml(clientNames) + typeNote + '</td>' +
+        '<td class="col-client">' + escapeHtml(clientNames) + typeNote + weeklyTag + '</td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.duration) + '" step="0.25" min="0.25" data-field="duration" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.amount) + '" step="0.01" min="0" data-field="amount" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td class="split-info">' + splitDisplay + '</td>' +
@@ -245,7 +246,7 @@
       (editMode ? '<td class="col-check" title="Read-only record">Locked</td>' : '') +
       '<td>' + escapeHtml(formatDate(s.date)) + '</td>' +
       '<td>' + escapeHtml(s.time || '-') + '</td>' +
-      '<td class="col-client">' + escapeHtml(clientNames || '-') + typeNote + '</td>' +
+      '<td class="col-client">' + escapeHtml(clientNames || '-') + typeNote + weeklyTag + '</td>' +
       '<td>' + formatDuration(s.duration) + '</td>' +
       '<td>' + amountDisplay + '</td>' +
       '<td class="split-info">' + splitDisplay + '</td>' +

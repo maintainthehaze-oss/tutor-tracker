@@ -201,11 +201,11 @@
 
   let running = false, lastPassDay = null, lastReport = { skipped: [], gaps: [] };
 
-  /** A modal is open when the query returns an element that is not hidden and carries the modal-overlay class.
-      (The real selector already guarantees both; the class test lets the test fake express "closed" by default.) */
+  /** A modal is open while its overlay carries modal-active: closeModal drops that class at once but only hides the
+      overlay 200 ms later (ui.js closeModal), so the pass that follows a client save must not be fooled by the fade. */
   function modalOpen() {
-    const el = document.querySelector('.modal-overlay:not([hidden])');
-    return !!el && el.hidden !== true && !!el.classList && el.classList.contains('modal-overlay');
+    const el = document.querySelector('.modal-overlay.modal-active:not([hidden])');
+    return !!el && el.hidden !== true && !!el.classList && el.classList.contains('modal-active');
   }
 
   App.runRecurringPass = runRecurringPass;

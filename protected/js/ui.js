@@ -805,6 +805,13 @@
           break;
         }
         case 'this-week-add': App.openSessionForm(null, target.getAttribute('data-date')); break;
+        case 'this-week-pause': {
+          if (await App.runCommand('client.save', { record: { id, status: 'paused' } }, App.repository.revision)) {
+            showToast('Client paused: upcoming unedited sessions will be removed', 'success');
+            if (App.runRecurringPass) App.runRecurringPass().catch(() => {});
+          }
+          break;
+        }
         case 'this-week-dismiss': App.thisWeek.dismissNotice(); break;
         case 'calc-mileage': App.calcFormMileage(); break;
         case 'calc-mileage-by-day': App.calculateMileageByDay(); break;
@@ -1075,7 +1082,7 @@
     try { await App.runRecurringPass(); } catch(error) { showToast('Weekly schedule skipped: ' + error.message,'warning'); }
     // A tab left open overnight: on return, if the day changed, complete what passed and plan the new window.
     document.addEventListener('visibilitychange',async()=>{
-      if(document.visibilityState!=='visible'||App.todayISO()===App.recurringLastDay()||document.querySelector('.modal-overlay:not([hidden])'))return;
+      if(document.visibilityState!=='visible'||App.todayISO()===App.recurringLastDay()||document.querySelector('.modal-overlay.modal-active:not([hidden])'))return;
       try { await App.autoCompleteOverdue(); } catch(error) { showToast('Auto-complete skipped: ' + error.message,'warning'); }
       try { await App.runRecurringPass(); } catch(error) { showToast('Weekly schedule skipped: ' + error.message,'warning'); }
     });
