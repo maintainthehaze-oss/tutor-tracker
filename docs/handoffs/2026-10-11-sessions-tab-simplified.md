@@ -74,3 +74,13 @@ Followed `docs/handoffs/2026-10-11-sessions-simplification-verify-prompt.md`.
    - NOT OBSERVED: Record payment flow (nothing owed today); `.type-note` after client names (no online/group session in October); Mileage button press; a real Completed tap; 640 px on real data.
    - Side note, not a defect of these commits: within one date the table lists 16:15 before 18:30 while the Date sort is descending.
 4. No mutation performed. Nothing pushed; local `main` is ahead of `origin/main` by handoff commits only.
+
+## Leftovers (2026-10-11, later, Claude Code Fable 5.1)
+
+Two items from §Live verification, one commit, not pushed.
+
+1. **Within-date time sort.** `sortSessions` returned 0 on equal dates, so the stable sort kept storage order (time ascending) even with Date descending. Now every column's comparator falls through to date → time → id, each multiplied by the column direction. Pinned in `tests/this-week.test.cjs` ("sessions table sort: ties within one date follow the Date direction"): desc → `e,b,a,d,c`, asc → reverse, same result from reversed input, amount ties fall back to date/time. `App.sortSessions` exposed for the test only. Mutations: tie-break without the direction multiplier → red; tie-break removed → red.
+2. **640 px layout pin.** Static test ("static: narrow layout pins") on `protected/styles.css`: `.panel-toolbar` and `.toolbar-right` keep `flex-wrap: wrap`, `.table-wrapper` keeps `overflow-x: auto`, the 480 px block stacks the toolbar, and no screen media query redefines `.table-wrapper` (print is the only override). Note: the prompt said "under the narrow media query"; the wrap/overflow rules are actually global (not inside any media query), so the pin targets the global rules and the 480 px stack. Mutations: `flex-wrap: nowrap` on the toolbar → red; `overflow-x: hidden` on the wrap → red.
+   Live read-only check, built-in pane, 640×900, empty data: `document.documentElement.scrollWidth` 640, toolbar `flex-wrap: wrap`, one row, rect 22.5-617.5; table wrap `overflow-x: auto`, clientWidth 593, scrollWidth 653 (scrolls inside the wrap). Still NOT observed at 640 px on real data.
+
+`node --test` 220/220, static guard 18/18, `node --check protected/js/*.js` clean.

@@ -300,8 +300,13 @@
     const clients = App.state.clients;
     const { field, dir } = sessionSort;
     const mult = dir === 'asc' ? 1 : -1;
+    const str = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+    // Ties follow the primary direction: Date descending lists 18:30 above 16:15 within one day.
+    const tieBreak = (a, b) => (str(a.date || '', b.date || '') || str(a.time || '', b.time || '') || str(String(a.id), String(b.id))) * mult;
 
-    return arr.sort((a, b) => {
+    return arr.sort((a, b) => primary(a, b) || tieBreak(a, b));
+
+    function primary(a, b) {
       let va, vb;
       switch (field) {
         case 'date':
@@ -329,7 +334,7 @@
         default:
           return 0;
       }
-    });
+    }
   }
 
   /** Pure arithmetic behind the Sessions Totals row (no DOM), so tests can pin it against
@@ -1256,6 +1261,7 @@
   App.calculateMileageByDay = calculateMileageByDay;
   App.sessionAddress = sessionAddress;
   App.sessionSort = sessionSort;
+  App.sortSessions = sortSessions;
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
   App.repeatLastSession = repeatLastSession;

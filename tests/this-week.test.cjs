@@ -370,3 +370,34 @@ test('static: group sits above the Owed panel in the Sessions tab, renders first
   assert.deepEqual([...html.matchAll(/data-stat="([a-z]+)"/g)].map(m => m[1]), ['projected', 'owed', 'backup'], 'header pills');
   assert.match(readSource('../SECURITY-PRIVACY.md'), /`tutoring-last-seen`/, 'the published privacy table must list the key');
 });
+
+test('sessions table sort: ties within one date follow the Date direction (2026-10-11 leftover)', async () => {
+  const ui = await boot(), App = ui.App;
+  const rows = () => [
+    { id: 'a', date: '2026-10-07', time: '16:15' }, { id: 'b', date: '2026-10-07', time: '18:30' },
+    { id: 'c', date: '2026-10-06', time: '09:00' }, { id: 'd', date: '2026-10-07', time: '' }, { id: 'e', date: '2026-10-08', time: '10:00' }];
+  const ids = (field, dir) => { Object.assign(App.sessionSort, { field, dir }); return App.sortSessions(rows()).map(r => r.id); };
+  assert.deepEqual(ids('date', 'desc'), ['e', 'b', 'a', 'd', 'c'], 'newest time first when Date is descending; blank time sorts last');
+  assert.deepEqual(ids('date', 'asc'), ['c', 'd', 'a', 'b', 'e'], 'earliest time first when Date is ascending');
+  // Same input in any order lands in the same order (the stable-sort insertion order no longer decides ties).
+  assert.deepEqual(ids('date', 'desc'), App.sortSessions(rows().reverse()).map(r => r.id));
+  // Another column ties fall back to date then time in that column's direction.
+  const sameAmount = () => [{ id: 'x', date: '2026-10-07', time: '08:00', amount: 50 }, { id: 'y', date: '2026-10-07', time: '12:00', amount: 50 }, { id: 'z', date: '2026-10-01', time: '12:00', amount: 60 }];
+  Object.assign(App.sessionSort, { field: 'amount', dir: 'desc' });
+  assert.deepEqual(App.sortSessions(sameAmount()).map(r => r.id), ['z', 'y', 'x']);
+  Object.assign(App.sessionSort, { field: 'date', dir: 'desc' });
+});
+
+test('static: narrow layout pins - toolbar wraps / stacks, table scrolls inside its own wrap (640 px never observed on real data)', () => {
+  const css = readSource('styles.css');
+  const block = (selector, from = 0) => { const i = css.indexOf(selector + ' {', from); assert.ok(i >= 0, selector); return css.slice(i, css.indexOf('}', i)); };
+  assert.match(block('.panel-toolbar'), /flex-wrap:\s*wrap;/, 'the Sessions toolbar must wrap at any width');
+  assert.match(block('.toolbar-right'), /flex-wrap:\s*wrap;/, 'the button cluster must wrap');
+  assert.match(block('.table-wrapper'), /overflow-x:\s*auto;/, 'the table scrolls inside its wrap, never the page');
+  // Under 480 px the toolbar stacks; the only other .table-wrapper override is the print stylesheet.
+  const narrow = css.indexOf('@media (max-width: 480px)'), tablet = css.indexOf('@media (max-width: 768px)');
+  assert.ok(narrow > 0 && tablet > narrow);
+  assert.match(block('.panel-toolbar', narrow), /flex-direction:\s*column;/, 'toolbar stacks under 480 px');
+  const overrides = [...css.matchAll(/\.table-wrapper \{/g)].map(m => m.index), print = css.indexOf('@media print');
+  assert.deepEqual(overrides.filter(i => i > narrow && i < print), [], 'no screen media query may override .table-wrapper');
+});
