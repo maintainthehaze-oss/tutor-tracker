@@ -1098,16 +1098,6 @@
             <label for="client-rate">Hourly Rate ($) <span class="required" aria-label="required">*</span></label>
             <input type="number" id="client-rate" class="input" required min="0" step="0.01" placeholder="75.00">
           </div>
-          <div class="form-group">
-            <label for="client-subjects">Subjects</label>
-            <input type="text" id="client-subjects" class="input" placeholder="Math, Science, English">
-          </div>
-
-          <div class="form-group form-group-full">
-            <label for="client-goals">Learning Goals</label>
-            <textarea id="client-goals" class="input textarea" rows="2" placeholder="Goals, notes, IEP details..."></textarea>
-          </div>
-
           <!-- Family Group -->
           <div class="form-group">
             <label for="client-family">Family Group</label>
@@ -1144,6 +1134,21 @@
               <option value="Other">Other</option>
             </select>
           </div>
+
+          <!-- Rarely used fields (roadmap 4.6): folded shut, stored exactly as before -->
+          <details class="form-group-full form-more" id="client-more">
+            <summary>More <span class="form-more-hint">Subjects, learning goals</span></summary>
+            <div class="form-grid">
+              <div class="form-group form-group-full">
+                <label for="client-subjects">Subjects</label>
+                <input type="text" id="client-subjects" class="input" placeholder="Math, Science, English">
+              </div>
+              <div class="form-group form-group-full">
+                <label for="client-goals">Learning Goals</label>
+                <textarea id="client-goals" class="input textarea" rows="2" placeholder="Goals, notes, IEP details..."></textarea>
+              </div>
+            </div>
+          </details>
         </div>
 
         <input type="hidden" id="client-id">

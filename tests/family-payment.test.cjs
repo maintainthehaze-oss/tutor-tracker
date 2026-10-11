@@ -263,3 +263,28 @@ test('source guards: markup, script order, Owed panel button, and no stray write
   assert.ok(!/localStorage|indexedDB|App\.state\.\w+\s*=[^=]/.test(src), 'payments.js writes only through runCommand');
   assert.equal((src.match(/runCommand\('session\.payment'/g) || []).length, 1);
 });
+
+test('client form: Subjects / Learning Goals fold shut under "More" (roadmap 4.6), open only when the client has a value, storage unchanged', async () => {
+  const ui = await bootUi();
+  const { App, field, click } = ui;
+  const html = readSource('index.html');
+  const more = html.slice(html.indexOf('<details class="form-group-full form-more" id="client-more">'), html.indexOf('</details>', html.indexOf('id="client-more"')));
+  assert.ok(more.includes('id="client-subjects"') && more.includes('id="client-goals"'), 'both fields live inside the fold');
+  assert.ok(!more.includes(' open>'), 'the fold is closed in the markup');
+  assert.ok(html.indexOf('id="client-more"') > html.indexOf('id="client-default-payment-method"'), 'the fold is the last thing in the form');
+  assert.ok(readSource('styles.css').includes('.form-more > summary'));
+  App.openClientForm();                              // Add: closed
+  assert.equal(field('client-more').open, false);
+  App.openClientForm('c3');                          // Edit, nothing in the fields: closed
+  assert.equal(field('client-more').open, false);
+  field('client-subjects').value = 'Algebra';
+  const r0 = App.repository.revision;
+  await click('save-client');
+  await ui.waitFor(() => App.repository.revision === r0 + 1, 'client save');
+  assert.equal(ui.disk().working.clients.find(c => c.id === 'c3').subjects, 'Algebra', 'stored exactly as before');
+  App.openClientForm('c3');                          // Edit with a value: open
+  assert.equal(field('client-more').open, true);
+  assert.equal(field('client-subjects').value, 'Algebra');
+  App.openClientForm();                              // Back to Add: closed again
+  assert.equal(field('client-more').open, false);
+});

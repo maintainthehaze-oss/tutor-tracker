@@ -230,6 +230,8 @@
     form.reset();
     $('client-id').value = '';
     renderLegacyClientDetails(null);
+    const more = $('client-more');
+    if (more) more.open = false;
 
     if (id) {
       const c = clients.find((cl) => String(cl.id) === String(id));
@@ -248,6 +250,8 @@
       $('client-rate').value = c.rate || '';
       $('client-subjects').value = c.subjects || '';
       $('client-goals').value = c.goals || '';
+      // Rarely used fields stay folded unless this client already has something in them.
+      if (more) more.open = !!(c.subjects || c.goals);
       $('client-family').value = c.familyGroup || '';
       $('client-status').value = c.status || 'active';
       $('client-default-payment-method').value = c.defaultPaymentMethod || '';
