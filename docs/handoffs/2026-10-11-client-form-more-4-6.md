@@ -13,4 +13,4 @@
 - Mutations (each red, then restored byte-identical): always-open on edit; open rule removed; `open` attribute in markup.
 - OBSERVED on the fabricated preview (dark, desktop): Edit client → fold closed, summary "▸ More  Subjects, learning goals"; tap → "▾", Subjects and Learning Goals visible. NOT observed: light theme, 640 px, real data, a client with existing subjects (the fixture has none; covered by the test only).
 
-Not pushed. Next gate: "Ship it".
+Shipped 2026-10-11 on "Ship it": `main` `9bf9206 → 20515f5`, pushed by MTH; all 3 live files byte-identical via curl (3rd poll, ~40 s). Real-data look at the fold still NOT observed (MTH: hard-refresh once, open any client).
