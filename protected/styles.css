@@ -2259,8 +2259,19 @@ select.input[multiple] {
 
 /* ---- Up to 768px (tablet) ---- */
 @media (max-width: 768px) and (min-width: 481px) {
+  /* Logo + buttons share the first row; the stat pills drop to a centred second row
+     so the page never scrolls sideways (at 640 px the pills and buttons overflowed to x=865). */
   .app-header {
     padding: 0.5rem 1rem;
+    flex-wrap: wrap;
+  }
+  .header-center {
+    order: 1;
+    flex-basis: 100%;
+  }
+  .live-stats {
+    flex-wrap: wrap;
+    justify-content: center;
   }
   .kbd-hint {
     display: none;

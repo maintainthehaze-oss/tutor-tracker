@@ -400,4 +400,8 @@ test('static: narrow layout pins - toolbar wraps / stacks, table scrolls inside 
   assert.match(block('.panel-toolbar', narrow), /flex-direction:\s*column;/, 'toolbar stacks under 480 px');
   const overrides = [...css.matchAll(/\.table-wrapper \{/g)].map(m => m.index), print = css.indexOf('@media print');
   assert.deepEqual(overrides.filter(i => i > narrow && i < print), [], 'no screen media query may override .table-wrapper');
+  // 481-768 px: the header wraps and the stat pills take a full second row, so the page never scrolls sideways.
+  assert.match(block('.app-header', tablet), /flex-wrap:\s*wrap;/, 'header wraps under 768 px');
+  assert.match(block('.header-center', tablet), /flex-basis:\s*100%;/, 'stat pills take their own row under 768 px');
+  assert.match(block('.live-stats', tablet), /flex-wrap:\s*wrap;/, 'stat pills wrap under 768 px');
 });
