@@ -23,6 +23,9 @@ function pinComputeMetrics(App) {
   const owed = App.computeOwedByFamily();
   assert.equal(owed.total, EXPECTED.outstanding);
   assert.equal(owed.count, EXPECTED.outstandingCount);
+  // Every fixture client resolves, so the even per-family split must add back up to the total.
+  near(owed.groups.reduce((sum, g) => sum + g.amount, 0), EXPECTED.outstanding, 'family split sums to outstanding');
+  near(m.groups.reduce((sum, g) => sum + g.gross, 0), EXPECTED.gross, 'family split sums to gross');
 }
 
 /** Pin 2 (audit finding 4d): the three same-number code paths agree, overall, per month and per family. */
@@ -92,14 +95,27 @@ for (const [name, sources] of Object.entries({
     "s.status === 'completed' && s.paid === true &&", "s.status === 'completed' &&"),
   '(c) events applied in reverse order': () => mutant('record-policy',
     '(events || []).forEach(ev => {', '(events || []).slice().reverse().forEach(ev => {'),
-  '(d1) report model stops zeroing waived fees': () => mutant('report-model',
-    "const waived=version!=='captured-v1'&&s.payment==='waived';", 'const waived=false;'),
+  '(d1) shared money rollup stops zeroing waived fees': () => mutant('app-core',
+    'const waived = !waivedIsRevenue && isWaived(s);', 'const waived = false;'),
   '(d2) Sessions Totals sums raw amounts': () => mutant('sessions',
     'const totalAmt = completed.reduce((sum, s) => sum + App.revenueAmount(s), 0);', 'const totalAmt = completed.reduce((sum, s) => sum + num(s.amount), 0);'),
   '(d3) computeMetrics counts cancelled sessions': () => mutant('app-core',
-    "let rows = sessions.filter((s) => s.status === 'completed' && s.date);", 'let rows = sessions.filter((s) => s.date);'),
+    "moneyRollup(sessions.filter((s) => s.status === 'completed' && s.date),", 'moneyRollup(sessions.filter((s) => s.date),'),
+  '(d5) family rollup stops splitting multi-client sessions evenly': () => mutant('app-core',
+    'g.outstanding += unpaid ? gross / n : 0;', 'g.outstanding += unpaid ? gross : 0;'),
   '(d4) header Projected pill sums raw amounts': () => mutant('dashboard',
     'const projected = scheduled.reduce((sum, s) => sum + App.revenueAmount(s), 0);', 'const projected = scheduled.reduce((sum, s) => sum + App.num(s.amount), 0);'),
 })) test('mutation ' + name + ' turns the money pins red', async () => {
   await assert.rejects(runAllPins(sources()), error => error instanceof assert.AssertionError, 'pins stayed green under mutation');
+});
+
+// Roadmap 4.3: `paymentStatus` is read-only legacy. The read view folds it into `paid`
+// (App.recordPolicy.normalizeLegacy); no app source may write it again.
+test('no app source writes the legacy paymentStatus field', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const dir = path.resolve(__dirname, '../protected/js');
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
+    const writes = fs.readFileSync(path.join(dir, file), 'utf8').match(/paymentStatus\s*(:|=(?!=))/g);
+    assert.equal(writes, null, file + ' writes paymentStatus');
+  }
 });

@@ -133,12 +133,8 @@
     mileageRate: 0.725,
     defaultDuration: 1,
     orsApiKey: '',
-    gistId: '',
-    gistToken: '',
     autoSync: 'off',
     autoBackupDays: 7,
-    lastBackup: null,
-    lastSyncAt: null,
   };
 
   const EXPENSE_CATEGORIES = [
@@ -156,26 +152,6 @@
     { value: 'meals', label: 'Meals (business)' },
     { value: 'other', label: 'Other' },
   ];
-
-  /** IRS standard business mileage rates by tax year (IRS-published figures:
-   *  2024 = 67c, 2025 = 70c, 2026 = 72.5c). Years not listed fall back to the
-   *  user-set settings.mileageRate so future years work before this table is
-   *  updated. */
-  const MILEAGE_RATES = { 2024: 0.67, 2025: 0.70, 2026: 0.725 };
-  const _mileageRateWarned = new Set();
-
-  function mileageRateFor(year) {
-    const y = parseInt(year, 10);
-    if (MILEAGE_RATES[y] != null) return MILEAGE_RATES[y];
-    const fallback = num(settings.mileageRate) || 0.725;
-    if (!_mileageRateWarned.has(y)) {
-      _mileageRateWarned.add(y);
-      setTimeout(() => {
-        if (App.showToast) App.showToast('No IRS mileage rate on file for ' + y + ' — using $' + fallback.toFixed(3) + '/mi. Update in Settings when the IRS publishes the rate.', 'warning');
-      }, 0);
-    }
-    return fallback;
-  }
 
   /** Application state */
   let clients = Object.freeze([]);
@@ -342,85 +318,61 @@
   function revenueAmount(s) { return isWaived(s) ? 0 : num(s.amount); }
   function revenueSplit(s) { return isWaived(s) ? 0 : num(s.companyAmount); }
 
-  function computeMetrics(filter) {
+  /**
+   * The ONE money arithmetic (roadmap 4.1). Filters already-eligible rows by `filter`, then totals and
+   * rolls up per group, splitting multi-client sessions evenly. Shared by computeMetrics (today's
+   * payable working records, today's families) and App.reportModel.metrics (reporting ledger incl.
+   * historical rows and snapshot clients); the two differ only in the rows and lookups they pass.
+   *   resolve(s, id)    client for a session's id, or null to skip it
+   *   number(v)         numeric coercion
+   *   waivedIsRevenue   true only for captured-v1 (filed-report reproduction)
+   */
+  function moneyRollup(rows, filter, opts) {
     filter = filter || {};
-    const findClient = clientLookup();
-
-    // 1) Filter sessions (completed only — these are realized business activity)
-    let rows = sessions.filter((s) => s.status === 'completed' && s.date);
-
+    const resolve = opts.resolve, number = opts.number || num, waivedIsRevenue = !!opts.waivedIsRevenue;
     if (filter.year) rows = rows.filter((s) => s.date.slice(0, 4) === String(filter.year));
     if (filter.month) rows = rows.filter((s) => s.date.slice(0, 7) === filter.month);
     if (filter.dateStart) rows = rows.filter((s) => s.date >= filter.dateStart);
     if (filter.dateEnd) rows = rows.filter((s) => s.date <= filter.dateEnd);
-    if (filter.clientId) {
-      rows = rows.filter((s) => (s.clientIds || []).some((id) => String(id) === String(filter.clientId)));
-    }
-    if (filter.family) {
-      rows = rows.filter((s) => (s.clientIds || []).some((id) => {
-        const c = findClient(id);
-        return c && clientFamily(c) === filter.family;
-      }));
-    }
+    if (filter.clientId) rows = rows.filter((s) => (s.clientIds || []).some((id) => String(id) === String(filter.clientId)));
+    if (filter.family) rows = rows.filter((s) => (s.clientIds || []).some((id) => clientFamily(resolve(s, id)) === filter.family));
     if (filter.paid === 'paid') rows = rows.filter((s) => s.paid === true);
     else if (filter.paid === 'unpaid') rows = rows.filter((s) => !s.paid && s.payment !== 'waived');
 
-    // 2) Totals
-    let gross = 0, companySplit = 0, miles = 0, hours = 0;
-    let outstanding = 0, outstandingCount = 0;
+    const M = { sessionCount: rows.length, gross: 0, companySplit: 0, yourCut: 0, miles: 0, hours: 0, outstanding: 0, outstandingCount: 0 };
+    const groups = new Map();
     rows.forEach((s) => {
-      gross += revenueAmount(s);
-      companySplit += revenueSplit(s);
-      miles += num(s.mileage);
-      hours += num(s.duration);
-      if (!s.paid && s.payment !== 'waived') {
-        outstanding += num(s.amount);
-        outstandingCount++;
-      }
-    });
-    const yourCut = gross - companySplit;
-
-    // 3) Per-group (family-or-individual) rollup, splitting multi-client sessions evenly
-    const groups = {};
-    rows.forEach((s) => {
-      const ids = s.clientIds || [];
-      if (ids.length === 0) return;
-      const shareGross = revenueAmount(s) / ids.length;
-      const shareSplit = revenueSplit(s) / ids.length;
-      const shareHours = num(s.duration) / ids.length;
-      const isUnpaid = !s.paid && s.payment !== 'waived';
-      const shareUnpaid = isUnpaid ? num(s.amount) / ids.length : 0;
-      // count a session once per group it touches
-      const touched = new Set();
+      const waived = !waivedIsRevenue && isWaived(s);
+      const gross = waived ? 0 : number(s.amount), split = waived ? 0 : number(s.companyAmount), hours = number(s.duration);
+      const unpaid = !s.paid && s.payment !== 'waived';
+      M.gross += gross; M.companySplit += split; M.miles += number(s.mileage); M.hours += hours;
+      if (unpaid) { M.outstanding += gross; M.outstandingCount++; }
+      const ids = s.clientIds || [], n = ids.length, touched = new Set();
       ids.forEach((id) => {
-        const c = findClient(id);
+        const c = resolve(s, id);
         if (!c) return;
         const key = groupKeyForClient(c);
-        if (!groups[key]) {
-          groups[key] = { key, label: groupLabelForClient(c), family: clientFamily(c), gross: 0, companySplit: 0, yourCut: 0, hours: 0, sessions: 0, outstanding: 0, members: {} };
-        }
-        const g = groups[key];
-        g.gross += shareGross;
-        g.companySplit += shareSplit;
-        g.yourCut += (shareGross - shareSplit);
-        g.hours += shareHours;
-        g.outstanding += shareUnpaid;
+        if (!groups.has(key)) groups.set(key, { key, label: groupLabelForClient(c), family: clientFamily(c), gross: 0, companySplit: 0, yourCut: 0, hours: 0, sessions: 0, outstanding: 0, members: Object.create(null) });
+        const g = groups.get(key);
+        g.gross += gross / n; g.companySplit += split / n; g.yourCut += (gross - split) / n; g.hours += hours / n;
+        g.outstanding += unpaid ? gross / n : 0;
         if (!g.members[c.id]) g.members[c.id] = { client: c, gross: 0, outstanding: 0, sessions: 0 };
-        g.members[c.id].gross += shareGross;
-        g.members[c.id].outstanding += shareUnpaid;
-        g.members[c.id].sessions++;
+        g.members[c.id].gross += gross / n; g.members[c.id].outstanding += unpaid ? gross / n : 0; g.members[c.id].sessions++;
+        // count a session once per group it touches
         if (!touched.has(key)) { g.sessions++; touched.add(key); }
       });
     });
-    const groupRows = Object.values(groups).sort((a, b) => b.gross - a.gross);
+    M.yourCut = M.gross - M.companySplit;
+    M.groups = [...groups.values()].sort((a, b) => b.gross - a.gross);
+    M.sessions = rows;
+    return M;
+  }
 
-    return {
-      sessionCount: rows.length,
-      gross, companySplit, yourCut, miles, hours,
-      outstanding, outstandingCount,
-      groups: groupRows,
-      sessions: rows,
-    };
+  /** Realized metrics over today's working records (completed only), grouped by today's families.
+   *  Drives Owed, family payment intake and statements. Reports use App.reportModel.metrics. */
+  function computeMetrics(filter) {
+    const findClient = clientLookup();
+    return moneyRollup(sessions.filter((s) => s.status === 'completed' && s.date), filter, { resolve: (s, id) => findClient(id) || null, number: num });
   }
 
   /**
@@ -587,13 +539,12 @@
   App.STORAGE_KEYS = STORAGE_KEYS;
   App.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
   App.EXPENSE_CATEGORIES = EXPENSE_CATEGORIES;
-  App.MILEAGE_RATES = MILEAGE_RATES;
-  App.mileageRateFor = mileageRateFor;
 
   // Data functions
   App.loadData = loadData;
 
   App.computeMetrics = computeMetrics;
+  App.moneyRollup = moneyRollup;
   App.clientFamily = clientFamily;
   App.familyKey = familyKey;
   App.canonicalFamily = canonicalFamily;

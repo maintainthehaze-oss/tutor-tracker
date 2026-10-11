@@ -33,6 +33,16 @@
     ['mileageManual','mileageCalculated'].forEach(k => { if (k in f && typeof f[k] !== 'boolean') throw new Error('Invalid ' + k); });
   }
   /**
+   * Read-time fold of legacy spellings onto a (cloned) session; stored records are never rewritten.
+   * `clientId` -> `clientIds`; `paymentStatus` / `payment` -> `paid` (`paymentStatus` is read-only legacy:
+   * nothing writes it any more). `paymentMethod` arrives via payment events in applyEvents.
+   */
+  function normalizeLegacy(s) {
+    if (!Array.isArray(s.clientIds)) s.clientIds = Object.hasOwn(s,'clientId') ? [s.clientId] : [];
+    if (s.paid == null && (s.paymentStatus != null || s.payment != null)) s.paid = (s.paymentStatus || s.payment) === 'paid';
+    return s;
+  }
+  /**
    * Overlay the append-only events for one session onto a (cloned) record, in event order; the last
    * event wins. The stored original is never touched. Marks `statusEvent` / `corrected` on the view.
    */
@@ -46,5 +56,5 @@
     });
     return record;
   }
-  window.App.recordPolicy = Object.freeze({ key, isProtectedRecord, applyEvents, validateCorrection, CORRECTABLE_FIELDS });
+  window.App.recordPolicy = Object.freeze({ key, isProtectedRecord, normalizeLegacy, applyEvents, validateCorrection, CORRECTABLE_FIELDS });
 })();

@@ -456,8 +456,7 @@
         return c;
       });
       view.sessions = view.sessions.map(s => {
-        if (!Array.isArray(s.clientIds)) s.clientIds = Object.hasOwn(s,'clientId') ? [s.clientId] : [];
-        if (s.paid == null && (s.paymentStatus != null || s.payment != null)) s.paid = (s.paymentStatus || s.payment) === 'paid';
+        P.normalizeLegacy(s);
         // Status / payment / correction overlays are a read view only; the stored original is never edited.
         return P.applyEvents(s, current.events);
       });

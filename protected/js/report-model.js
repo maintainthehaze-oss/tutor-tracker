@@ -48,8 +48,7 @@
       const s = clone(original);
       const rowWarnings = [];
       // The pre-Slice-3 repository applied these compatibility aliases on reads.
-      if (!Array.isArray(s.clientIds)) s.clientIds = Object.hasOwn(s,'clientId') ? [s.clientId] : [];
-      if (s.paid == null && (s.paymentStatus != null || s.payment != null)) s.paid = (s.paymentStatus || s.payment) === 'paid';
+      App.recordPolicy.normalizeLegacy(s);
       if (!captured) {
         if (!legacy) s.companyAmount = 0;
         // Append-only events (status, payment, correction) overlay archived and finalized rows alike; the stored original is untouched.
@@ -83,41 +82,12 @@
     // A correction can point a locked row at a client added after its snapshot; current mode then falls back to today's list.
     const find = (s,id) => s._report.clients.find(c=>key(c.id)===String(id)) ||
       (version==='captured-v1' ? undefined : ctx.clients.find(c=>key(c.id)===String(id)));
-    let rows = ctx.sessions.filter(s=>s.status==='completed' && typeof s.date==='string' &&
+    const rows = ctx.sessions.filter(s=>s.status==='completed' && typeof s.date==='string' &&
       (version==='captured-v1' ? !!s.date : validDate(s.date)));
-    if(filter.year)rows=rows.filter(s=>s.date.slice(0,4)===String(filter.year));
-    if(filter.month)rows=rows.filter(s=>s.date.slice(0,7)===filter.month);
-    if(filter.dateStart)rows=rows.filter(s=>s.date>=filter.dateStart);
-    if(filter.dateEnd)rows=rows.filter(s=>s.date<=filter.dateEnd);
-    if(filter.clientId)rows=rows.filter(s=>(s.clientIds||[]).some(id=>String(id)===String(filter.clientId)));
-    if(filter.family)rows=rows.filter(s=>(s.clientIds||[]).some(id=>App.clientFamily(find(s,id))===filter.family));
-    if(filter.paid==='paid')rows=rows.filter(s=>s.paid===true);
-    if(filter.paid==='unpaid')rows=rows.filter(s=>!s.paid && s.payment!=='waived');
-    const M={sessionCount:rows.length,gross:0,companySplit:0,miles:0,hours:0,outstanding:0,outstandingCount:0,sessions:rows};
-    const groups = new Map();
-    rows.forEach(s=>{
-      // Waived fees are not revenue (current mode). captured-v1 keeps its stored math so filed reports still reproduce.
-      const waived=version!=='captured-v1'&&s.payment==='waived';
-      const gross=waived?0:number(s.amount),split=waived?0:number(s.companyAmount),hours=number(s.duration),unpaid=!s.paid&&s.payment!=='waived';
-      M.gross+=gross; M.companySplit+=split; M.miles+=number(s.mileage); M.hours+=hours;
-      if(unpaid){M.outstanding+=gross;M.outstandingCount++;}
-      const ids=s.clientIds||[],touched=new Set();
-      ids.forEach(id=>{
-        const c=find(s,id) || (version==='captured-v1'?null:{id,firstName:'Unknown client '+id});
-        if(!c)return;
-        const k=App.groupKeyForClient(c);
-        if(!groups.has(k))groups.set(k,{key:k,label:App.groupLabelForClient(c),family:App.clientFamily(c),gross:0,companySplit:0,yourCut:0,hours:0,sessions:0,outstanding:0,members:Object.create(null)});
-        const g=groups.get(k),n=ids.length;
-        g.gross+=gross/n;g.companySplit+=split/n;g.yourCut+=(gross-split)/n;g.hours+=hours/n;g.outstanding+=unpaid?gross/n:0;
-        if(!g.members[id])g.members[id]={client:c,gross:0,outstanding:0,sessions:0};
-        g.members[id].gross+=gross/n;g.members[id].outstanding+=unpaid?gross/n:0;g.members[id].sessions++;
-        if(!touched.has(k)){g.sessions++;touched.add(k);}
-      });
-    });
-    M.yourCut=M.gross-M.companySplit;
-    M.groups=[...groups.values()].sort((a,b)=>b.gross-a.gross);
-    M.hasLegacyShare=rows.some(s=>s._report.legacy&&(!validNumber(s.companyAmount)||number(s.companyAmount)!==0));
-    M.warnings=unique([...ctx.warnings,...rows.flatMap(s=>s._report.warnings),...ctx.sessions.filter(s=>s.status==='completed'&&!validDate(s.date)).flatMap(s=>s._report.warnings)]);
+    const M = App.moneyRollup(rows, filter, {number, waivedIsRevenue: version==='captured-v1',
+      resolve: (s,id) => find(s,id) || (version==='captured-v1' ? null : {id,firstName:'Unknown client '+id})});
+    M.hasLegacyShare=M.sessions.some(s=>s._report.legacy&&(!validNumber(s.companyAmount)||number(s.companyAmount)!==0));
+    M.warnings=unique([...ctx.warnings,...M.sessions.flatMap(s=>s._report.warnings),...ctx.sessions.filter(s=>s.status==='completed'&&!validDate(s.date)).flatMap(s=>s._report.warnings)]);
     M.version=version;
     return M;
   }
