@@ -3,7 +3,8 @@
    What the owner "usually" does per client set, read from the sessions
    already on file, and the pure model behind the "Log a week" grid.
    No DOM, no storage, no App.state reads: every function takes its
-   inputs and returns new values. Loaded after sessions.js (uses
+   inputs and returns new values. Also the "Usual" quick-pick tiles
+   on the session form (usualTiles, Slice C). Loaded after sessions.js (uses
    App.newAmount / App.defaultStatusForDate for money and status).
    ============================================================ */
 (function () {
@@ -186,7 +187,42 @@
     });
   }
 
+  /**
+   * PURE. The weekday labels a signature "usually" falls on: every day with at least half the busiest day's
+   * count, Mon..Sun order. Empty when more than three days qualify (no pattern worth stating) or nothing counted.
+   */
+  function usualWeekdays(weekdays) {
+    const counts = (weekdays || []).map(num);
+    const top = Math.max(0, ...counts);
+    if (!top) return [];
+    const days = WEEKDAY_LABELS.filter((_, i) => counts[i] * 2 >= top);
+    return days.length > 3 ? [] : days;
+  }
+
+  /**
+   * PURE. "Usual" quick-pick tiles for the session form: up to `limit` signatures whose members are all
+   * pickable (active) clients, ranked by frequency in the 90 days before `today` (ties: most recent), then
+   * by all-time frequency for combos not already listed. Each tile carries the values one tap fills.
+   */
+  function usualTiles(sessions, clients, today, limit) {
+    const max = num(limit) > 0 ? num(limit) : 5;
+    const active = new Set((clients || []).filter((c) => c && (c.status || 'active') === 'active').map((c) => String(c.id)));
+    const since = typeof today === 'string' && DATE_RE.test(today) ? isoOf(dayNum(today) - 90) : undefined;
+    const tileId = (sig) => sig.key + '|' + sig.duration + '|' + sig.amount + '|' + sig.type;
+    const seen = new Set(), tiles = [];
+    const take = (sig) => {
+      if (tiles.length >= max || seen.has(tileId(sig)) || !sig.clientIds.every((id) => active.has(id))) return;
+      seen.add(tileId(sig));
+      tiles.push({ key: sig.key, clientIds: [...sig.clientIds], duration: sig.duration, amount: App.newAmount(sig.amount, null),
+        type: sig.type, time: sig.time, count: sig.count, lastDate: sig.lastDate, weekdays: usualWeekdays(sig.weekdays) });
+    };
+    sessionSignatures(sessions, clients, since).forEach(take);
+    sessionSignatures(sessions, clients).forEach(take);
+    return tiles;
+  }
+
   App.sessionSignatures = sessionSignatures;
+  App.usualTiles = usualTiles;
   App.weekPlan = Object.freeze({ signatureKey, dayNum, isoOf, weekdayOf, weekStart, weekDates, WEEKDAY_LABELS,
-    usualFor, loggedOn, rateAmount, weekRows, repeatLastWeek, cellState, buildRecords });
+    usualFor, loggedOn, rateAmount, weekRows, repeatLastWeek, cellState, buildRecords, usualWeekdays, usualTiles });
 })();

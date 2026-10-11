@@ -513,6 +513,61 @@
     });
   }
 
+  // "Usual" quick-pick tiles (Slice C): what he usually logs, read from the sessions on file. New sessions only.
+  const USUAL_TILE_LIMIT = 5;
+  let usualTiles = [];
+
+  /** PURE. The one-line label of a tile: "Alpha + Beta · 2h · $300 · in-person · Tue/Thu". */
+  function usualTileLabel(tile, clientsById) {
+    const names = tile.clientIds.map((id) => App.clientName(clientsById[String(id)] || {})).join(' + ');
+    const parts = [names, formatDuration(tile.duration), formatCurrency(tile.amount), tile.type || 'in-person'];
+    if (tile.weekdays && tile.weekdays.length) parts.push(tile.weekdays.join('/'));
+    return parts.join(' · ');
+  }
+
+  /** Paint the tiles above the client picker; hidden while editing or when nothing is usual yet. */
+  function renderUsualTiles(editing) {
+    const group = $('session-usual-group'), host = $('session-usual');
+    if (!group || !host) return;
+    usualTiles = editing || typeof App.usualTiles !== 'function' ? [] : App.usualTiles(App.state.sessions, App.state.clients, todayISO(), USUAL_TILE_LIMIT);
+    group.hidden = usualTiles.length === 0;
+    if (!usualTiles.length) { host.innerHTML = ''; return; }
+    const clientsById = {};
+    App.state.clients.forEach((c) => { clientsById[String(c.id)] = c; });
+    host.innerHTML = usualTiles.map((tile, i) =>
+      '<button type="button" class="usual-tile" data-action="pick-usual" data-index="' + i + '" aria-pressed="false" title="' +
+      escapeHtml(tile.count + (tile.count === 1 ? ' session' : ' sessions') + ' on file') + '">' + escapeHtml(usualTileLabel(tile, clientsById)) + '</button>').join('');
+    syncUsualTiles();
+  }
+
+  /** Mark the tile (if any) that matches what the form currently holds. */
+  function syncUsualTiles() {
+    const host = $('session-usual');
+    if (!host || !usualTiles.length) return;
+    const key = [...new Set(getSelectedSessionClientIds())].sort().join('+');
+    const duration = num($('session-duration').value), amount = num($('session-amount').value), type = $('session-type').value || 'in-person';
+    host.querySelectorAll('[data-action="pick-usual"]').forEach((btn) => {
+      const tile = usualTiles[Number(btn.getAttribute('data-index'))];
+      const on = !!tile && tile.key === key && tile.duration === duration && tile.amount === amount && tile.type === type && $('session-amount').value !== '';
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.classList.toggle('selected', on);
+    });
+  }
+
+  /** One tap fills clients, duration, type, amount and time from a tile. Date, status, payment and mileage are left alone. */
+  function pickUsualTile(index) {
+    if ($('session-id').value) return;
+    const tile = usualTiles[Number(index)];
+    if (!tile) return;
+    renderClientPicker(tile.clientIds);
+    $('session-duration').value = tile.duration;
+    $('session-type').value = tile.type || 'in-person';
+    $('session-amount').value = tile.amount;
+    $('session-time').value = tile.time || '';
+    syncDurationChips();
+    updateSessionPrefill();
+  }
+
   function openSessionForm(id, prefillDate) {
     const locked = !!id && App.isProtectedSession(id);
     sessionFormRevision = App.repository.revision;
@@ -539,6 +594,8 @@
 
     // Tap-to-pick client tiles: active clients, plus whoever is on the session being edited (may be inactive now).
     renderClientPicker(editingClientIds);
+    // Fill-in-one-tap tiles (hidden while editing).
+    renderUsualTiles(!!id);
 
     if (id) {
       const s = sessions.find((ses) => String(ses.id) === String(id));
@@ -660,6 +717,8 @@
         amountEl.placeholder = 'Auto-calculated';
       }
     }
+
+    syncUsualTiles();
 
     // Repeat-last banner: only for a single selected client on a new session
     if (banner) {
@@ -1230,6 +1289,8 @@
   App.populateClientFilter = populateClientFilter;
   App.updateSessionPrefill = updateSessionPrefill;
   App.repeatLastSession = repeatLastSession;
+  App.pickUsualTile = pickUsualTile;
+  App.usualTileLabel = usualTileLabel;
   App.clientPickerRows = clientPickerRows;
   App.defaultStatusForDate = defaultStatusForDate;
   App.chipHours = chipHours;

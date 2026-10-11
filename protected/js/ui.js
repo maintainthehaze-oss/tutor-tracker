@@ -698,6 +698,7 @@
           }, 100);
           break;
         case 'repeat-last-session': App.repeatLastSession(); break;
+        case 'pick-usual': App.pickUsualTile(target.getAttribute('data-index')); break;
         case 'toggle-session-client': App.toggleSessionClient(target); break;
         case 'set-session-duration': App.setSessionDuration(target.getAttribute('data-minutes')); break;
 
