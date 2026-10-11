@@ -160,6 +160,23 @@ test('markup: chips per row state, paid rows disabled, today highlighted, names 
   assert.match(empty, /Nothing scheduled this week/); assert.match(empty, /data-action="this-week-add"/);
 });
 
+test('display order: today first, then the past newest-first, then the days ahead oldest-first under "Coming up"', async () => {
+  const ui = await boot(), html = ui.html();
+  const drawn = [...html.matchAll(/<section class="tw-day(?: tw-today)?" data-date="([0-9-]+)">/g)].map(m => m[1]);
+  assert.equal(drawn[0], TODAY, 'today is at the top');
+  const past = drawn.filter(d => d < TODAY), ahead = drawn.filter(d => d > TODAY);
+  assert.ok(past.length >= 2 && ahead.length >= 1, 'fixture has past and future days: ' + drawn.join(','));
+  assert.deepEqual(drawn, [TODAY, ...past, ...ahead], 'past block before the ahead block');
+  assert.deepEqual(past, [...past].sort().reverse(), 'past days newest-first');
+  assert.deepEqual(ahead, [...ahead].sort(), 'days ahead oldest-first');
+  assert.equal((html.match(/<p class="tw-divider">Coming up<\/p>/g) || []).length, 1, 'exactly one divider');
+  assert.match(html, new RegExp('<p class="tw-divider">Coming up</p><section class="tw-day" data-date="' + ahead[0] + '">'), 'divider sits right above the first day ahead');
+  // Pure: with nothing ahead there is no divider; the model itself is still oldest-first (thisWeekDays is unchanged).
+  const App = ui.App, model = App.thisWeekDays([{ id: 'p', date: '2026-09-18', clientIds: ['c1'], duration: 1, amount: 1 }], [{ id: 'c1', firstName: 'A', lastName: 'B' }], TODAY, () => false);
+  assert.ok(!App.thisWeekHtml(model).includes('tw-divider'));
+  assert.equal(JSON.stringify(App.thisWeekDisplayOrder(model).ordered.map(d => d.date).slice(0, 3)), JSON.stringify([TODAY, '2026-09-18', '2026-09-17']));
+});
+
 test('open/closed choice survives re-renders for the page load; the group starts open', async () => {
   const ui = await boot(), details = ui.field('this-week');
   ui.html(); assert.equal(details.open, true);

@@ -441,16 +441,16 @@
         </div>
       </details>
 
-      <!-- Owed by family: ALL TIME, ignores the month navigator on purpose -->
-      <aside class="monthly-summary owed-panel" id="sessions-owed" aria-label="Money owed, all time, by family">
-        <header class="schedule-header">
-          <h3>Owed <span class="owed-sub">all time &middot; by family</span></h3>
+      <!-- Owed by family: ALL TIME, ignores the month navigator on purpose. Closed by default: one line, tap to open -->
+      <details class="monthly-summary owed-panel" id="sessions-owed" aria-label="Money owed, all time, by family">
+        <summary class="schedule-header owed-summary">
+          <h3>Owed <span class="owed-sub">all time &middot; by family &middot; tap to open</span></h3>
           <span class="outstanding-total" id="sessions-owed-total">$0</span>
-        </header>
+        </summary>
         <ul class="outstanding-list owed-list" id="sessions-owed-list" aria-label="Unpaid balances by family">
           <li class="empty-state">All caught up &#10003;</li>
         </ul>
-      </aside>
+      </details>
 
       <!-- Sessions Table -->
       <div class="table-wrapper" role="region" aria-label="Sessions table" tabindex="0">

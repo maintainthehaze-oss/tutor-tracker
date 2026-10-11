@@ -122,10 +122,26 @@
     '</li>';
   }
 
+  /**
+   * PURE. Display order for the days: today first, then the past newest-first (yesterday, the day
+   * before, ...), then the days ahead oldest-first under a "Coming up" divider. The most recent
+   * thing he did is always at the top; what is planned sits at the bottom (ruled 2026-10-11).
+   */
+  function displayOrder(days) {
+    const today = days.filter((day) => day.isToday);
+    const todayDate = today.length ? today[0].date : '';
+    const past = days.filter((day) => day.date < todayDate).sort((a, b) => b.date.localeCompare(a.date));
+    const ahead = days.filter((day) => todayDate && day.date > todayDate).sort((a, b) => a.date.localeCompare(b.date));
+    return { ordered: [...today, ...past, ...ahead], firstAhead: ahead.length ? ahead[0].date : '' };
+  }
+
   /** PURE. Markup for the group body: the auto-completed notice (if any), then days that have sessions, plus today. */
   function thisWeekHtml(days, notice) {
     const pending = notice || [];
     const empty = !pending.length && !days.some((day) => day.rows.length);
+    const { ordered, firstAhead } = displayOrder(days);
+    // The divider goes above the first day AHEAD that is actually drawn (days ahead with nothing are skipped).
+    const firstAheadDrawn = firstAhead ? (ordered.find((day) => day.date >= firstAhead && day.rows.length) || {}).date : '';
     return (pending.length ? '<section class="tw-notice" aria-label="Auto-completed since your last visit">' +
         '<header class="tw-day-head">' +
           '<span class="tw-day-label tw-notice-label">' + pending.length + ' session' + (pending.length === 1 ? '' : 's') +
@@ -135,9 +151,10 @@
         '<ul class="tw-rows">' + pending.map((row) => rowHtml(row, true)).join('') + '</ul>' +
       '</section>' : '') +
       (empty ? '<p class="empty-state">Nothing scheduled this week. Tap + to add a session.</p>' : '') +
-      days.filter((day) => day.isToday || day.rows.length).map((day) => {
+      ordered.filter((day) => day.isToday || day.rows.length).map((day) => {
         const label = dayLabel(day.date);
-        return '<section class="tw-day' + (day.isToday ? ' tw-today' : '') + '" data-date="' + day.date + '">' +
+        const divider = firstAheadDrawn && day.date === firstAheadDrawn ? '<p class="tw-divider">Coming up</p>' : '';
+        return divider + '<section class="tw-day' + (day.isToday ? ' tw-today' : '') + '" data-date="' + day.date + '">' +
           '<header class="tw-day-head">' +
             '<span class="tw-day-label">' + (day.isToday ? 'Today &middot; ' : '') + escapeHtml(label) + '</span>' +
             '<button type="button" class="btn btn-sm btn-icon tw-add" data-action="this-week-add" data-date="' + day.date +
@@ -197,6 +214,7 @@
   App.thisWeekDays = thisWeekDays;
   App.thisWeekNotice = thisWeekNotice;
   App.thisWeekHtml = thisWeekHtml;
+  App.thisWeekDisplayOrder = displayOrder;
   App.renderThisWeek = renderThisWeek;
   App.THIS_WEEK_PAID_TITLE = PAID_TITLE;
   App.thisWeek = { recordAutoCompleted, dismissNotice, pending: readPending };
