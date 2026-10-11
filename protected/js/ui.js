@@ -1071,6 +1071,14 @@
     if (App.repository.ready) App.backupStatus.requestPersistence().then((granted) => { storagePersisted = granted; refreshBackupStatus(); });
     // Scheduled sessions whose date has passed become completed (owner ruling 2026-09-15).
     try { await App.autoCompleteOverdue(); } catch(error) { showToast('Auto-complete skipped: ' + error.message,'warning'); }
+    // Weekly slots: plan the next four weeks (one revision, silent when nothing changes).
+    try { await App.runRecurringPass(); } catch(error) { showToast('Weekly schedule skipped: ' + error.message,'warning'); }
+    // A tab left open overnight: on return, if the day changed, complete what passed and plan the new window.
+    document.addEventListener('visibilitychange',async()=>{
+      if(document.visibilityState!=='visible'||App.todayISO()===App.recurringLastDay()||document.querySelector('.modal-overlay:not([hidden])'))return;
+      try { await App.autoCompleteOverdue(); } catch(error) { showToast('Auto-complete skipped: ' + error.message,'warning'); }
+      try { await App.runRecurringPass(); } catch(error) { showToast('Weekly schedule skipped: ' + error.message,'warning'); }
+    });
     populateReportYears();
     updateProtectionStatus(); App.updateSyncUI();
     if(production()) {

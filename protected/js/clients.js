@@ -312,6 +312,7 @@
     if (await App.runCommand('client.save', { record: clientData }, revision)) {
       App.closeModal('modal-client');
       App.showToast(isNew ? 'Client added' : 'Client updated', 'success');
+      App.runRecurringPass().catch(() => {});
     }
   }
 
@@ -326,6 +327,7 @@
       async () => {
         if (await App.runCommand('client.retire', { id }, revision)) {
           App.showToast(name + ' marked inactive', 'success');
+          App.runRecurringPass().catch(() => {});
         }
       }
     );

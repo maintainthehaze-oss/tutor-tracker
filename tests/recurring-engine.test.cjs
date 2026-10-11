@@ -221,20 +221,18 @@ test('time zones and DST: identical output under America/New_York and Pacific/Au
   }
 });
 
-test('inert and clock-free: nothing in protected/js calls the planner; it touches no clock, DOM, storage or repository', () => {
-  const dir = path.join(root, 'js'), source = readSource('js/recurring.js'), html = readSource('index.html');
-  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.js') && f !== 'recurring.js'))
-    assert.doesNotMatch(fs.readFileSync(path.join(dir, file), 'utf8'), /materializeRecurring|App\.recurring|\brecurring\.js/, file + ' must not use the planner yet');
-  assert.equal(source.split('materializeRecurring(').length - 1, 1, 'recurring.js may define the planner but not call it');
-  assert.equal((html.match(/recurring/g) || []).length, 1, 'index.html only carries the script tag');
+test('clock-free planner: it touches no clock, DOM, storage or repository (the wrapper below it may)', () => {
+  const full = readSource('js/recurring.js'), html = readSource('index.html');
+  const source = full.slice(0, full.indexOf('async function runRecurringPass'));
+  assert.ok(source.length > 0 && source.length < full.length, 'planner section found');
   const order = ['js/sessions.js', 'js/recurring.js', 'js/expenses.js'].map(src => html.indexOf('<script src="' + src + '" defer></script>'));
   assert.ok(order[0] > 0 && order[0] < order[1] && order[1] < order[2], 'recurring.js loads right after sessions.js');
   assert.doesNotMatch(source, /new Date\(\s*\)|Date\.now|\.get(Date|Day|Month|FullYear|Hours|TimezoneOffset)\(|\.set(Date|Hours|Month|FullYear)\(|todayISO/, 'the planner never reads the clock or does local-date arithmetic');
   assert.doesNotMatch(source, /App\.repository|runCommand|\.execute\(|localStorage|sessionStorage|indexedDB|document\.|addEventListener|fetch\(|App\.state/);
   // The static writer guard passes as-is, and still passes when the planner is fed the live read views (as slice 3 will do).
-  assert.deepEqual(analyzeSource(source, 'recurring.js'), []);
-  const wired = source.replace('  App.recurring = Object.freeze(', '  materializeRecurring(App.state.clients, App.state.sessions, App.todayISO());\n  App.recurring = Object.freeze(');
-  assert.notEqual(wired, source); assert.deepEqual(analyzeSource(wired, 'recurring.js'), []);
+  assert.deepEqual(analyzeSource(full, 'recurring.js'), []);
+  const wired = full.replace('  App.recurring = Object.freeze(', '  materializeRecurring(App.state.clients, App.state.sessions, App.todayISO());\n  App.recurring = Object.freeze(');
+  assert.notEqual(wired, full); assert.deepEqual(analyzeSource(wired, 'recurring.js'), []);
   // The guard itself is awake: a planner that wrote to a slot would be caught in that wiring.
   const writes = wired.replace('if (isActive(owner)) live.set(slot.id, { slot, owner });', 'slot.through = today; if (isActive(owner)) live.set(slot.id, { slot, owner });');
   assert.notEqual(writes, wired); assert.ok(analyzeSource(writes, 'recurring.js').length > 0);

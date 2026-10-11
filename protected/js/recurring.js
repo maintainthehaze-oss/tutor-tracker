@@ -1,6 +1,6 @@
 /* ============================================================
    Tutoring Tracker Pro — Weekly recurring slots: the planner
-   PURE and INERT (recurring-slots design 2026-09-19, slice 2). Nothing calls this yet.
+   The planner below is PURE (recurring-slots design 2026-09-19, slice 2); only runRecurringPass (end of file, slice E2) calls it.
    It reads clients and sessions and RETURNS a plan. It never writes, never reads the clock,
    and never touches the DOM, storage or the repository.
 
@@ -165,4 +165,50 @@
   }
 
   App.recurring = Object.freeze({ materializeRecurring, dayNum, isoOf, weekdayOf, stampOf, isPristine, slotProblem });
+
+  /* ------------------------------------------------------------
+     Slice E2: the ONE wrapper. Everything above is clock-free; the clock is read only below.
+     Kill switch: App.features.recurringPass = false stops all passes (existing rows stay ordinary sessions).
+     ------------------------------------------------------------ */
+  App.features = App.features || {};
+  App.features.recurringPass = true;
+  async function runRecurringPass() {
+    if (!App.features.recurringPass || !App.repository || !App.repository.ready || App.repository.maintenance || running || modalOpen()) return null;
+    running = true;
+    try {
+      App.refreshReadViews();
+      const today = App.todayISO();
+      const plan = materializeRecurring(App.state.clients, App.state.sessions, today);
+      lastPassDay = today;
+      lastReport = { skipped: plan.skipped, gaps: plan.gaps };
+      if (!plan.create.length && !plan.removeIds.length && !plan.clients.length) return lastReport;
+      const now = new Date().toISOString();
+      try {
+        await App.repository.execute('recurring.apply', {
+          create: plan.create.map((r) => ({ ...r, createdAt: now, updatedAt: now })), removeIds: plan.removeIds, clients: plan.clients,
+        }, App.repository.revision);
+      } catch (error) {
+        // A second tab won the CAS: nothing was written, and the next pass re-plans. Anything else is worth a word.
+        if (!/Stale action/.test(error && error.message) && App.showToast) App.showToast('Weekly schedule not updated: ' + error.message, 'warning');
+        return lastReport;
+      }
+      App.refreshReadViews();
+      if (App.renderTab) App.renderTab(App.state.activeTab);
+      if (App.updateHeaderStats) App.updateHeaderStats();
+      return lastReport;
+    } finally { running = false; }
+  }
+
+  let running = false, lastPassDay = null, lastReport = { skipped: [], gaps: [] };
+
+  /** A modal is open when the query returns an element that is not hidden and carries the modal-overlay class.
+      (The real selector already guarantees both; the class test lets the test fake express "closed" by default.) */
+  function modalOpen() {
+    const el = document.querySelector('.modal-overlay:not([hidden])');
+    return !!el && el.hidden !== true && !!el.classList && el.classList.contains('modal-overlay');
+  }
+
+  App.runRecurringPass = runRecurringPass;
+  App.recurringLastReport = () => lastReport;
+  App.recurringLastDay = () => lastPassDay;
 })();
