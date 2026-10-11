@@ -2445,6 +2445,35 @@ select.input[multiple] {
 }
 .btn-mark-paid:hover { background: var(--color-success); color: var(--text-inverse); }
 
+/* --- "This week" group (Sessions tab): a week back and a week ahead, one-tap exceptions --- */
+.this-week-summary { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.85rem 1.25rem; cursor: pointer; list-style: none; }
+.this-week-summary::-webkit-details-marker { display: none; }
+.this-week-title { font-size: 0.95rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem; }
+.this-week-title::before { content: '\25B8'; font-size: 0.8rem; color: var(--text-muted); transition: transform 0.15s ease; }
+.this-week[open] .this-week-title::before { transform: rotate(90deg); }
+.this-week-hint { font-size: 0.75rem; color: var(--text-muted); }
+.this-week-body { padding: 0.25rem 0.75rem 0.6rem; border-top: 1px solid var(--border-muted); }
+.tw-day, .tw-notice { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--border-muted); border-radius: 6px; }
+.tw-day:last-child { border-bottom: none; }
+.tw-today { background: var(--accent-subtle); }
+.tw-notice { background: var(--bg-hover); margin-bottom: 0.35rem; }
+.tw-day-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.tw-day-label { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.tw-today .tw-day-label { color: var(--accent); }
+.tw-notice-label { text-transform: none; letter-spacing: normal; color: var(--text-primary); }
+.tw-add { min-width: 28px; min-height: 28px; padding: 0.1rem 0.45rem; font-size: 1rem; line-height: 1; }
+.tw-rows { list-style: none; }
+.tw-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; padding: 0.4rem 0; font-size: 0.85rem; }
+.tw-time { flex: 0 0 3.2rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.tw-notice .tw-time { flex-basis: auto; }
+.tw-info { display: flex; flex-direction: column; gap: 0.1rem; flex: 1 1 9rem; min-width: 0; }
+.tw-names { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-meta { font-size: 0.72rem; color: var(--text-muted); }
+.tw-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.tw-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+.tw-chip:disabled:hover { background: var(--bg-card); border-color: var(--border-default); }
+.tw-chip.selected:disabled:hover { background: var(--accent-subtle); border-color: var(--accent); }
+
 /* Toast action button (Undo) */
 .toast-action {
   flex-shrink: 0;

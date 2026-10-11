@@ -120,7 +120,9 @@ test('wiring: 10 saves turn the pill amber; a click downloads a dated file and r
   assert.equal(JSON.parse(ui.downloads[0].content).snapshot.revision, revision, 'file name and contents describe the same revision');
   assert.equal(JSON.stringify(ui.disk()), before);
   assert.equal(label.textContent, 'today / 0 changes'); assert.equal(pill.classList.contains('is-amber'), false);
-  assert.deepEqual(ui.storage.dump(), { 'tutoring-backup-meta': JSON.stringify({ revision, date: iso(ui.clock.now) }) });
+  // Only the backup key is this test's business; `tutoring-last-seen` (This-week notice, 2026-10-11) is covered in this-week.test.cjs.
+  const { 'tutoring-last-seen': _lastSeen, ...backupKeys } = ui.storage.dump();
+  assert.deepEqual(backupKeys, { 'tutoring-backup-meta': JSON.stringify({ revision, date: iso(ui.clock.now) }) });
   // Reload (same localStorage, same stored records): still reset.
   const again = await bootUi({ storage: ui.storage, stored: ui.disk(), time: ui.time });
   assert.equal(again.field('header-backup').textContent, 'today / 0 changes');

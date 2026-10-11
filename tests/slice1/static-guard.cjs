@@ -19,11 +19,12 @@ const protectedKeys = new Set(['clients', 'sessions', 'expenses', 'settings', 'r
 const uiKeys = new Set(['activeTab', 'editMode', 'selectedSessions', 'confirmCallback', 'incomeChart', 'yoyChart', 'syncTimer', 'syncDebounceTimer']);
 const mutators = new Set(['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'fill', 'copyWithin', 'set', 'add', 'delete', 'clear']);
 const storageWriters = new Set(['setItem', 'removeItem', 'clear', 'open', 'deleteDatabase', 'transaction', 'put', 'add', 'delete', 'createObjectStore', 'deleteObjectStore']);
-// Per-device UI preferences (owner ruling 2026-09-10: split visibility; 2026-09-19: backup bookkeeping).
+// Per-device UI preferences (owner ruling 2026-09-10: split visibility; 2026-09-19: backup bookkeeping;
+// 2026-10-11: ids of rows auto-completed on load, until the owner reviews them in the "This week" group).
 // They hold no client, session or money records. ONLY localStorage.setItem/removeItem whose key is one of
 // these string literals (inline, or a `const` bound to the literal) is exempt; every record key such as
 // 'tutoring-sessions' is still refused, and so is any key the guard cannot resolve statically.
-const uiPreferenceKeys = new Set(['tutoring-show-split', 'tutoring-backup-meta', 'tutoring-backup-snooze']);
+const uiPreferenceKeys = new Set(['tutoring-show-split', 'tutoring-backup-meta', 'tutoring-backup-snooze', 'tutoring-last-seen']);
 const key = n => n && (n.computed ? (n.property.type === 'Literal' ? String(n.property.value) : null) : n.property.name);
 const children = n => Object.entries(n).filter(([k]) => !['loc', 'start', 'end'].includes(k)).flatMap(([,v]) => Array.isArray(v) ? v.filter(x => x && typeof x.type === 'string') : v && typeof v.type === 'string' ? [v] : []);
 

@@ -588,6 +588,22 @@
     App.renderSessions();
   }
 
+  /* "This week" group (drawn by this-week.js in the Sessions tab). Rules: existing repository commands only;
+     a locked row changes only through a correction; a paid row is never changed from the group. */
+  const OUTCOME_WORDS = { completed: 'happened', 'no-show': 'no-show', cancelled: 'cancelled' };
+  function groupRefusesPaid(id) {
+    const row = App.state.sessions.find((s) => String(s.id) === String(id));
+    if (!row || !row.paid) return false;
+    showToast(App.THIS_WEEK_PAID_TITLE, 'warning');
+    return true;
+  }
+  /** Undo for a locked row: one more correction, back to `status`. */
+  function undoToStatus(id, status) {
+    return { label: 'Undo', run: async () => {
+      if (await App.runCommand('session.correct', { id, fields: { status } }, App.repository.revision)) showToast('Back to ' + OUTCOME_WORDS[status], 'success');
+    } };
+  }
+
   function setupEventDelegation() {
     document.body.addEventListener('click', async (e) => {
       const target = e.target.closest('[data-action]');
@@ -755,6 +771,44 @@
         case 'mark-paid':
           if(await App.runCommand('session.payment',{ids:[id],date:todayISO()},App.repository.revision)) showToast('Marked paid','success');
           break;
+        // "This week" group: an unlocked row dated today or earlier takes its outcome through session.update.
+        case 'quick-complete':
+          if(groupRefusesPaid(id)) break;
+          if(await App.runCommand('session.update',{ids:[id],patch:{status:'completed'}},App.repository.revision)) showToast('Session finalized','success');
+          break;
+        // No-show / Cancelled lock the row, so their Undo is a correction to completed (it cannot return to scheduled).
+        case 'quick-noshow':
+          if(groupRefusesPaid(id)) break;
+          if(await App.runCommand('session.update',{ids:[id],patch:{status:'no-show'}},App.repository.revision)) showToast('Session finalized as no-show','success',undoToStatus(id,'completed'));
+          break;
+        case 'quick-cancel':
+          if(groupRefusesPaid(id)) break;
+          if(await App.runCommand('session.update',{ids:[id],patch:{status:'cancelled'}},App.repository.revision)) showToast('Session finalized as cancelled','success',undoToStatus(id,'completed'));
+          break;
+        case 'this-week-status': {
+          // Locked row: one append-only correction per tap. The stored record and its lock evidence never change.
+          const status = target.getAttribute('data-status');
+          const row = App.state.sessions.find((s) => String(s.id) === id);
+          if (!row || !Object.hasOwn(OUTCOME_WORDS, status) || (row.status || 'completed') === status || groupRefusesPaid(id)) break;
+          const previous = row.status || 'completed';
+          if (!await App.runCommand('session.correct', { id, fields: { status } }, App.repository.revision)) break;
+          // A pre-activation row that was still scheduled cannot be corrected back to scheduled: no Undo there.
+          showToast('Marked as ' + OUTCOME_WORDS[status], 'success', Object.hasOwn(OUTCOME_WORDS, previous) ? undoToStatus(id, previous) : null);
+          break;
+        }
+        case 'this-week-skip': {
+          // Unlocked future row: delete it. Undo re-saves the STORED record, never the read view, so it returns byte-identical.
+          const revision = App.repository.revision;
+          if (!App.state.sessions.some((s) => String(s.id) === id) || groupRefusesPaid(id)) break;
+          const original = App.repository.snapshot().working.sessions.find((s) => String(s.id) === id);
+          if (!original || !await App.runCommand('session.delete', { ids: [id] }, revision)) break;
+          showToast('Session skipped', 'success', { label: 'Undo', run: async () => {
+            if (await App.runCommand('session.save', { record: original }, App.repository.revision)) showToast('Session put back', 'success');
+          } });
+          break;
+        }
+        case 'this-week-add': App.openSessionForm(null, target.getAttribute('data-date')); break;
+        case 'this-week-dismiss': App.thisWeek.dismissNotice(); break;
         case 'calc-mileage': App.calcFormMileage(); break;
         case 'calc-mileage-by-day': App.calculateMileageByDay(); break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
