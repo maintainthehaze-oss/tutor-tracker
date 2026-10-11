@@ -84,3 +84,5 @@ Two items from §Live verification, one commit, not pushed.
    Live read-only check, built-in pane, 640×900, empty data: `document.documentElement.scrollWidth` 640, toolbar `flex-wrap: wrap`, one row, rect 22.5-617.5; table wrap `overflow-x: auto`, clientWidth 593, scrollWidth 653 (scrolls inside the wrap). Still NOT observed at 640 px on real data.
 
 `node --test` 220/220, static guard 18/18, `node --check protected/js/*.js` clean.
+
+Shipped 2026-10-11 on "Ship it": `main` `efc692c → 9bf9206`, pushed by MTH; live `sessions.js` byte-identical via curl (3rd poll, ~40 s). The tie order on real data is still NOT observed (MTH: hard-refresh once and sort by Date).
