@@ -1234,6 +1234,12 @@
               <option value="group">Group</option>
             </select>
           </div>
+          <!-- Slice F: hybrid sessions split one row into in-person + remote minutes. Shown for Hybrid only. -->
+          <div class="form-group" id="session-in-person-group" hidden>
+            <label for="session-in-person-minutes">Minutes in person</label>
+            <input type="number" id="session-in-person-minutes" class="input" min="0" step="5" placeholder="e.g. 120">
+            <small class="form-hint">The rest was remote. 0 = no travel, so no mileage. Uneven sibling hours stay two sessions.</small>
+          </div>
           <div class="form-group">
             <label for="session-duration">Duration (hours) <span class="required" aria-label="required">*</span></label>
             <input type="number" id="session-duration" class="input" required min="0.25" step="0.25" value="1" placeholder="1.0">

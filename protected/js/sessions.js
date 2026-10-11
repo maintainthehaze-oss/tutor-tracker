@@ -187,7 +187,8 @@
 
     const typeLabels = { 'in-person': 'In Person', 'online': 'Online', 'hybrid': 'Hybrid', 'group': 'Group' };
     // No Type column (ruled 2026-10-11): anything other than in-person is noted after the client names.
-    const typeNote = (s.type || 'in-person') === 'in-person' ? '' : ' <span class="type-note">' + escapeHtml(typeLabels[s.type] || s.type) + '</span>';
+    const minutesNote = s.type === 'hybrid' && s.inPersonMinutes != null ? ' \u00b7 ' + num(s.inPersonMinutes) + ' min in person' : '';
+    const typeNote = (s.type || 'in-person') === 'in-person' ? '' : ' <span class="type-note">' + escapeHtml((typeLabels[s.type] || s.type) + minutesNote) + '</span>';
     const paymentClass = s.paid ? 'payment-paid' : (s.payment === 'waived' ? 'payment-waived' : 'payment-unpaid');
     const paymentLabel = s.paid ? 'Paid' : (s.payment === 'waived' ? 'Waived' : 'Unpaid');
     const statusClass = 'status-badge status-' + escapeHtml(s.status || 'completed');
@@ -567,6 +568,7 @@
     renderClientPicker(tile.clientIds);
     $('session-duration').value = tile.duration;
     $('session-type').value = tile.type || 'in-person';
+    syncInPersonGroup();
     $('session-amount').value = tile.amount;
     $('session-time').value = tile.time || '';
     syncDurationChips();
@@ -610,6 +612,7 @@
       $('session-date').value = s.date || '';
       $('session-time').value = s.time || '';
       $('session-type').value = s.type || 'in-person';
+      $('session-in-person-minutes').value = s.inPersonMinutes == null ? '' : s.inPersonMinutes;
       $('session-duration').value = s.duration || 1;
       $('session-amount').value = s.amount == null ? '' : s.amount;
       $('session-mileage').value = s.mileage || '';
@@ -625,8 +628,10 @@
       // Today or earlier = it happened (Completed); a future date = Scheduled. Still overridable.
       applySmartStatus();
       $('session-payment-date').value = todayISO();
+      $('session-in-person-minutes').value = '';
     }
 
+    syncInPersonGroup();
     syncDurationChips();
     togglePaymentDate();
     App.openModal('modal-session');
@@ -660,6 +665,7 @@
     if (fields.type === 'in-person' && prev.type && !SESSION_TYPES.includes(prev.type)) delete fields.type;
     if (num(form.duration) !== num(prev.duration)) fields.duration = num(form.duration);
     if (num(form.amount) !== num(prev.amount)) fields.amount = num(form.amount);
+    if (!same(form.inPersonMinutes, prev.inPersonMinutes == null ? null : prev.inPersonMinutes)) fields.inPersonMinutes = form.inPersonMinutes;
     if (num(form.mileage) !== num(prev.mileage)) {
       fields.mileage = num(form.mileage);
       fields.mileageManual = !form.mileageDetails;
@@ -763,6 +769,8 @@
     // families, multi-stop days) and a stale value would skew the deduction.
     $('session-time').value = last.time || '';
     $('session-type').value = last.type || 'in-person';
+    $('session-in-person-minutes').value = last.type === 'hybrid' && last.inPersonMinutes != null ? last.inPersonMinutes : '';
+    syncInPersonGroup();
     $('session-duration').value = num(last.duration) || 1;
     $('session-amount').value = last.amount == null ? '' : last.amount;
     $('session-mileage').value = '';
@@ -826,7 +834,7 @@
       date, time: $('session-time').value || '', clientIds: selectedClients, type: $('session-type').value || 'in-person',
       duration, amount, paid, payment: paymentVal, paymentDate: paidOn, status: $('session-status').value || 'completed',
       mileage: num($('session-mileage').value), mileageDetails: $('session-mileage').dataset.details || '',
-      notes: ($('session-notes').value || '').trim(),
+      notes: ($('session-notes').value || '').trim(), inPersonMinutes: readInPersonMinutes(),
     });
 
     // Cents (audit 6a): a NEW amount on an unlocked session is stored in whole cents. Locked rows
@@ -840,6 +848,8 @@
       time: $('session-time').value || '',
       clientIds: selectedClients,
       type: $('session-type').value || 'in-person',
+      // Slice F: hybrid rows carry their in-person minutes (null otherwise); the remote part needs no travel leg.
+      inPersonMinutes: readInPersonMinutes(),
       duration,
       amount,
       paid,
@@ -1078,8 +1088,25 @@
     return '';
   }
 
+  /** Slice F: a hybrid session with 0 minutes in person happened entirely remotely. (Unset = legacy hybrid, still a stop.) */
+  function hybridNoTravel(s) {
+    return s.type === 'hybrid' && s.inPersonMinutes != null && num(s.inPersonMinutes) === 0;
+  }
   function isDriveStop(s) {
-    return (s.type || 'in-person') !== 'online' && ['completed', 'scheduled'].includes(s.status || 'completed');
+    return (s.type || 'in-person') !== 'online' && !hybridNoTravel(s) && ['completed', 'scheduled'].includes(s.status || 'completed');
+  }
+
+  /** The form's "Minutes in person": only a Hybrid session stores it; blank = unknown (null). */
+  function readInPersonMinutes() {
+    if (($('session-type').value || 'in-person') !== 'hybrid') return null;
+    const raw = String($('session-in-person-minutes').value || '').trim();
+    if (raw === '') return null;
+    return Math.max(0, Math.round(num(raw)));
+  }
+  /** Show the minutes field for Hybrid only. */
+  function syncInPersonGroup() {
+    const group = $('session-in-person-group');
+    if (group) group.hidden = ($('session-type').value || 'in-person') !== 'hybrid';
   }
 
   /** Values this tool may (re)write: hand-entered miles are final; miles from the retired
@@ -1130,6 +1157,10 @@
     if (selected.length === 0) { App.showToast('Select a client first', 'warning'); return false; }
     if (($('session-type').value || 'in-person') === 'online') {
       App.showToast('Online session: no travel. Change Session Type to In Person to calculate mileage.', 'warning');
+      return false;
+    }
+    if (readInPersonMinutes() === 0) {
+      App.showToast('Hybrid with 0 minutes in person: no travel, so no mileage.', 'warning');
       return false;
     }
     const date = $('session-date').value;
@@ -1278,5 +1309,7 @@
   App.markStatusTouched = markStatusTouched;
   App.setSessionDuration = setSessionDuration;
   App.syncDurationChips = syncDurationChips;
+  App.syncInPersonGroup = syncInPersonGroup;
+  App.isDriveStop = isDriveStop;
 
 })();

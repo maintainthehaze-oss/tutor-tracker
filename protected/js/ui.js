@@ -924,6 +924,7 @@
       if (action === 'week-edit') { App.editWeekTick(target); return; }
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
       if (action === 'report-filter') { App.renderReports(); return; }
+      if (target.id === 'session-type') { App.syncInPersonGroup(); return; }
       if (action === 'change-report-version') { populateReportYears(); App.renderReports(); return; }
       if (action === 'change-tax-version') { populateReportYears(); App.renderTaxSummary(); return; }
       if (action === 'change-tax-year') { App.renderTaxSummary(); return; }

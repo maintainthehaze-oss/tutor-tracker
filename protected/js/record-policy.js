@@ -11,7 +11,7 @@
   }
   // Fields a correction event may overlay on a locked (archived or finalized) session.
   const CORRECTABLE_FIELDS = Object.freeze(['date','time','type','duration','amount','clientIds','address','notes',
-    'mileage','mileageManual','mileageCalculated','mileageDetails','status','paid','payment','paymentDate']);
+    'mileage','mileageManual','mileageCalculated','mileageDetails','status','paid','payment','paymentDate','inPersonMinutes']);
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   /** Throws unless `fields` is a valid, non-empty correction payload. */
   function validateCorrection(fields) {
@@ -25,6 +25,8 @@
     if ('duration' in f && (!Number.isFinite(Number(f.duration)) || Number(f.duration) <= 0)) throw new Error('Invalid duration');
     if ('amount' in f && (!Number.isFinite(Number(f.amount)) || Number(f.amount) < 0)) throw new Error('Invalid amount');
     if ('mileage' in f && (!Number.isFinite(Number(f.mileage)) || Number(f.mileage) < 0)) throw new Error('Invalid mileage');
+    // Slice F: null clears it (non-hybrid); otherwise whole minutes >= 0.
+    if ('inPersonMinutes' in f && f.inPersonMinutes !== null && (!Number.isInteger(f.inPersonMinutes) || f.inPersonMinutes < 0)) throw new Error('Invalid minutes in person');
     if ('clientIds' in f && (!Array.isArray(f.clientIds) || !f.clientIds.length || f.clientIds.some(id => typeof id !== 'string' && typeof id !== 'number'))) throw new Error('Session clients required');
     if ('paid' in f && typeof f.paid !== 'boolean') throw new Error('Invalid paid flag');
     if ('payment' in f && !['paid','unpaid','waived'].includes(f.payment)) throw new Error('Invalid payment status');
