@@ -1,6 +1,6 @@
 # 2026-10-11 — Slice D: Family payment intake + statement PDF (Claude Code, Fable 5.1)
 
-**State: BUILT on local branch `slice-d-family-payments`, NOT pushed. Waiting for MTH's "Ship it".**
+**State: SHIPPED. `main` 3867466 → c8241cd, pushed by MTH from his own terminal on "Ship it" (the fleet gate refused the push from this session). All 9 changed live files under `protected/` plus root `SECURITY-PRIVACY.md` verified via curl on the second poll, ~40 s after push.**
 
 ## 1. What it does
 
