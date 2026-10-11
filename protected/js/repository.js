@@ -614,6 +614,34 @@
             });
             break;
           }
+          case 'recurring.apply': {
+            // Weekly slots (design 2026-09-19 slice 3, rulings accepted 2026-10-11): ONE revision per planner
+            // pass. Composes existing primitives only. Removes are limited to unlocked, generated, still-
+            // scheduled rows; creates are insert-only scheduled generated rows validated like session.save;
+            // marks replace a client's slots wholesale (the watermark). All-or-nothing: any throw seals nothing.
+            const create=Array.isArray(p.create)?p.create:[], removeIds=Array.isArray(p.removeIds)?p.removeIds:[], marks=Array.isArray(p.clients)?p.clients:[];
+            if (!(create.length+removeIds.length+marks.length)) throw Error('Nothing to apply');
+            if (removeIds.length) {
+              const rows=select(w.sessions,removeIds); assertEditableSessions(rows);
+              rows.forEach(s=>{ if (s.status!=='scheduled' || !s.recurring) throw Error('Only generated scheduled sessions can be removed: '+P.key(s.id)); });
+              const gone=new Set(rows.map(s=>P.key(s.id))); w.sessions=w.sessions.filter(s=>!gone.has(P.key(s.id)));
+            }
+            const seen=new Set(), existing=index(w.sessions);
+            create.forEach(rec=>{
+              if (!rec || typeof rec !== 'object' || rec.status!=='scheduled' || !rec.recurring) throw Error('Generated sessions must be scheduled');
+              const k=P.key(rec.id);
+              if (existing[k]) throw Error('Generated session already exists: '+k);
+              if (seen.has(k)) throw Error('Duplicate generated session in batch: '+k);
+              seen.add(k);
+              const r=mergeRecord(w.sessions,rec); r.companyAmount=0; r.companySplit=0;
+              validateNewSession(r); finalize(draft,r);
+            });
+            marks.forEach(m=>{
+              if (!m || !Array.isArray(m.slots)) throw Error('Slots required');
+              const c=select(w.clients,[m.id])[0]; mergeRecord(w.clients,{id:c.id,slots:m.slots});
+            });
+            break;
+          }
           case 'client.save': {
             // Company setup is retired. Merge retains existing legacy metadata,
             // while neither new nor edited clients can configure it.
