@@ -5,16 +5,32 @@
   const P = App.recordPolicy;
   const collections = ['clients', 'sessions', 'expenses', 'taxPayments', 'historical'];
   const clone = x => JSON.parse(JSON.stringify(x));
+  // Objects deep-frozen by freeze() below can never change, so their canonical text is computed once.
+  // Only freeze() adds to `deepFrozen` (children first), so a member's whole subtree is immutable.
+  const deepFrozen = new WeakSet(), canonicalMemo = new WeakMap();
   function freeze(x) {
-    if (x && typeof x === 'object') { Object.values(x).forEach(freeze); Object.freeze(x); }
+    if (x && typeof x === 'object' && !deepFrozen.has(x)) { Object.values(x).forEach(freeze); Object.freeze(x); deepFrozen.add(x); }
     return x;
   }
-  function canonical(x) {
-    if (Array.isArray(x)) return '[' + x.map(canonical).join(',') + ']';
-    if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map(k => JSON.stringify(k) + ':' + canonical(x[k])).join(',') + '}';
-    return JSON.stringify(x);
+  /**
+   * JSON clone of an envelope that SHARES its archive when the archive is deep-frozen (roadmap 4.2:
+   * the archive is ≈60 % of the store and is immutable by validateTransition). Same JSON semantics as
+   * clone() for everything else; the shared archive came out of an earlier clone, so it is JSON-pure.
+   */
+  function cloneEnvelope(e) {
+    if (!e || !deepFrozen.has(e.archive)) return clone(e);
+    const out = clone({...e, archive: null}); out.archive = e.archive; return out;
   }
-  const equal = (a, b) => canonical(a) === canonical(b);
+  function canonical(x) {
+    if (x && typeof x === 'object' && canonicalMemo.has(x)) return canonicalMemo.get(x);
+    let out;
+    if (Array.isArray(x)) out = '[' + x.map(canonical).join(',') + ']';
+    else if (x && typeof x === 'object') out = '{' + Object.keys(x).sort().map(k => JSON.stringify(k) + ':' + canonical(x[k])).join(',') + '}';
+    else return JSON.stringify(x);
+    if (deepFrozen.has(x)) canonicalMemo.set(x, out);
+    return out;
+  }
+  const equal = (a, b) => a === b || canonical(a) === canonical(b);
   async function hash(x) {
     const bytes = new TextEncoder().encode(typeof x === 'string' ? x : canonical(x));
     return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('');
@@ -146,7 +162,7 @@
       });
     });
   }
-  async function seal(e) { const body = clone(e); delete body.integrity; return {...body, integrity: await hash(body)}; }
+  async function seal(e) { const body = cloneEnvelope(e); delete body.integrity; return {...body, integrity: await hash(body)}; }
   async function verify(e, allowLegacy = false) {
     validateEnvelope(e, allowLegacy);
     if (e.archive.rawHash !== await hash(e.archive.rawSnapshot)) throw Error('Raw archive hash mismatch');
@@ -366,7 +382,7 @@
         });
       },
       async compareAndSwap(expected, next, expectedActiveStamp) {
-        expected=clone(expected); next=clone(next);
+        expected=cloneEnvelope(expected); next=cloneEnvelope(next);
         const guard=expectedActiveStamp === undefined ? undefined : clone(expectedActiveStamp);
         if (guard !== undefined && slot !== 'slice4-remote') throw Error('Active guard is only available for the rehearsal mirror');
         const database = await db();
@@ -438,7 +454,7 @@
     let queue = Promise.resolve();
     const listeners = new Set();
     const serial = fn => { const task = queue.then(fn); queue = task.catch(() => {}); return task; };
-    function publish(value) { current = freeze(clone(value)); listeners.forEach(fn => { try { fn(); } catch(error) { console.error('Saved, but a view refresh failed',error); } }); }
+    function publish(value) { current = freeze(cloneEnvelope(value)); listeners.forEach(fn => { try { fn(); } catch(error) { console.error('Saved, but a view refresh failed',error); } }); }
     async function persist(expected,next) {
       if (await adapter.compareAndSwap(expected,next) === false) throw Error('CAS conflict: another writer changed the store');
     }
@@ -509,7 +525,7 @@
         requireReady();
         if (expected !== current.revision) throw Error('Stale action. Reload or reopen the form.');
         if (current.maintenance && name !== 'maintenance.set') throw Error('Maintenance mode: records are read-only');
-        const draft = clone(current), w = draft.working, p = proposal;
+        const draft = cloneEnvelope(current), w = draft.working, p = proposal;
         switch (name) {
           case 'session.save': {
             const old = index(w.sessions)[P.key(p.record.id)];
@@ -796,7 +812,7 @@
           await verify(next); await persist(null,next); publish(next); return true;
         });
       },
-      snapshot(){requireReady();return freeze(clone(current));},
+      snapshot(){requireReady();return freeze(cloneEnvelope(current));},
       async exportEvidence(){requireReady(); await verify(current); return JSON.stringify(current,null,2);}
     });
   }

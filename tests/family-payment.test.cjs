@@ -188,6 +188,8 @@ test('Owed panel -> Record payment -> Save: pre-filled, partial refused, exact a
   field('record-payment-date').value = '2027-01-05';
   field('record-payment-method').value = 'Zelle';
   await click('save-record-payment');
+  // ui.js does not await saveRecordPayment and hashing is truly async: wait for the write, not a fixed tick count.
+  await ui.waitFor(() => App.repository.revision !== revision0, 'payment save');
   assert.equal(App.repository.revision, revision0 + 1, 'one revision for both events');
   assert.deepEqual(events(App).map(e => [e.sessionId, e.date, e.method]), [['x1', '2027-01-05', 'Zelle'], ['a2', '2027-01-05', 'Zelle']]);
   assert.equal(field('modal-record-payment').classList.contains('modal-active'), false, 'modal closed');
@@ -206,7 +208,11 @@ test('Owed panel -> Record payment -> Save: pre-filled, partial refused, exact a
   await click('record-payment', { 'data-key': FAMILY, 'data-label': 'Family Test-1' });
   assert.equal(field('record-payment-amount').value, '120.00');
   await ui.save();
+  const staleToasts = [], showToast = App.showToast; App.showToast = (m, k) => staleToasts.push([k, m]);
   await click('save-record-payment');
+  await ui.waitFor(() => staleToasts.length > 0, 'stale save refusal');
+  App.showToast = showToast;
+  assert.match(staleToasts[0][1], /Stale action/);
   assert.equal(events(App).length, 2, 'stale save must not write');
 
   // Nothing own left but a shared session: the button explains instead of opening.

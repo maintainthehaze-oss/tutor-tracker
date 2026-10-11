@@ -216,7 +216,19 @@ test('disposable source mutation: transition guard rejects internally injected a
   const target="default: throw Error('Unavailable command: '+name);";
   assert.equal(repositorySource.split(target).length,2,'mutation anchor changed');
   const {repo,adapter}=await setup(repositorySource.replace(target,injection));
-  await refusedUnchanged(repo,adapter,'test.restore',{},/Archive replacement forbidden/);
+  // The draft shares the deep-frozen archive (roadmap 4.2), so an in-place edit now fails at the first write.
+  await refusedUnchanged(repo,adapter,'test.restore',{},/Archive replacement forbidden|read only|not extensible/);
+});
+test('disposable source mutation: transition guard rejects a command that swaps in a whole new archive',async()=>{
+  const injection = `case 'test.swap': {
+    draft.archive = JSON.parse(JSON.stringify(draft.archive));
+    draft.archive.originals.sessions = []; draft.archive.manifest.sessions = {};
+    w.sessions = []; break;
+  }
+  default: throw Error('Unavailable command: '+name);`;
+  const target="default: throw Error('Unavailable command: '+name);";
+  const {repo,adapter}=await setup(repositorySource.replace(target,injection));
+  await refusedUnchanged(repo,adapter,'test.swap',{},/Archive (replacement forbidden|raw snapshot mismatch)/);
 });
 
 test('reserved string IDs remain own properties and cannot bypass finalization',async()=>{
@@ -273,4 +285,16 @@ test('finalize snapshot never carries secrets: ORS key and gist fields are dropp
   assert.equal(JSON.stringify(repo.snapshot().finalized['secret-check']).includes('synthetic-key-only'),false);
   // The working settings still hold the key on-device; only the immutable evidence is clean.
   assert.equal(repo.snapshot().working.settings.orsApiKey,'synthetic-key-only');
+});
+test('canonical text is cached only for deep-frozen records; editable objects are re-read every time (roadmap 4.2)', async () => {
+  const api = load();
+  const editable = { a: 1, nested: { b: 1 } };
+  assert.equal(api.canonical(editable), '{"a":1,"nested":{"b":1}}');
+  editable.nested.b = 2; editable.a = 3;
+  assert.equal(api.canonical(editable), '{"a":3,"nested":{"b":2}}');
+  // A shallow Object.freeze from outside the repository does not make children immutable, so it is not cached.
+  const shallow = Object.freeze({ child: { c: 1 } });
+  assert.equal(api.canonical(shallow), '{"child":{"c":1}}');
+  shallow.child.c = 2;
+  assert.equal(api.canonical(shallow), '{"child":{"c":2}}');
 });
