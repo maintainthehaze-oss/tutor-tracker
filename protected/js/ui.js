@@ -642,24 +642,15 @@
           break;
         }
 
-        case 'mark-group-paid': {
+        // Slice D: the Owed panel's per-family button opens Record payment (amount + date + method,
+        // oldest-first across the family's own unpaid sessions); it replaced the one-tap "Mark paid".
+        case 'record-payment': {
           const key = target.getAttribute('data-key');
-          const label = target.getAttribute('data-label') || key;
-          const { own, shared } = App.owedSessionsForGroup(key);
-          const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
-          if (own.length === 0) {
-            if (shared.length) showToast(plural(shared.length, 'session') + ' for ' + label + ' also bill another family. Mark those paid from the table.', 'error');
-            break;
-          }
-          let msg = 'Mark ' + plural(own.length, 'unpaid session') + ' for ' + label + ' as paid?';
-          if (shared.length) msg += ' ' + plural(shared.length, 'session') + ' shared with another family will stay unpaid; mark those from the table.';
-          const revision = App.repository.revision;
-          showConfirm('Mark Paid', msg, async () => {
-            if (!await App.runCommand('session.payment',{ids:own.map(s=>s.id),date:todayISO()},revision)) return;
-            showToast('Marked ' + plural(own.length, 'session') + ' paid', 'success');
-          });
+          App.openRecordPayment(key, target.getAttribute('data-label') || key);
           break;
         }
+        case 'save-record-payment': App.saveRecordPayment(); break;
+        case 'export-statement-pdf': App.exportStatementPDF(); break;
 
         case 'show-owed': {
           // Header pill: jump to Sessions, all time, unpaid only, filter panel open
@@ -936,6 +927,7 @@
       if (e.target.id === 'global-search-input') { performGlobalSearch(e.target.value); return; }
       if (e.target.id === 'client-name') { App.suggestFamily(true); return; }
       if (e.target.id === 'session-duration') { App.syncDurationChips(); App.updateSessionPrefill(); return; }
+      if (e.target.id === 'record-payment-amount') { App.previewRecordPayment(); return; }
     });
 
     // Restore file input

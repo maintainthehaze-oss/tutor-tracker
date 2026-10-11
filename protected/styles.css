@@ -2698,3 +2698,11 @@ select.input[multiple] {
   .week-review-row { grid-template-columns: 1fr 4.5rem 5.5rem auto; }
   .week-review-date, .week-pill { display: none; }
 }
+
+/* --- Record payment modal + family statement controls (Slice D, 2026-10-11) --- */
+.record-payment-owed { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-muted); }
+.payment-preview { margin: 0.25rem 0 0; padding: 0.6rem 0.75rem; border-radius: 6px; font-size: 0.82rem; line-height: 1.4; background: var(--color-success-bg); color: var(--text-primary); }
+.payment-preview-error { background: var(--color-warning-bg, rgba(245, 158, 11, 0.12)); }
+.statement-controls { display: flex; flex-direction: row; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.statement-controls label { margin: 0; }
+.statement-controls select, .statement-controls input[type="month"] { min-width: 9rem; }

@@ -532,11 +532,16 @@
             // Archived rows accept payment events too: the original record is never edited, only overlaid on read.
             const rows=select(w.sessions,p.ids);
             if (typeof p.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(p.date)) throw Error('Payment date required');
+            // Slice D (2026-10-11): an optional payment method rides on the event only (short label, never on the stored row).
+            const method = p.method == null || p.method === '' ? null : p.method;
+            if (method !== null && (typeof method !== 'string' || !method.trim() || method.trim().length > 40)) throw Error('Invalid payment method');
             rows.forEach(s => {
               const eff=P.applyEvents(clone(s),draft.events);
               if (eff.paid) throw Error('Payment already recorded');
               if (eff.status !== 'completed') throw Error('Complete the session before recording a payment');
-              draft.events.push({id:crypto.randomUUID(),sessionId:s.id,date:p.date,type:'payment',recordedAt:new Date().toISOString()});
+              const event={id:crypto.randomUUID(),sessionId:s.id,date:p.date,type:'payment',recordedAt:new Date().toISOString()};
+              if (method) event.method=method.trim();
+              draft.events.push(event);
             }); break;
           }
           case 'session.status': {

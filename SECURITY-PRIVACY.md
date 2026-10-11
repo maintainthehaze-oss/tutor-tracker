@@ -22,6 +22,7 @@ is retired and no longer loads (root `index.html` only redirects to `protected/`
 | localStorage `tutoring-backup-meta`, `tutoring-backup-snooze` | Backup reminder bookkeeping: record revision number and time of the last backup from this browser; when the reminder was last shown/snoozed. No records, no secrets | none |
 | localStorage `tutoring-last-seen` | "This week" notice bookkeeping: the random ids of sessions auto-completed on load that have not yet been reviewed or dismissed, plus the time of the last write. Ids only: no names, dates, amounts or secrets | none |
 | Finalize snapshots locked before 2026-09-29 | May still contain the ORS key copied from settings at lock time. Immutable; cannot be purged | MEDIUM (historical secret) |
+| Client records and payment events (inside the protected store above), since 2026-10-11 | A client may carry `defaultPaymentMethod` and a payment event may carry `method`: a short label such as "Venmo" or "Check" saying HOW a family usually pays / paid. No account numbers, handles, or amounts beyond the session already recorded | LOW (how a person pays) |
 
 Since 2026-09-29 the settings copy inside a finalize snapshot EXCLUDES the ORS key and
 any gist/token-shaped field (`repository.js` `withoutSecrets`, pinned by a test).

@@ -250,6 +250,7 @@
       $('client-goals').value = c.goals || '';
       $('client-family').value = c.familyGroup || '';
       $('client-status').value = c.status || 'active';
+      $('client-default-payment-method').value = c.defaultPaymentMethod || '';
       renderLegacyClientDetails(c);
     } else {
       if (title) title.textContent = 'Add Client';
@@ -298,6 +299,8 @@
       // Joins an existing family's spelling if only casing/spacing differs.
       familyGroup: App.canonicalFamily($('client-family').value, id || null),
       status: $('client-status').value || 'active',
+      // Slice D: how this family usually pays; pre-fills the Record payment modal. '' = not set.
+      defaultPaymentMethod: ($('client-default-payment-method').value || '').trim(),
       updatedAt: new Date().toISOString(),
     };
 

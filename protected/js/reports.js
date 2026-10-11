@@ -414,6 +414,8 @@
 
     // Estimated tax payments log (record-keeping)
     renderTaxPayments(year);
+    // Slice D: family + month pickers for the statement PDF (payments.js)
+    if (App.renderStatementControls) App.renderStatementControls();
 
     // Other expenses detail
     const otherTbody = $('tax-other-expenses-tbody');

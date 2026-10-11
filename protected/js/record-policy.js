@@ -41,7 +41,7 @@
     (events || []).forEach(ev => {
       if (!ev || key(ev.sessionId) !== k) return;
       if (ev.type === 'status') { record.status = ev.status; record.statusEvent = true; }
-      else if (ev.type === 'payment') { record.paid = true; record.payment = 'paid'; record.paymentDate = ev.date; }
+      else if (ev.type === 'payment') { record.paid = true; record.payment = 'paid'; record.paymentDate = ev.date; if (ev.method) record.paymentMethod = ev.method; }
       else if (ev.type === 'correction') { Object.assign(record, ev.fields); record.corrected = true; }
     });
     return record;
