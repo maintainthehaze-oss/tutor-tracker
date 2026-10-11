@@ -222,13 +222,12 @@ test('disposable source mutation: transition guard rejects internally injected a
 test('disposable source mutation: transition guard rejects a command that swaps in a whole new archive',async()=>{
   const injection = `case 'test.swap': {
     draft.archive = JSON.parse(JSON.stringify(draft.archive));
-    draft.archive.originals.sessions = []; draft.archive.manifest.sessions = {};
-    w.sessions = []; break;
+    draft.archive.injected = true; break;
   }
   default: throw Error('Unavailable command: '+name);`;
   const target="default: throw Error('Unavailable command: '+name);";
   const {repo,adapter}=await setup(repositorySource.replace(target,injection));
-  await refusedUnchanged(repo,adapter,'test.swap',{},/Archive (replacement forbidden|raw snapshot mismatch)/);
+  await refusedUnchanged(repo,adapter,'test.swap',{},/Archive replacement forbidden/);
 });
 
 test('reserved string IDs remain own properties and cannot bypass finalization',async()=>{
