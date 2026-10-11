@@ -575,6 +575,25 @@
             });
             break;
           }
+          case 'session.saveMany': {
+            // "Log a week": many NEW sessions in ONE revision, so a batch never flips the backup pill
+            // amber N times or races the revision check. Insert-only: each record is validated and
+            // finalized exactly as session.save would be, and any bad record throws before the draft
+            // is sealed, so nothing is written (all-or-nothing). Locked rows and events are never touched.
+            if (!Array.isArray(p.records) || !p.records.length) throw Error('Sessions required');
+            const seen=new Set(), existing=index(w.sessions);
+            p.records.forEach(record => {
+              if (!record || typeof record !== 'object') throw Error('Record required');
+              const k=P.key(record.id);
+              if (existing[k]) throw Error('Session already exists: '+k);
+              if (seen.has(k)) throw Error('Duplicate session in batch: '+k);
+              seen.add(k);
+              const r=mergeRecord(w.sessions,record);
+              r.companyAmount=0; r.companySplit=0;
+              validateNewSession(r); finalize(draft,r);
+            });
+            break;
+          }
           case 'client.save': {
             // Company setup is retired. Merge retains existing legacy metadata,
             // while neither new nor edited clients can configure it.
