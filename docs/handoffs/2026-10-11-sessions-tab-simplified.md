@@ -54,3 +54,23 @@ Preview gotcha: the browser kept stale copies of some `js/*.js` (`P.normalizeLeg
 
 Tests: `tests/this-week.test.cjs` static test pins toolbar action order, the More menu, the 8 sortable columns, no Duplicate, no table Mark paid, the 3 header pills. `node --test` 216/216; static guard PASS; `node --check` clean.
 OBSERVED on the fabricated preview (dark): pills Projected/Owed/Backup; toolbar Filters/Mileage/More/Add Session/Week; More opens, closes after Show split, closes on outside click; table heads Date/Time/Client(s)/Duration/Amount/(Split hidden)/Mileage/Payment · Status/Actions, 9 cells per row, actions Completed/Edit/Delete; edit mode 10 cells vs 10 heads with both selects in the merged cell; totals row aligned. NOT observed: light mode, 640 px, real data, print stylesheet.
+
+## Live verification (2026-10-11, Claude Code, Fable 5.1) — LIVE AND WORKING
+
+Followed `docs/handoffs/2026-10-11-sessions-simplification-verify-prompt.md`.
+
+1. Live files: `protected/index.html`, `styles.css`, `js/sessions.js`, `js/this-week.js`, `js/ui.js`, `js/dashboard.js` curled and `cmp`'d against `origin/main` (`89e4f60`): all 6 byte-identical.
+2. Suite on `origin/main` (detached worktree, `core.autocrlf=false`): `node --test` 218/218, 0 fail; `tests/slice1/static-guard.cjs` PASS; `node --check protected/js/*.js` clean. Gotcha: a worktree checked out with autocrlf ON fails `tests/slice3/vendor.test.cjs` (a LICENSE file grows 205615 → 205629 bytes); not a code problem.
+3. Live behaviour, MTH's real data in Chrome, Ctrl+Shift+R once, dark theme, 1536 px, read-only:
+   - OBSERVED header pills: Projected $3,450.00 / Owed $0.00 / Backup — exactly 3.
+   - OBSERVED toolbar: Filters, Mileage, More ▾, Add Session, Week. More (`details.toolbar-more`) holds Show split / Edit Mode / CSV; `open=false` after picking Show split and after a click on empty space. Show split made the Split column visible and the label read "Hide split"; toggled back.
+   - OBSERVED This week (10): "Today · Sun, Oct 11" first, then Thu 8 / Wed 7 / Tue 6 / Mon 5, then "Coming up" → Mon 12 … Thu 15. Past rows: Completed (selected) / No-show / Cancelled; future rows: Skip.
+   - OBSERVED Owed: one `<details>` line "Owed all time · by family · tap to open $0.00"; opened on tap → "All caught up ✓"; equals the header pill.
+   - OBSERVED table: Date, Time, Client(s), Duration, Amount, Mileage, Payment · Status, Actions (Split hidden). Scheduled rows: "Mark this session completed" / Edit / Delete; a locked paid row: View + "Locked: kept on file. Click to cancel it instead". Totals row colspans 1/3/1/1/1(split, hidden)/1/2 → 7h, $1,025.00+$3,450.00, 83.5 mi under the right heads.
+   - OBSERVED edit mode: 10 cells vs 10 heads, widths identical (49/165/124/397/117/147/0/83/179/95), two selects (payment, status) in the merged cell. Turned off afterwards.
+   - OBSERVED light theme: toolbar, week group, Owed, table all legible; switched back to dark.
+   - OBSERVED console: 0 errors after a fresh navigate and after every interaction above.
+   - OBSERVED 640 px — built-in browser pane only (Chrome refused `resize_window` on the maximised window and blocked a 640-px popup), live URL, empty data: toolbar on one row (x 183–617), no horizontal page scroll, table scrolls inside its own wrap.
+   - NOT OBSERVED: Record payment flow (nothing owed today); `.type-note` after client names (no online/group session in October); Mileage button press; a real Completed tap; 640 px on real data.
+   - Side note, not a defect of these commits: within one date the table lists 16:15 before 18:30 while the Date sort is descending.
+4. No mutation performed. Nothing pushed; local `main` is ahead of `origin/main` by handoff commits only.
