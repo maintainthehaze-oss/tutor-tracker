@@ -19,7 +19,16 @@
    */
   function cloneEnvelope(e) {
     if (!e || !deepFrozen.has(e.archive)) return clone(e);
-    const out = clone({...e, archive: null}); out.archive = e.archive; return out;
+    // The working historical rows are read-only (no command writes them) and the receipt bodies are only ever
+    // replaced whole or deleted by key, so a deep-frozen historical list is shared and a frozen receipts map is
+    // copied shallowly (own data properties only; values stay the frozen originals). Both are JSON-pure.
+    const shareHistorical = e.working && deepFrozen.has(e.working.historical);
+    const shareReceipts = e.working && deepFrozen.has(e.working.receipts);
+    const out = clone({...e, archive: null, working: {...e.working, historical: shareHistorical ? null : e.working.historical, receipts: shareReceipts ? null : e.working.receipts}});
+    out.archive = e.archive;
+    if (shareHistorical) out.working.historical = e.working.historical;
+    if (shareReceipts) out.working.receipts = {...e.working.receipts};
+    return out;
   }
   function canonical(x) {
     if (x && typeof x === 'object' && canonicalMemo.has(x)) return canonicalMemo.get(x);
@@ -68,6 +77,22 @@
       if (!equal(r, byId[P.key(r.id)])) throw Error('Protected ' + label + ' record: ' + P.key(r.id));
     });
   }
+  // An archive that passed these checks and is deep-frozen can never fail them again, so they run once per
+  // archive object (the raw snapshot is 4 MB of JSON that was re-parsed on every save before roadmap 4.2).
+  const archiveChecked = new WeakSet();
+  function validateArchive(archive) {
+    if (deepFrozen.has(archive) && archiveChecked.has(archive)) return;
+    validateShape(archive.originals);
+    if (!equal(archive.manifest, manifests(archive.originals))) throw Error('Archive manifest mismatch');
+    const raw = JSON.parse(archive.rawSnapshot);
+    if (productionMode() && raw.format !== LEGACY_FORMAT) throw Error('Production requires captured legacy evidence');
+    const source = raw.format === LEGACY_FORMAT ? legacyOriginals(raw) : raw;
+    if (raw.format !== LEGACY_FORMAT && raw.syntheticOnly !== true) throw Error('Unrecognized activation evidence');
+    for (const k of [...collections, 'settings', 'receipts']) {
+      if (!equal(source[k], archive.originals[k])) throw Error('Archive raw snapshot mismatch');
+    }
+    if (deepFrozen.has(archive)) archiveChecked.add(archive);
+  }
   function validateEnvelope(e, allowLegacy = false) {
     if (!e || (e.schema !== 2 && !(allowLegacy && e.schema === 1)) || !Number.isSafeInteger(e.revision) || e.revision < 0 ||
         typeof e.maintenance !== 'boolean' || !e.archive || typeof e.archive.id !== 'string' ||
@@ -76,15 +101,7 @@
         typeof e.archive.rawSnapshot !== 'string' || typeof e.archive.rawHash !== 'string' ||
         !e.archive.reportSources || typeof e.archive.reportSources !== 'object' || Array.isArray(e.archive.reportSources)) throw Error('Invalid protected evidence');
     validateShape(e.working);
-    validateShape(e.archive.originals);
-    if (!equal(e.archive.manifest, manifests(e.archive.originals))) throw Error('Archive manifest mismatch');
-    const raw = JSON.parse(e.archive.rawSnapshot);
-    if (productionMode() && raw.format !== LEGACY_FORMAT) throw Error('Production requires captured legacy evidence');
-    const source = raw.format === LEGACY_FORMAT ? legacyOriginals(raw) : raw;
-    if (raw.format !== LEGACY_FORMAT && raw.syntheticOnly !== true) throw Error('Unrecognized activation evidence');
-    for (const k of [...collections, 'settings', 'receipts']) {
-      if (!equal(source[k], e.archive.originals[k])) throw Error('Archive raw snapshot mismatch');
-    }
+    validateArchive(e.archive);
     for (const k of ['sessions', 'expenses', 'taxPayments', 'historical']) unchangedRows(e.archive.originals[k], e.working[k], k);
     if (!equal(e.working.historical, e.archive.originals.historical)) throw Error('Historical collection is read-only');
     for (const [k,v] of Object.entries(e.archive.originals.receipts)) {
@@ -463,7 +480,9 @@
     function protectedSession(id) { requireReady(); return P.isProtectedRecord(id,current.archive.manifest.sessions,current.finalized); }
     function read() {
       if (!current) return freeze({clients:[], sessions:[], expenses:[], taxPayments:[], historical:[], receipts:{}, settings:{...App.DEFAULT_SETTINGS}});
-      const view = clone(current.working);
+      // Receipt bodies are the largest part of the store; the published view shares the frozen map instead of cloning it.
+      const view = clone({...current.working, receipts: null});
+      view.receipts = current.working.receipts;
       view.settings = {...App.DEFAULT_SETTINGS, ...view.settings, autoSync:'off'};
       view.clients = view.clients.map(c => {
         if(c.status == null)c.status='active';
