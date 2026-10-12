@@ -294,11 +294,12 @@
       (!x.paid && x.payment !== 'waived') ? s + num(x.amount) : s, 0);
     const totalMiles = yearSessions.reduce((s, x) => s + num(x.mileage), 0);
     const mileageDeduction = yearSessions.reduce((sum, s) => sum + num(s.mileage) * num(model.rate(s, year, mode)), 0);
-    const rates = [...new Set(yearSessions.map(s => model.rate(s, year, mode)))];
+    // Ascending so a split year reads in date order whatever order the rows sit in (unknown rates sort first).
+    const rates = [...new Set(yearSessions.map(s => model.rate(s, year, mode)))].sort((a, b) => (a ?? -1) - (b ?? -1));
     const mileageRate = rates.length === 1 && rates[0] != null ? rates[0] : 0;
-    // A year the IRS changed mid-year (2026) shows both rates; unknown or mixed captured rates point at the notice.
+    // Only 2026 had an IRS mid-year change: that year shows both rates; any other mixed or unknown set points at the notice.
     const mileageRateLabel = rates.length === 1 && rates[0] != null ? '$' + mileageRate.toFixed(3) + '/mi (' + year + ')'
-      : rates.length > 1 && rates.every(r => r != null) ? rates.map(r => '$' + r.toFixed(3) + '/mi').join(' then ') + ' (' + year + ', IRS mid-year change)'
+      : String(year) === '2026' && rates.length > 1 && rates.every(r => r != null) ? rates.map(r => '$' + r.toFixed(3) + '/mi').join(' then ') + ' (' + year + ', IRS mid-year change)'
       : 'Per-session captured rates; see data notice';
     const relevantYears = new Set([yearStr, ...cashSessions.map(s => String(s.date || '').slice(0, 4))]);
     const warnings = [...new Set([...relevantYears].flatMap(y => model.metrics({ year: y }, mode).warnings || []))];
