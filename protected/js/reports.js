@@ -296,7 +296,10 @@
     const mileageDeduction = yearSessions.reduce((sum, s) => sum + num(s.mileage) * num(model.rate(s, year, mode)), 0);
     const rates = [...new Set(yearSessions.map(s => model.rate(s, year, mode)))];
     const mileageRate = rates.length === 1 && rates[0] != null ? rates[0] : 0;
-    const mileageRateLabel = rates.length === 1 && rates[0] != null ? '$' + mileageRate.toFixed(3) + '/mi (' + year + ')' : 'Per-session captured rates; see data notice';
+    // A year the IRS changed mid-year (2026) shows both rates; unknown or mixed captured rates point at the notice.
+    const mileageRateLabel = rates.length === 1 && rates[0] != null ? '$' + mileageRate.toFixed(3) + '/mi (' + year + ')'
+      : rates.length > 1 && rates.every(r => r != null) ? rates.map(r => '$' + r.toFixed(3) + '/mi').join(' then ') + ' (' + year + ', IRS mid-year change)'
+      : 'Per-session captured rates; see data notice';
     const relevantYears = new Set([yearStr, ...cashSessions.map(s => String(s.date || '').slice(0, 4))]);
     const warnings = [...new Set([...relevantYears].flatMap(y => model.metrics({ year: y }, mode).warnings || []))];
     if (mode !== 'captured-v1') {

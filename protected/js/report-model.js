@@ -71,7 +71,10 @@
   }
   function rate(session,year,version = 'current-v2') {
     // Frozen baseline table, not a claim that these inputs reproduce filed reports.
+    // 2026 changed mid-year (IRS IR-2026-29): 72.5c through June 30, 76c from July 1. A 2026 row with no
+    // usable date takes the first-half rate. 2027 is not published yet; it falls through to the Settings rate.
     const table = {2024:0.67,2025:0.70,2026:0.725};
+    if (String(year) === '2026' && typeof session?.date === 'string' && session.date >= '2026-07-01') return 0.76;
     if (Object.hasOwn(table,String(year))) return table[year];
     const settings = session?._report.settings || context(version).settings;
     if (version === 'captured-v1') return App.num(settings.mileageRate) || 0.725;
