@@ -97,7 +97,7 @@ for (const [name, sources] of Object.entries({
     '(events || []).forEach(ev => {', '(events || []).slice().reverse().forEach(ev => {'),
   '(d1) shared money rollup stops zeroing waived fees': () => mutant('app-core',
     'const waived = !waivedIsRevenue && isWaived(s);', 'const waived = false;'),
-  '(d2) Sessions Totals sums raw amounts': () => mutant('sessions',
+  '(d2) Sessions Totals sums raw amounts': () => mutant('session-table',
     'const totalAmt = completed.reduce((sum, s) => sum + App.revenueAmount(s), 0);', 'const totalAmt = completed.reduce((sum, s) => sum + num(s.amount), 0);'),
   '(d3) computeMetrics counts cancelled sessions': () => mutant('app-core',
     "moneyRollup(sessions.filter((s) => s.status === 'completed' && s.date),", 'moneyRollup(sessions.filter((s) => s.date),'),

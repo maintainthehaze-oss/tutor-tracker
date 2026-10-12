@@ -48,6 +48,6 @@ test('new client commands cannot configure shares; edits retain original metadat
 });
 
 test('retired setup controls and effective share calculator have no executable references',()=>{
-  const files=['index.html','js/app-core.js','js/clients.js','js/sessions.js','js/ui.js'];
+  const files=['index.html','js/app-core.js','js/clients.js','js/sessions.js','js/session-table.js','js/session-form.js','js/mileage.js','js/ui.js'];
   for(const file of files) assert.doesNotMatch(read(file),/getEffectiveSplit|client-company-name|client-company-pct|client-split-effective|client-split-stop|toggle-split-history|split-history-tbody/,file);
 });

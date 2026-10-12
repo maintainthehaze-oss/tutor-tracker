@@ -333,14 +333,14 @@ test('auto-completed notice: the unlocked (session.update) path is recorded too,
 });
 
 test('static: group sits above the Owed panel in the Sessions tab, renders first, existing commands only, one allow-listed key', () => {
-  const html = readSource('index.html'), module = readSource('js/this-week.js'), sessions = readSource('js/sessions.js'), uiSource = readSource('js/ui.js'), repository = readSource('js/repository.js');
+  const html = readSource('index.html'), module = readSource('js/this-week.js'), sessions = readSource('js/sessions.js'), tableSource = readSource('js/session-table.js'), uiSource = readSource('js/ui.js'), repository = readSource('js/repository.js');
   const panel = html.slice(html.indexOf('id="panel-sessions"'), html.indexOf('id="panel-expenses"'));
   const group = panel.indexOf('<details class="monthly-summary this-week" id="this-week" open>'), owed = panel.indexOf('id="sessions-owed"'), table = panel.indexOf('id="sessions-table"');
   assert.ok(group > 0 && group < owed && owed < table, 'the group must sit in the Sessions panel above the Owed panel and the table');
   assert.match(panel, /<div class="this-week-body" id="this-week-body">/);
   assert.match(panel, /<span class="badge" id="this-week-count">/);
   assert.match(html, /js\/week-log\.js" defer><\/script>\s*<script src="js\/this-week\.js" defer><\/script>\s*<script src="js\/recurring\.js"/, 'script order');
-  assert.match(sessions, /function renderSessions\(\) \{\s*if \(App\.renderThisWeek\) App\.renderThisWeek\(\);/, 'the group must render first in renderSessions');
+  assert.match(tableSource, /function renderSessions\(\) \{\s*if \(App\.renderThisWeek\) App\.renderThisWeek\(\);/, 'the group must render first in renderSessions');
   assert.match(sessions, /App\.thisWeek\.recordAutoCompleted\(completedIds\)/, 'auto-complete must report its ids');
   // Every command the UI issues is one the repository already has; the module itself issues none.
   const known = new Set([...repository.matchAll(/case '([a-z]+\.[A-Za-z]+)':/g)].map(m => m[1]));
@@ -355,7 +355,7 @@ test('static: group sits above the Owed panel in the Sessions tab, renders first
   assert.ok(analyzeSource(module.replace("'tutoring-last-seen'", "'tutoring-sessions'"), 'this-week.js').length > 0, 'the guard must refuse a record key');
   assert.ok(readSource('styles.css').includes('.tw-chip:disabled'));
   // 2026-10-11: one-tap "Completed" on scheduled table rows reuses the chip's quick-complete path; the bulk mileage tool is on the toolbar too.
-  assert.match(sessions, /!protectedRow && s\.status === 'scheduled' \? '<button class="btn btn-sm btn-complete" data-action="quick-complete"/, 'Completed button on unlocked scheduled rows');
+  assert.match(tableSource, /!protectedRow && s\.status === 'scheduled' \? '<button class="btn btn-sm btn-complete" data-action="quick-complete"/, 'Completed button on unlocked scheduled rows');
   assert.equal((html.match(/data-action="calc-mileage-by-day"/g) || []).length, 2, 'Mileage button on the Sessions toolbar and in Settings');
   assert.ok(module.includes("label: 'Completed', quick: 'quick-complete'"), 'the chip says Completed');
   // 2026-10-11 simplification: 4-button toolbar + More menu, no Type column, Payment+Status one column, no Duplicate, no table Mark paid, 3 header pills.

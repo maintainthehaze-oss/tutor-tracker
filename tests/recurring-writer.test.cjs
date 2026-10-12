@@ -10,7 +10,7 @@ const { activate, readSource, root } = require('./helpers/harness.cjs');
 const { rawFixture } = require('./helpers/money-fixture.cjs');
 const { TODAY, SLOT, slot } = require('./helpers/recurring-scenarios.cjs');
 
-const MODULES = ['app-core', 'record-policy', 'repository', 'report-model', 'dashboard', 'sessions', 'reports', 'recurring'];
+const MODULES = ['app-core', 'record-policy', 'repository', 'report-model', 'dashboard', 'sessions', 'session-table', 'session-form', 'mileage', 'reports', 'recurring'];
 const copy = x => JSON.parse(JSON.stringify(x));
 const TUESDAYS = ['2026-09-22', '2026-09-29', '2026-10-06', '2026-10-13'];
 const rid = date => 'rec:' + SLOT + ':' + date;

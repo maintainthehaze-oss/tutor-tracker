@@ -8,7 +8,7 @@ const TODAY = '2026-09-19'; // a Saturday
 const SLOT = 'slot-tue';
 const ADDRESS = '100 Example Street, Faketown, NY 00000';
 
-const engine = () => loadApp(['app-core', 'sessions', 'recurring']).recurring;
+const engine = () => loadApp(['app-core', 'sessions', 'session-table', 'session-form', 'mileage', 'recurring']).recurring;
 const slot = fields => ({ id: SLOT, anchor: '2026-09-22', every: 1, time: '16:00', duration: 1, type: 'in-person', with: [], through: null, ...fields });
 /** c1 owns the slots. c2 is the sibling (same family, same address). c3 is unrelated. */
 const clients = (slots = [slot()], overrides = {}) => [

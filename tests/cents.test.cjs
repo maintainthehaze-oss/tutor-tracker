@@ -1,7 +1,7 @@
 'use strict';
 // Audit 6a: NEW amounts on unlocked sessions are stored in whole cents. Nothing already stored or
 // locked is ever re-rounded, validation is unchanged, and totals still sum the stored values.
-// Fabricated data only. The forms are exercised through the real sessions.js code with a fake DOM.
+// Fabricated data only. The forms are exercised through the real session-form.js code with a fake DOM.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { command, readSource } = require('./helpers/harness.cjs');
@@ -107,9 +107,9 @@ test('validation is unchanged: the repository still accepts a sub-cent amount (n
 });
 
 test('mutation: without the rounding line the 51.88 pin goes red', async () => {
-  const source = readSource('js/sessions.js'), anchor = 'amount = newAmount(amount, storedRow ? storedRow.amount : null);';
+  const source = readSource('js/session-form.js'), anchor = 'amount = App.newAmount(amount, storedRow ? storedRow.amount : null);';
   assert.equal(source.split(anchor).length, 2, 'mutation anchor moved');
-  const f = await formApp({ sources: { sessions: source.replace(anchor, '') } });
+  const f = await formApp({ sources: { 'session-form': source.replace(anchor, '') } });
   f.App.openSessionForm(); f.chooseClients(['c4']);
   f.fill({ date: '2026-04-01', duration: '0.83', amount: '', payment: 'unpaid', status: 'completed' });
   assert.equal(await f.App.saveSession(), true);

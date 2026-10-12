@@ -1,6 +1,6 @@
 'use strict';
 // Slice C (2026-10-11): "Usual" quick-pick tiles on the session form.
-// Pure ranking in protected/js/signatures.js (usualTiles / usualWeekdays), the label in sessions.js, and the
+// Pure ranking in protected/js/signatures.js (usualTiles / usualWeekdays), the label in session-form.js, and the
 // Add -> tap tile -> Save flow driven through the real ui.js click delegation with a fake DOM and a fake clock.
 // Fabricated data only; this repo is public. Unit-level evidence, not what a person sees on screen.
 const test = require('node:test');
@@ -10,7 +10,7 @@ const { bootUi } = require('./helpers/ui-app.cjs');
 const { rawFixture } = require('./helpers/money-fixture.cjs');
 
 const copy = x => JSON.parse(JSON.stringify(x));
-const MODEL = ['app-core', 'sessions', 'signatures'];
+const MODEL = ['app-core', 'sessions', 'session-form', 'signatures'];
 const TODAY = '2026-03-10';                       // bootUi's fake clock starts at 2026-03-10 12:00 local; 90 days back = 2025-12-10
 const lastSaved = ui => ui.disk().working.sessions.at(-1);
 

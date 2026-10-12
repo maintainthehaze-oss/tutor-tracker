@@ -2,7 +2,7 @@
    Tutoring Tracker Pro — Mileage
    OpenRouteService routing, day-order legs, the Settings / toolbar
    "Calculate mileage by day" tool. Split out of sessions.js (roadmap 4.4).
-   Session rules (isDriveStop, noTravel) stay in sessions.js.
+   Session-form pin button (calcFormMileage). Session rules (isDriveStop, noTravel) stay in sessions.js.
    ============================================================ */
 (function () {
   'use strict';
@@ -202,7 +202,59 @@
     }
   }
 
+  /** Session-form pin button: this session's leg within its day, in drive order. Editable before save. */
+  async function calcFormMileage() {
+    const input = $('session-mileage');
+    const btn = document.querySelector('[data-action="calc-mileage"]');
+    if (!input) return false;
+    const selected = App.getSelectedSessionClientIds();
+    if (selected.length === 0) { App.showToast('Select a client first', 'warning'); return false; }
+    if (($('session-type').value || 'in-person') === 'online') {
+      App.showToast('Online session: no travel. Change Session Type to In Person to calculate mileage.', 'warning');
+      return false;
+    }
+    if (App.readInPersonMinutes() === 0) {
+      App.showToast('Hybrid with 0 minutes in person: no travel, so no mileage.', 'warning');
+      return false;
+    }
+    const date = $('session-date').value;
+    if (!date) { App.showToast('Enter the session date first', 'warning'); return false; }
+    const address = sessionAddress({ clientIds: selected });
+    if (btn) btn.disabled = true;
+    // The lookup waits on the network; if the form was closed or reopened meanwhile, the result belongs to nobody.
+    const gen = App.getModalGeneration ? App.getModalGeneration() : null;
+    const stale = () => gen != null && App.getModalGeneration && App.getModalGeneration() !== gen;
+    try {
+      requireMileageSetup();
+      if (!address) throw new Error('This client has no address on file. Add it on the Clients tab.');
+      const extra = { session: null, address, time: $('session-time').value || '' };
+      const planned = await planDay(dayStops(date, extra, $('session-id').value));
+      if (stale()) return false;
+      const mine = planned.find((x) => x.session === null);
+      input.value = mine.miles;
+      input.dataset.details = mine.details;
+      const others = planned.filter((x) => x.session && isAutoMileage(x.session) && Math.abs(x.miles - num(x.session.mileage)) >= 0.05);
+      App.showToast(mine.miles.toFixed(1) + ' mi: ' + mine.details.replace(' (driving route, day order)', '') +
+        ' that day. Edit before saving if needed.' +
+        (others.length ? ' ' + others.length + ' other session' + (others.length === 1 ? '' : 's') +
+          ' that day will change: run "Calculate mileage by day" in Settings after saving.' : ''),
+        others.length ? 'warning' : 'success');
+      return true;
+    } catch (e) {
+      App.showToast(e.message || 'Mileage calculation failed', 'error');
+      return false;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // Typing over an auto-calculated figure makes it hand-entered again.
+  document.addEventListener('input', (e) => {
+    if (e.target && e.target.id === 'session-mileage') delete e.target.dataset.details;
+  });
+
   // Expose to App namespace
+  App.calcFormMileage = calcFormMileage;
   App.calculateMileageByDay = calculateMileageByDay;
   App.sessionAddress = sessionAddress;
   App.mileage = { sessionAddress, isAutoMileage, dayStops, planDay, requireMileageSetup };

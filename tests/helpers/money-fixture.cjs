@@ -3,7 +3,7 @@
 // invented for the tests: "Client Alpha", "Family Test-1", round or deliberately awkward numbers.
 const { activate, command } = require('./harness.cjs');
 
-const MODULES = ['app-core', 'record-policy', 'repository', 'report-model', 'dashboard', 'sessions', 'reports'];
+const MODULES = ['app-core', 'record-policy', 'repository', 'report-model', 'dashboard', 'sessions', 'session-table', 'session-form', 'mileage', 'reports'];
 
 /** Pre-activation ("archived") records. `historical` stays empty so every code path sees the same rows. */
 function rawFixture() {

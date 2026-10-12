@@ -1206,7 +1206,7 @@
           <div class="form-group form-group-full" id="session-usual-group" hidden>
             <span class="form-label" id="session-usual-label">Usual</span>
             <div id="session-usual" class="usual-tiles" role="group" aria-labelledby="session-usual-label" aria-describedby="session-usual-hint">
-              <!-- One-tap quick picks, populated by JS (sessions.js renderUsualTiles) -->
+              <!-- One-tap quick picks, populated by JS (session-form.js renderUsualTiles) -->
             </div>
             <small id="session-usual-hint" class="form-hint">Tap one to fill clients, duration, type, amount and time.</small>
           </div>
@@ -1214,7 +1214,7 @@
           <div class="form-group form-group-full">
             <span class="form-label" id="session-clients-label">Client(s) <span class="required" aria-label="required">*</span></span>
             <div id="session-clients" class="client-picker" role="group" aria-labelledby="session-clients-label" aria-describedby="session-clients-hint">
-              <!-- Tap-to-pick tiles, populated by JS (sessions.js renderClientPicker) -->
+              <!-- Tap-to-pick tiles, populated by JS (session-form.js renderClientPicker) -->
             </div>
             <small id="session-clients-hint" class="form-hint">Tap a name to add or remove it. Tap two or more for a shared (family) session.</small>
             <div class="repeat-last" id="repeat-last-banner" hidden>
@@ -1609,6 +1609,8 @@
   <script src="js/historical.js?v=2" defer></script>
   <script src="js/clients.js" defer></script>
   <script src="js/sessions.js" defer></script>
+  <script src="js/session-table.js" defer></script>
+  <script src="js/session-form.js" defer></script>
   <script src="js/mileage.js" defer></script>
   <script src="js/signatures.js" defer></script>
   <script src="js/week-log.js" defer></script>

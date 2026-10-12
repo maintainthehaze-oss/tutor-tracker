@@ -578,16 +578,6 @@
      EVENT DELEGATION & KEYBOARD SHORTCUTS
      ========================================================== */
 
-  function applySessionSort(field) {
-    if (App.sessionSort.field === field) {
-      App.sessionSort.dir = App.sessionSort.dir === 'asc' ? 'desc' : 'asc';
-    } else {
-      App.sessionSort.field = field;
-      App.sessionSort.dir = 'desc';
-    }
-    App.renderSessions();
-  }
-
   /* "This week" group (drawn by this-week.js in the Sessions tab). Rules: existing repository commands only;
      a locked row changes only through a correction; a paid row is never changed from the group. */
   const OUTCOME_WORDS = { completed: 'happened', 'no-show': 'no-show', cancelled: 'cancelled' };
@@ -618,7 +608,7 @@
         if (tabBtn) { e.preventDefault(); App.switchTab(tabBtn.getAttribute('data-tab')); return; }
         const sortHeader = e.target.closest('th.sortable[data-sort]');
         if (sortHeader && sortHeader.closest('#sessions-table')) {
-          applySessionSort(sortHeader.getAttribute('data-sort'));
+          App.applySessionSort(sortHeader.getAttribute('data-sort'));
           return;
         }
         if (e.target.classList.contains('modal-overlay')) {
@@ -968,7 +958,7 @@
         const sortHeader = e.target.closest && e.target.closest('th.sortable[data-sort]');
         if (sortHeader && sortHeader.closest('#sessions-table')) {
           e.preventDefault();
-          applySessionSort(sortHeader.getAttribute('data-sort'));
+          App.applySessionSort(sortHeader.getAttribute('data-sort'));
           return;
         }
       }

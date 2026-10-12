@@ -35,7 +35,7 @@ const row = (App, id) => App.state.sessions.find(s => String(s.id) === id);
 const events = App => copy(App.repository.snapshot().events).filter(e => e.type === 'payment');
 
 test('allocatePayment (pure): oldest first, whole sessions only, partial and over-payment refused', () => {
-  const App = loadApp(['app-core', 'sessions', 'payments']);
+  const App = loadApp(['app-core', 'sessions', 'session-table', 'session-form', 'mileage', 'payments']);
   const s = (id, date, amount) => ({ id, date, amount });
   const rows = [s('b', '2026-02-05', 150), s('a', '2026-01-10', 100), s('c', '2026-02-20', 60)];
   const ids = a => copy(a.covered.map(x => x.id));   // copy(): vm-realm arrays are not deepEqual to ours

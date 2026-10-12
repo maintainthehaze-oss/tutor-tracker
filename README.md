@@ -42,7 +42,10 @@ js/  (loaded with <script defer> in this order)
   dashboard.js        Summary cards, income trend chart, outstanding/owed, top clients
   historical.js       Year-over-year chart from captured historical totals
   clients.js          Client cards, family groups, split history; inactive clients collapsed
-  sessions.js         Session table, form, locked-row corrections, mileage (OpenRouteService), day-order mileage
+  sessions.js         Session records: cents, locked-row detail, delete / inline edit / auto-complete, travel rules
+  session-table.js    Sessions tab: month navigator, filters, sort, rows, totals, bulk bar
+  session-form.js     Session form: client picker, Usual tiles, open / prefill / save, locked-row corrections
+  mileage.js          Mileage (OpenRouteService): form pin button, day-order routing tool
   recurring.js        Pure weekly-slot planner. Inert: nothing calls it yet.
   expenses.js         Expenses, receipt intake (downscale to <=1200px JPEG), PDF receipts via pdf.js
   ocr.js              On-device Tesseract OCR that prefills EMPTY expense fields

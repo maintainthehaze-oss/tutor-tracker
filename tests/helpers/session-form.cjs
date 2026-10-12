@@ -1,6 +1,6 @@
 'use strict';
 // Drives the REAL session form code (openSessionForm / saveSession / handleInlineEdit in
-// protected/js/sessions.js) against a recording fake DOM. Fabricated data only.
+// protected/js/session-form.js, sessions.js) against a recording fake DOM. Fabricated data only.
 const { activate, recordingDocument, stubUi } = require('./harness.cjs');
 const { MODULES, rawFixture } = require('./money-fixture.cjs');
 

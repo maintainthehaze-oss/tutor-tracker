@@ -1,7 +1,7 @@
 'use strict';
 // Audit fix 3: tap-to-pick client list, smart default status, duration chips.
 // Pure logic is tested directly; the flow is driven through the real ui.js click/change delegation and the
-// real sessions.js form code with a fake DOM and a fake clock. Fabricated data only. NOT observed live.
+// real session-form.js form code with a fake DOM and a fake clock. Fabricated data only. NOT observed live.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp, readSource, command } = require('./helpers/harness.cjs');
@@ -13,7 +13,7 @@ const TODAY = '2026-03-10';                       // bootUi's fake clock starts 
 const lastSaved = ui => ui.disk().working.sessions.at(-1);
 
 test('clientPickerRows (pure): active clients plus the edited session\'s own, selected first, then recent, then A-Z', () => {
-  const { clientPickerRows } = loadApp(['app-core', 'sessions']);
+  const { clientPickerRows } = loadApp(['app-core', 'sessions', 'session-form']);
   const clients = [
     { id: 1, firstName: 'Client', lastName: 'Zeta', rate: 50, status: 'active' },
     { id: '2', firstName: 'Client', lastName: 'Alpha', rate: 60, status: 'active' },
@@ -33,7 +33,7 @@ test('clientPickerRows (pure): active clients plus the edited session\'s own, se
 });
 
 test('defaultStatusForDate and chipHours (pure)', () => {
-  const { defaultStatusForDate, chipHours, DURATION_CHIPS } = loadApp(['app-core', 'sessions']);
+  const { defaultStatusForDate, chipHours, DURATION_CHIPS } = loadApp(['app-core', 'sessions', 'session-form']);
   for (const [date, expected] of [[TODAY, 'completed'], ['2026-03-09', 'completed'], ['2020-01-01', 'completed'], ['2026-03-11', 'scheduled'],
     ['2027-01-01', 'scheduled'], ['', 'completed'], [null, 'completed'], ['next week', 'completed']])
     assert.equal(defaultStatusForDate(date, TODAY), expected, String(date));
@@ -153,7 +153,7 @@ test('validation: saving with no client picked is refused and nothing is written
 });
 
 test('static: the multi-select and its Ctrl/Cmd hint are gone; chips and handlers are wired', () => {
-  const html = readSource('index.html'), ui = readSource('js/ui.js'), sessions = readSource('js/sessions.js');
+  const html = readSource('index.html'), ui = readSource('js/ui.js'), sessions = readSource('js/session-form.js');
   assert.doesNotMatch(html, /<select id="session-clients"|Hold Ctrl/);
   assert.match(html, /<div id="session-clients" class="client-picker" role="group" aria-labelledby="session-clients-label"/);
   assert.deepEqual([...html.matchAll(/data-action="set-session-duration" data-minutes="(\d+)"/g)].map(m => Number(m[1])), [30, 45, 60, 90, 120]);

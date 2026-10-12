@@ -89,7 +89,7 @@ test('repository source: saveMany is one added case; the default branch anchor i
 
 /* ---------------------------------------------------------------- pure model ---------------------------------------------------------------- */
 
-const MODEL = ['app-core', 'sessions', 'signatures'];
+const MODEL = ['app-core', 'sessions', 'session-form', 'signatures'];
 const CLIENTS = [
   { id: 'c1', firstName: 'Client', lastName: 'Alpha', rate: 100, status: 'active' },
   { id: 'c2', firstName: 'Client', lastName: 'Beta', rate: 60, status: 'active' },
