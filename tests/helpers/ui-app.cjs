@@ -7,7 +7,7 @@ const { activate, recordingDocument, memoryStorage, fakeClock } = require('./har
 const { rawFixture } = require('./money-fixture.cjs');
 
 const PAGE_SCRIPTS = ['app-core', 'backup-status', 'record-policy', 'repository', 'report-model', 'sync', 'dashboard',
-  'historical', 'clients', 'sessions', 'session-table', 'session-form', 'mileage', 'signatures', 'week-log', 'this-week', 'recurring', 'expenses', 'reports', 'payments'];
+  'historical', 'clients', 'sessions', 'session-table', 'session-form', 'mileage', 'signatures', 'week-log', 'recurring', 'expenses', 'reports', 'payments'];
 
 const settle = async () => { for (let i = 0; i < 8; i++) await new Promise(resolve => setImmediate(resolve)); };
 /** Poll (real event loop) until `predicate()` is true. Hashing in the repository is genuinely asynchronous. */

@@ -425,17 +425,6 @@
         <button class="btn btn-sm" data-action="bulk-deselect">Deselect All</button>
       </div>
 
-      <!-- This week: a week back and a week ahead, one-tap exceptions. Ignores the month navigator and filters on purpose -->
-      <details class="monthly-summary this-week" id="this-week" open>
-        <summary class="this-week-summary">
-          <span class="this-week-title">This week <span class="badge" id="this-week-count">0</span></span>
-          <span class="this-week-hint">Tap only what did not go to plan</span>
-        </summary>
-        <div class="this-week-body" id="this-week-body">
-          <p class="empty-state">Nothing scheduled this week. Tap + to add a session.</p>
-        </div>
-      </details>
-
       <!-- Owed by family: ALL TIME, ignores the month navigator on purpose. Closed by default: one line, tap to open -->
       <details class="monthly-summary owed-panel" id="sessions-owed" aria-label="Money owed, all time, by family">
         <summary class="schedule-header owed-summary">
@@ -1614,7 +1603,6 @@
   <script src="js/mileage.js" defer></script>
   <script src="js/signatures.js" defer></script>
   <script src="js/week-log.js" defer></script>
-  <script src="js/this-week.js" defer></script>
   <script src="js/recurring.js" defer></script>
   <script src="js/expenses.js" defer></script>
   <script src="js/ocr.js" defer></script>

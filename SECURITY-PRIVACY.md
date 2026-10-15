@@ -21,7 +21,7 @@ is retired and no longer loads (root `index.html` only redirects to `protected/`
 | Client records (inside the IndexedDB row above) | A client record may now hold a weekly schedule (`slots`: weekday, time, duration, type and who attends), stored on this device like the rest of the client record; no new localStorage key was added | HIGH (same as the client record) |
 | localStorage `tutoring-theme`, `tutoring-show-split` | UI state | none |
 | localStorage `tutoring-backup-meta`, `tutoring-backup-snooze` | Backup reminder bookkeeping: record revision number and time of the last backup from this browser; when the reminder was last shown/snoozed. No records, no secrets | none |
-| localStorage `tutoring-last-seen` | "This week" notice bookkeeping: the random ids of sessions auto-completed on load that have not yet been reviewed or dismissed, plus the time of the last write. Ids only: no names, dates, amounts or secrets | none |
+| localStorage `tutoring-last-seen` | No longer written (the "This week" group was removed 2026-10-15). It held random session ids only; the app deletes any leftover copy on load | none |
 | Finalize snapshots locked before 2026-09-29 | May still contain the ORS key copied from settings at lock time. Immutable; cannot be purged | MEDIUM (historical secret) |
 
 Since 2026-09-29 the settings copy inside a finalize snapshot EXCLUDES the ORS key and

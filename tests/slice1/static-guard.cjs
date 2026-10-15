@@ -20,7 +20,8 @@ const uiKeys = new Set(['activeTab', 'editMode', 'selectedSessions', 'confirmCal
 const mutators = new Set(['push', 'pop', 'shift', 'unshift', 'splice', 'sort', 'reverse', 'fill', 'copyWithin', 'set', 'add', 'delete', 'clear']);
 const storageWriters = new Set(['setItem', 'removeItem', 'clear', 'open', 'deleteDatabase', 'transaction', 'put', 'add', 'delete', 'createObjectStore', 'deleteObjectStore']);
 // Per-device UI preferences (owner ruling 2026-09-10: split visibility; 2026-09-19: backup bookkeeping;
-// 2026-10-11: ids of rows auto-completed on load, until the owner reviews them in the "This week" group).
+// 2026-10-11: ids of rows auto-completed on load for the "This week" group, which was removed 2026-10-15; the
+// key stays allow-listed only so ui.js may removeItem any leftover copy).
 // They hold no client, session or money records. ONLY localStorage.setItem/removeItem whose key is one of
 // these string literals (inline, or a `const` bound to the literal) is exempt; every record key such as
 // 'tutoring-sessions' is still refused, and so is any key the guard cannot resolve statically.

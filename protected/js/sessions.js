@@ -162,8 +162,6 @@
     if (archivedOverdue.length && await App.runCommand('session.status',
       { ids: archivedOverdue.map((s) => s.id), status: 'completed' }, App.repository.revision)) { done += archivedOverdue.length; completedIds.push(...archivedOverdue.map((s) => s.id)); }
     if (done === 0) return 0;
-    // The "This week" group lists these rows until the owner reviews or dismisses them (this-week.js).
-    if (App.thisWeek) { App.thisWeek.recordAutoCompleted(completedIds); App.renderThisWeek(); }
     App.showToast(done + ' past scheduled session' + (done === 1 ? '' : 's') +
       ' auto-completed (date has passed)', 'success');
     return done;
