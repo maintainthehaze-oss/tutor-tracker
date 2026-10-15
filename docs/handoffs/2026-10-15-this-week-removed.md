@@ -21,4 +21,4 @@
 - `node --check` clean on ui.js, sessions.js, session-table.js.
 - OBSERVED on the fabricated preview (dark, ~800 px): Sessions tab = month navigator → Owed → table; `document.getElementById('this-week')` null; no this-week script; zero console errors.
 - NOT observed: real data, light theme, 640 px. No mutation check (pure removal).
-- Local commit only, NOT pushed. Next: "Ship it".
+- SHIPPED: `main` `241dfe7 → 5484249`, pushed by MTH; live files byte-identical on the 3rd curl poll, `this-week.js` 404.
