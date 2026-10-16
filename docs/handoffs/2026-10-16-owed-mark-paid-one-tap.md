@@ -20,4 +20,4 @@ MTH asked: "get rid of the dialog box and just mark it paid."
 - OBSERVED on the fabricated preview (protected-static, localhost:8877, dark, 800 px): Sessions → Owed open → "Mark paid" → no modal, toast "Marked paid: 1 session, $100.00 for Fixture Family", payment event `{sessionId 3, date 2026-10-16}`, revision 0 → 1, Owed $0.00 "All caught up", header pill $0.00. Console errors: favicon 404 only.
 - NOT observed: light theme, 640 px, real data, a family with a usual method set (unit-tested only).
 
-Next: "Ship it".
+SHIPPED: `main` `dd3c9a0 → b6a080d`, pushed by MTH; all 5 changed live files byte-identical on the 2nd curl poll.
