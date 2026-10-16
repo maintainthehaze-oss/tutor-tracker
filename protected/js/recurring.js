@@ -180,8 +180,7 @@
       const today = App.todayISO();
       const plan = materializeRecurring(App.state.clients, App.state.sessions, today);
       lastPassDay = today;
-      lastReport = { skipped: plan.skipped, gaps: plan.gaps };
-      if (!plan.create.length && !plan.removeIds.length && !plan.clients.length) return lastReport;
+      if (!plan.create.length && !plan.removeIds.length && !plan.clients.length) return null;
       const now = new Date().toISOString();
       try {
         await App.repository.execute('recurring.apply', {
@@ -190,16 +189,16 @@
       } catch (error) {
         // A second tab won the CAS: nothing was written, and the next pass re-plans. Anything else is worth a word.
         if (!/Stale action/.test(error && error.message) && App.showToast) App.showToast('Weekly schedule not updated: ' + error.message, 'warning');
-        return lastReport;
+        return null;
       }
       App.refreshReadViews();
       if (App.renderTab) App.renderTab(App.state.activeTab);
       if (App.updateHeaderStats) App.updateHeaderStats();
-      return lastReport;
+      return null;
     } finally { running = false; }
   }
 
-  let running = false, lastPassDay = null, lastReport = { skipped: [], gaps: [] };
+  let running = false, lastPassDay = null;
 
   /** A modal is open while its overlay carries modal-active: closeModal drops that class at once but only hides the
       overlay 200 ms later (ui.js closeModal), so the pass that follows a client save must not be fooled by the fade. */
@@ -209,6 +208,5 @@
   }
 
   App.runRecurringPass = runRecurringPass;
-  App.recurringLastReport = () => lastReport;
   App.recurringLastDay = () => lastPassDay;
 })();
