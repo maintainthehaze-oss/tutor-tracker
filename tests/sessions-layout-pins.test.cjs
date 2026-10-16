@@ -45,4 +45,6 @@ test('static: narrow layout pins - toolbar wraps / stacks, table scrolls inside 
   assert.match(block('.app-header', tablet), /flex-wrap:\s*wrap;/, 'header wraps under 768 px');
   assert.match(block('.header-center', tablet), /flex-basis:\s*100%;/, 'stat pills take their own row under 768 px');
   assert.match(block('.live-stats', tablet), /flex-wrap:\s*wrap;/, 'stat pills wrap under 768 px');
+  // The tab strip wraps in the same range, so "Tax Summary" is never clipped inside its own strip.
+  assert.match(block('.tab-nav', tablet), /flex-wrap:\s*wrap;/, 'tab strip wraps under 768 px');
 });

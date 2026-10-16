@@ -2277,6 +2277,12 @@ select.input[multiple] {
     display: none;
   }
 
+  /* Six tabs with labels are wider than 481-768 px: wrap onto a second row instead of clipping "Tax Summary". */
+  .tab-nav {
+    flex-wrap: wrap;
+    padding: 0.5rem 1rem;
+  }
+
   .summary-cards {
     grid-template-columns: repeat(2, 1fr);
   }
