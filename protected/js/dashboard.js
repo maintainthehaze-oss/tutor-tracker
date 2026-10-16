@@ -415,7 +415,7 @@
           '<span class="outstanding-meta">' + parts.join(' &middot; ') + '</span>' +
         '</div>' +
         '<span class="outstanding-amount">' + formatCurrency(g.amount) + '</span>' +
-        '<button class="btn btn-sm btn-mark-paid" data-action="record-payment" data-key="' + escapeHtml(g.key) + '" data-label="' + escapeHtml(g.label) + '" title="Record a payment: amount, date and method">Record payment</button>' +
+        '<button class="btn btn-sm btn-mark-paid" data-action="mark-group-paid" data-key="' + escapeHtml(g.key) + '" data-label="' + escapeHtml(g.label) + '" title="Mark every unpaid session for this family paid today">Mark paid</button>' +
       '</li>';
     }).join('');
   }

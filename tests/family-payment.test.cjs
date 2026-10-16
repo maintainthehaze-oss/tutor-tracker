@@ -2,7 +2,7 @@
 // Slice D (2026-10-11): family payment intake + monthly statement.
 // Pure allocation and statement model in protected/js/payments.js, the optional payment method on the
 // session.payment event (repository.js + record-policy.js overlay), the client's defaultPaymentMethod,
-// and the Owed panel -> Record payment -> Save flow driven through the real ui.js delegation with a fake
+// and the Owed panel -> Mark paid one-tap flow driven through the real ui.js delegation with a fake
 // DOM and a fake clock. Fabricated data only; this repo is public. Unit-level evidence, not what a person
 // sees on screen.
 const test = require('node:test');
@@ -155,76 +155,59 @@ test('statement PDF: rows, "This family" share column only when shared, and the 
   assert.equal(App.exportStatementPDF(), false); assert.equal(calls.length, 0); assert.equal(toasts.at(-1)[0], 'error');
 });
 
-test('Owed panel -> Record payment -> Save: pre-filled, partial refused, exact amount writes dated events with the method', async () => {
+test('Owed panel -> Mark paid (one tap): every own unpaid session paid today with the usual method; shared rows untouched', async () => {
   const ui = await bootUi({ data: familyFixture() });
-  const { App, field, click } = ui;
+  const { App, click } = ui;
   const revision0 = App.repository.revision;
-  await click('record-payment', { 'data-key': FAMILY, 'data-label': 'Family Test-1' });
-  assert.equal(field('modal-record-payment').hidden, false, 'modal must open');
-  assert.equal(field('record-payment-amount').value, '370.00', 'own-sessions total incl. a6 auto-completed on load; not the panel total (470 incl. the shared half)');
-  assert.equal(field('record-payment-date').value, '2026-03-10', 'today from the fake clock');
-  assert.equal(field('record-payment-method').value, 'Venmo', 'defaulted from the family member');
-  assert.match(field('record-payment-owed').textContent, /4 unpaid sessions · \$370\.00 owed\. 1 session shared with another family stay unpaid here; mark those from the table\./);
-  assert.match(field('record-payment-preview').innerHTML, /Pays 4 sessions, oldest first: Jan 10, 2026 \$100\.00 · Feb 5, 2026 \$150\.00 · Feb 9, 2026 \$60\.00 · Feb 20, 2026 \$60\.00\. Nothing left owed\./);
-  assert.equal(field('record-payment-save').disabled, false);
-
-  // Partial: the live preview (body 'input' delegation) refuses and Save does nothing.
-  field('record-payment-amount').value = '200';
-  for (const listener of ui.document.body.listeners.input || []) listener({ target: { id: 'record-payment-amount', getAttribute: () => null } });
-  assert.match(field('record-payment-preview').innerHTML, /\$200\.00 does not cover whole sessions\.<\/strong> \$100\.00 pays 1 session; \$250\.00 pays 2 sessions\./);
-  assert.equal(field('record-payment-save').disabled, true);
-  await click('save-record-payment');
-  assert.equal(App.repository.revision, revision0, 'partial payment must not write');
-  assert.equal(events(App).length, 0);
-  // Over: refused too.
-  field('record-payment-amount').value = '370.01'; App.previewRecordPayment();
-  assert.match(field('record-payment-preview').innerHTML, /\$370\.01 is more than the \$370\.00 owed/);
-  await click('save-record-payment');
-  assert.equal(App.repository.revision, revision0);
-
-  // Exact for the two oldest, received in the NEXT tax year, by Zelle.
-  field('record-payment-amount').value = '250'; App.previewRecordPayment();
-  assert.match(field('record-payment-preview').innerHTML, /Pays 2 sessions, oldest first: Jan 10, 2026 \$100\.00 · Feb 5, 2026 \$150\.00\. 2 sessions \(\$120\.00\) stay unpaid\./);
-  field('record-payment-date').value = '2027-01-05';
-  field('record-payment-method').value = 'Zelle';
-  await click('save-record-payment');
-  // ui.js does not await saveRecordPayment and hashing is truly async: wait for the write, not a fixed tick count.
-  await ui.waitFor(() => App.repository.revision !== revision0, 'payment save');
-  assert.equal(App.repository.revision, revision0 + 1, 'one revision for both events');
-  assert.deepEqual(events(App).map(e => [e.sessionId, e.date, e.method]), [['x1', '2027-01-05', 'Zelle'], ['a2', '2027-01-05', 'Zelle']]);
-  assert.equal(field('modal-record-payment').classList.contains('modal-active'), false, 'modal closed');
-  assert.equal(row(App, 'x1').paid, true); assert.equal(row(App, 'a2').paymentDate, '2027-01-05'); assert.equal(row(App, 'x2').paid, false);
+  const toasts = [], showToast = App.showToast; App.showToast = (m, k) => toasts.push([k, m]);
+  await click('mark-group-paid', { 'data-key': FAMILY, 'data-label': 'Family Test-1' });
+  // ui.js does not await markGroupPaid and hashing is truly async: wait for the write, not a fixed tick count.
+  await ui.waitFor(() => App.repository.revision !== revision0, 'mark paid');
+  assert.equal(App.repository.revision, revision0 + 1, 'one revision for all four events');
+  // Oldest first (incl. a6 auto-completed on load), dated today from the fake clock, method from the family member.
+  assert.deepEqual(events(App).map(e => [e.sessionId, e.date, e.method]),
+    [['x1', '2026-03-10', 'Venmo'], ['a2', '2026-03-10', 'Venmo'], ['a6', '2026-03-10', 'Venmo'], ['x2', '2026-03-10', 'Venmo']]);
+  assert.equal(toasts.at(-1)[0], 'success');
+  assert.match(toasts.at(-1)[1], /^Marked paid: 4 sessions, \$370\.00 for Family Test-1 by Venmo\. 1 session shared with another family stay unpaid; mark those from the table$/);
+  assert.equal(row(App, 'x1').paid, true); assert.equal(row(App, 'x2').paymentDate, '2026-03-10');
   assert.equal(row(App, 'x3').paid, false, 'the shared session is never touched from the panel');
-  // Cash basis (audit 6e): the money lands in 2027, not in the sessions' 2026.
-  assert.equal(App.getTaxData(2027).grossIncome, 250); assert.equal(App.getTaxData(2026).grossIncome, 100);
-  // The Owed panel drops by exactly what was recorded, and the statement agrees.
+  // Cash basis (audit 6e): dated the day it was marked.
+  assert.equal(App.getTaxData(2026).grossIncome, 470, "100 already paid in the fixture + 370");
+  // The Owed panel drops to the shared half only, and the statement agrees.
   const owed = App.computeOwedByFamily().groups.find(g => g.key === FAMILY);
-  assert.equal(owed.amount, 220); assert.equal(App.statementModel(FAMILY, '2026-02').balance, 220);
+  assert.equal(owed.amount, 100); assert.equal(App.statementModel(FAMILY, '2026-02').balance, 100);
   // Stored originals untouched (events only).
   const stored = App.repository.snapshot().working.sessions;
   assert.equal(stored.find(s => s.id === 'x1').paid, false); assert.equal(stored.find(s => s.id === 'a2').paid, false);
 
-  // Stale modal: a save after another write is refused by the revision check, no second payment.
-  await click('record-payment', { 'data-key': FAMILY, 'data-label': 'Family Test-1' });
-  assert.equal(field('record-payment-amount').value, '120.00');
-  await ui.save();
-  const staleToasts = [], showToast = App.showToast; App.showToast = (m, k) => staleToasts.push([k, m]);
-  await click('save-record-payment');
-  await ui.waitFor(() => staleToasts.length > 0, 'stale save refusal');
-  App.showToast = showToast;
-  assert.match(staleToasts[0][1], /Stale action/);
-  assert.equal(events(App).length, 2, 'stale save must not write');
-
-  // Nothing own left but a shared session: the button explains instead of opening.
-  await App.runCommand('session.payment', { ids: ['x2', 'a6'], date: '2026-03-10' }, App.repository.revision);
-  field('modal-record-payment').hidden = true;
-  const toasts = []; App.showToast = (m, k) => toasts.push([k, m]);
-  await click('record-payment', { 'data-key': FAMILY, 'data-label': 'Family Test-1' });
-  assert.equal(field('modal-record-payment').hidden, true, 'modal must not open');
+  // Nothing own left but a shared session: the button explains instead of writing.
+  toasts.length = 0;
+  const revision1 = App.repository.revision;
+  await click('mark-group-paid', { 'data-key': FAMILY, 'data-label': 'Family Test-1' });
   assert.deepEqual(toasts, [['error', '1 session for Family Test-1 also bill another family. Mark those paid from the table.']]);
+  assert.equal(App.repository.revision, revision1, 'no write');
+  assert.equal(events(App).length, 4);
+  App.showToast = showToast;
 });
 
-test('client form: "Usually pays by" round-trips through client.save and pre-fills the modal; blank means not set', async () => {
+test('Mark paid without a usual method writes no method; a stale revision is refused', async () => {
+  const data = familyFixture(); data.clients[0].defaultPaymentMethod = '';
+  const ui = await bootUi({ data });
+  const { App } = ui;
+  // Stale: take the revision, let another save land, then the tap's write must be refused.
+  const stale = App.repository.revision;
+  await ui.save();
+  const toasts = [], showToast = App.showToast; App.showToast = (m, k) => toasts.push([k, m]);
+  const ok = await App.runCommand('session.payment', { ids: ['x1'], date: '2026-03-10' }, stale);
+  assert.equal(ok, false); assert.match(toasts[0][1], /Stale action/); assert.equal(events(App).length, 0);
+  toasts.length = 0;
+  assert.equal(await App.markGroupPaid(FAMILY, 'Family Test-1'), true);
+  assert.ok(events(App).length === 4 && events(App).every(e => e.method === undefined), 'no method stored when none is set');
+  assert.match(toasts.at(-1)[1], /^Marked paid: 4 sessions, \$370\.00 for Family Test-1\. 1 session/);
+  App.showToast = showToast;
+});
+
+test('client form: "Usually pays by" round-trips through client.save and is the method Mark paid stores; blank means not set', async () => {
   const ui = await bootUi();
   const { App, field, click } = ui;
   App.openClientForm('c3');                                               // Client Gamma, Family Test-2, no method yet
@@ -253,12 +236,12 @@ test('client form: "Usually pays by" round-trips through client.save and pre-fil
 
 test('source guards: markup, script order, Owed panel button, and no stray writes in payments.js', () => {
   const html = readSource('index.html');
-  assert.ok(html.includes('id="modal-record-payment"') && html.includes('data-action="save-record-payment"'));
+  assert.ok(!html.includes('modal-record-payment') && !html.includes('record-payment'), 'the Record payment modal is gone (2026-10-16)');
   assert.ok(html.includes('id="client-default-payment-method"'));
   assert.ok(html.includes('id="statement-family"') && html.includes('id="statement-month"') && html.includes('data-action="export-statement-pdf"'));
   assert.ok(html.indexOf('js/reports.js') < html.indexOf('js/payments.js') && html.indexOf('js/payments.js') < html.indexOf('js/ui.js'));
-  assert.ok(readSource('js/dashboard.js').includes('data-action="record-payment"'));
-  assert.ok(!readSource('js/ui.js').includes('mark-group-paid'), 'the one-tap Mark paid case was replaced');
+  assert.ok(readSource('js/dashboard.js').includes('data-action="mark-group-paid"'));
+  assert.ok(!readSource('js/ui.js').includes('record-payment') && !readSource('js/ui.js').includes('RecordPayment'), 'the modal flow is gone');
   const src = readSource('js/payments.js');
   assert.ok(!/localStorage|indexedDB|App\.state\.\w+\s*=[^=]/.test(src), 'payments.js writes only through runCommand');
   assert.equal((src.match(/runCommand\('session\.payment'/g) || []).length, 1);

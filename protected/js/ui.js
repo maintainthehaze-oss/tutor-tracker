@@ -639,14 +639,13 @@
           break;
         }
 
-        // Slice D: the Owed panel's per-family button opens Record payment (amount + date + method,
-        // oldest-first across the family's own unpaid sessions); it replaced the one-tap "Mark paid".
-        case 'record-payment': {
+        // Owed panel per-family button: one tap marks the family's own unpaid sessions paid
+        // (today, usual method). 2026-10-16: replaced the Record payment modal on MTH's request.
+        case 'mark-group-paid': {
           const key = target.getAttribute('data-key');
-          App.openRecordPayment(key, target.getAttribute('data-label') || key);
+          App.markGroupPaid(key, target.getAttribute('data-label') || key);
           break;
         }
-        case 'save-record-payment': App.saveRecordPayment(); break;
         case 'export-statement-pdf': App.exportStatementPDF(); break;
 
         case 'show-owed': {
@@ -900,7 +899,6 @@
       if (e.target.id === 'global-search-input') { performGlobalSearch(e.target.value); return; }
       if (e.target.id === 'client-name') { App.suggestFamily(true); return; }
       if (e.target.id === 'session-duration') { App.syncDurationChips(); App.updateSessionPrefill(); return; }
-      if (e.target.id === 'record-payment-amount') { App.previewRecordPayment(); return; }
     });
 
     // Restore file input

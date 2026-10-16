@@ -1,5 +1,5 @@
 'use strict';
-// Weekly recurring slots, slice E4 polish (2026-10-11): weekly tag, Record payment sentence, gap/skipped notice,
+// Weekly recurring slots, slice E4 polish (2026-10-11): weekly tag, Mark paid toast sentence, gap/skipped notice,
 // (gap/skipped notice and the runaway nudge left with the "This week" group, removed 2026-10-15). FABRICATED DATA ONLY. Unit-tested, NOT observed in a live browser.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -31,12 +31,11 @@ test('weekly tag: Sessions table row shows it for generated rows only', async ()
   assert.ok(row(table, 'hand') && !/weekly/.test(row(table, 'hand')), 'hand-entered row must not be tagged');
 });
 
-test('autoLoggedCount (pure) and the Record payment sentence', async () => {
+test('autoLoggedCount (pure) and the Mark paid toast sentence', async () => {
   const ui = await boot([gen('2026-09-01'), gen('2026-09-08'), { ...gen('2026-09-10'), recurring: null, id: 'hand' }]);
   assert.equal(ui.App.autoLoggedCount([{ recurring: { slotId: 'a' } }, { recurring: null }, {}, null]), 1);
   assert.equal(ui.App.autoLoggedCount(undefined), 0);
-  await ui.click('record-payment', { 'data-key': 'family:Family c1', 'data-label': 'Family c1' });
-  assert.match(ui.field('record-payment-preview').innerHTML, /2 of these were logged automatically from the weekly schedule; check the total matches what you received\./);
-  ui.field('record-payment-amount').value = '100.00'; ui.App.previewRecordPayment();
-  assert.match(ui.field('record-payment-preview').innerHTML, /1 of these were logged automatically/, 'only the covered rows are counted');
+  const toasts = []; ui.App.showToast = (m, k) => toasts.push([k, m]);
+  assert.equal(await ui.App.markGroupPaid('family:Family c1', 'Family c1'), true);
+  assert.match(toasts.at(-1)[1], /2 logged automatically from the weekly schedule; check the total matches what you received/);
 });
