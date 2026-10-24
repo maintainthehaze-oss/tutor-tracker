@@ -347,13 +347,9 @@ button.stat-pill:hover { border-color: var(--accent); }
 
 /* Sync indicator */
 .sync-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  border-radius: 6px;
 }
 .sync-indicator.syncing,
 .sync-indicator.sync-active {
@@ -2125,12 +2121,24 @@ select.input[multiple] {
 .footer-sep {
   opacity: 0.4;
 }
-.footer-hint {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.footer-help { position: relative; }
+.footer-help-btn {
+  list-style: none; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.25rem; height: 1.25rem; border-radius: 50%;
+  border: 1px solid var(--border-default); color: var(--text-muted);
+  font-size: 0.7rem; font-weight: 600; line-height: 1;
 }
-.footer-hint kbd {
+.footer-help-btn::-webkit-details-marker { display: none; }
+.footer-help-btn:hover, .footer-help[open] > .footer-help-btn { color: var(--text-primary); border-color: var(--text-muted); }
+.footer-help-menu {
+  position: absolute; bottom: calc(100% + 0.35rem); left: 0; z-index: 20;
+  display: flex; flex-direction: column; gap: 0.35rem;
+  min-width: 10rem; padding: 0.5rem 0.65rem; white-space: nowrap;
+  background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.footer-help-menu kbd {
   padding: 0.1rem 0.3rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
@@ -2258,10 +2266,6 @@ select.input[multiple] {
     transform: none;
     flex-wrap: wrap;
     justify-content: center;
-  }
-
-  .footer-hint {
-    display: none;
   }
 }
 
@@ -2619,6 +2623,15 @@ select.input[multiple] {
 }
 
 /* Tax flag note (meals 50% reminder) */
+#income-report-notice { margin: 0.25rem 0 0.5rem; }
+.info-toggle {
+  width: 1.25rem; height: 1.25rem; min-width: 0; padding: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-style: italic; font-weight: 600; line-height: 1;
+  color: var(--text-muted); background: transparent; border: 1px solid var(--border-default);
+}
+.info-toggle[hidden] { display: none; }
+.info-toggle[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
 .report-notice-details { margin: -0.25rem 0 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
 .report-notice-details summary { cursor: pointer; color: var(--accent); }
 .report-notice-details ul { margin: 0.35rem 0 0 1.1rem; padding: 0; }

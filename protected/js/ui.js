@@ -598,7 +598,7 @@
   function setupEventDelegation() {
     // The toolbar "More" menu (a <details>) closes after one of its tools is used, or on a click anywhere else.
     document.body.addEventListener('click', (e) => {
-      document.querySelectorAll('details.toolbar-more[open]').forEach((menu) => {
+      document.querySelectorAll('details.toolbar-more[open], details.footer-help[open]').forEach((menu) => {
         if (!menu.contains(e.target) || e.target.closest('.toolbar-more-menu [data-action]')) menu.open = false;
       });
     });
@@ -774,6 +774,7 @@
           if(await App.runCommand('session.update',{ids:[id],patch:{status:'cancelled'}},App.repository.revision)) showToast('Session finalized as cancelled','success',undoToStatus(id,'completed'));
           break;
         case 'calc-mileage': App.calcFormMileage(); break;
+        case 'toggle-income-audit': App.toggleIncomeAudit(); break;
         case 'calc-mileage-by-day': App.calculateMileageByDay(); break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
 

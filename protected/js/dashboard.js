@@ -15,6 +15,7 @@
   const num = App.num;
   const clientName = App.clientName;
 
+  let incomeAuditOpen = false;
   function reportNotice(id, anchor, warnings) {
     if (anchor && anchor.tagName === 'CANVAS') anchor = anchor.parentNode;
     if (!anchor || !anchor.parentNode) return;
@@ -28,7 +29,18 @@
     }
     if (warnings.length) App.reportModel.renderNotice(notice, warnings, 'current-v2'); else { notice.textContent = ''; App.reportModel.renderNotice(notice, [], 'current-v2'); notice.textContent = ''; }
     notice.hidden = !warnings.length;
+    if (id === 'income-report-notice') {
+      notice.hidden = !warnings.length || !incomeAuditOpen;
+      const toggle = $('income-audit-toggle');
+      if (toggle) { toggle.hidden = !warnings.length; toggle.setAttribute('aria-expanded', String(incomeAuditOpen)); }
+    }
   }
+  App.toggleIncomeAudit = () => {
+    incomeAuditOpen = !incomeAuditOpen;
+    const n = $('income-report-notice'), b = $('income-audit-toggle');
+    if (n) n.hidden = !incomeAuditOpen || !n.textContent;
+    if (b) b.setAttribute('aria-expanded', String(incomeAuditOpen));
+  };
 
   /* ==========================================================
      DASHBOARD

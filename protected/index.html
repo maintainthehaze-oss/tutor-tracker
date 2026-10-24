@@ -114,21 +114,6 @@
         </svg>
       </button>
 
-      <div class="sync-indicator" id="sync-indicator" aria-live="polite" title="Sync status">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="23 4 23 10 17 10"></polyline>
-          <polyline points="1 20 1 14 7 14"></polyline>
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-        </svg>
-        <span class="sync-text">Not synced</span>
-        <a class="sync-gist-link" href="#" target="_blank" rel="noopener" style="display:none" title="Open Gist">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <line x1="10" y1="14" x2="21" y2="3"></line>
-          </svg>
-        </a>
-      </div>
     </div>
   </header>
 
@@ -243,6 +228,7 @@
           <header class="chart-header">
             <h2 class="chart-title">Income Trend</h2>
             <div class="chart-controls">
+              <button type="button" class="btn btn-sm btn-icon info-toggle" id="income-audit-toggle" data-action="toggle-income-audit" aria-expanded="false" aria-controls="income-report-notice" title="About these figures" aria-label="About these figures" hidden>i</button>
               <select class="chart-range-select" data-action="income-chart-range" aria-label="Time range">
                 <option value="6">Last 6 Months</option>
                 <option value="12" selected>Last 12 Months</option>
@@ -338,7 +324,6 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
             Filters
           </button>
-          <button class="btn btn-sm" data-action="calc-mileage-by-day" title="Work out mileage for every in-person session that has none, by day, in drive order">Mileage</button>
           <!-- Rarely used tools live under More (ruled 2026-10-11): same actions, same handlers -->
           <details class="toolbar-more" id="sessions-more">
             <summary class="btn btn-sm" aria-label="More session tools">More &#9662;</summary>
@@ -352,6 +337,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 CSV
               </button>
+              <button class="btn btn-sm" data-action="calc-mileage-by-day" title="Work out mileage for every in-person session that has none, by day, in drive order">Mileage</button>
             </div>
           </details>
           <button class="btn btn-primary" data-action="add-session" aria-label="Add new session">
@@ -1363,6 +1349,7 @@
         <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
       </header>
       <div class="modal-body">
+        <p class="sync-indicator" id="sync-indicator" aria-live="polite" title="Sync status">Not synced</p>
         <div class="settings-sections">
 
           <!-- Business Info -->
@@ -1536,13 +1523,14 @@
     <div class="footer-left">
       <span>Tutoring Tracker Pro</span>
       <span class="footer-sep" aria-hidden="true">&middot;</span>
-      <span class="footer-hint">
-        <kbd>Ctrl+K</kbd> Search
-        <span class="footer-sep" aria-hidden="true">&middot;</span>
-        <kbd>Ctrl+N</kbd> New
-        <span class="footer-sep" aria-hidden="true">&middot;</span>
-        <kbd>Esc</kbd> Close
-      </span>
+      <details class="footer-help" id="footer-help">
+        <summary class="footer-help-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts">?</summary>
+        <div class="footer-help-menu" role="note">
+          <div><kbd>Ctrl+K</kbd> Search</div>
+          <div><kbd>Ctrl+N</kbd> New session</div>
+          <div><kbd>Esc</kbd> Close</div>
+        </div>
+      </details>
     </div>
     <div class="footer-right">
       <span id="last-saved" aria-live="polite">Not saved yet</span>

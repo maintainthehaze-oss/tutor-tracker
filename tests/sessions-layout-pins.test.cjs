@@ -48,3 +48,25 @@ test('static: narrow layout pins - toolbar wraps / stacks, table scrolls inside 
   // The tab strip wraps in the same range, so "Tax Summary" is never clipped inside its own strip.
   assert.match(block('.tab-nav', tablet), /flex-wrap:\s*wrap;/, 'tab strip wraps under 768 px');
 });
+
+test('static: Sessions toolbar is Filters / More / Add Session / Week; Mileage lives under More (ruled 2026-10-24)', () => {
+  const html = readSource('index.html');
+  const start = html.indexOf('id="panel-sessions"'), tb = html.indexOf('<div class="panel-toolbar">', start), end = html.indexOf('<!-- Month Navigator -->', tb);
+  assert.ok(start > 0 && tb > start && end > tb);
+  const toolbar = html.slice(tb, end);
+  const right = toolbar.indexOf('<div class="toolbar-right">'), more = toolbar.indexOf('<details class="toolbar-more"');
+  const menuStart = toolbar.indexOf('<div class="toolbar-more-menu"'), menuEnd = toolbar.indexOf('</details>');
+  const mileage = toolbar.indexOf('data-action="calc-mileage-by-day"');
+  assert.ok(mileage > menuStart && mileage < menuEnd, 'Mileage is inside the More menu');
+  assert.ok(!(mileage > right && mileage < more), 'Mileage is not a top-level toolbar button');
+  const direct = toolbar.replace(/<details[\s\S]*?<\/details>/, '');
+  assert.deepEqual([...direct.matchAll(/data-action="([^"]+)"/g)].map(m => m[1]), ['toggle-filters', 'add-session', 'open-week-log']);
+});
+
+test('wiring: the Mileage action still reaches calculateMileageByDay from the More menu', async () => {
+  const ui = await boot();
+  let calls = 0;
+  ui.App.calculateMileageByDay = () => { calls++; };
+  await ui.click('calc-mileage-by-day');
+  assert.equal(calls, 1);
+});
