@@ -667,6 +667,7 @@
         case 'session-month-next': App.setSessionMonth('next'); break;
         case 'session-month-today': App.setSessionMonth('today'); break;
         case 'session-month-all': App.setSessionMonth('all'); break;
+        case 'session-month-goto': App.setSessionMonth(target.getAttribute('data-month')); break;
 
         case 'add-client': App.openClientForm(); break;
         case 'edit-client': App.openClientForm(id); break;
@@ -689,7 +690,7 @@
         case 'toggle-session-client': App.toggleSessionClient(target); break;
         case 'set-session-duration': App.setSessionDuration(target.getAttribute('data-minutes')); break;
 
-        case 'add-session': App.openSessionForm(); break;
+        case 'add-session': App.openSessionForm(undefined, target.getAttribute('data-date') || undefined); break;
         case 'edit-session': App.openSessionForm(id); break;
         case 'view-original': App.openSessionDetail($('session-id').value); break;
         case 'delete-session': App.deleteSession(id); break;

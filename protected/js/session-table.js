@@ -75,6 +75,32 @@
     }
   }
 
+  /** Empty-month state: message + Show all time, the next scheduled session anywhere (if any), and Add Session. */
+  function emptyMonthHtml() {
+    const today = App.todayISO();
+    const next = App.state.sessions
+      .filter((s) => s.status === 'scheduled' && s.date && s.date >= today)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.time || '').localeCompare(String(b.time || '')))[0];
+    let html = '<div class="empty-line">No sessions in ' + escapeHtml(monthLabel(sessionMonth)) +
+      '. <button class="btn btn-sm" data-action="session-month-all">Show all time</button></div>';
+    if (next) {
+      const [y, m, d] = next.date.split('-').map(Number);
+      const when = new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      const names = (next.clientIds || []).map((id) => {
+        const c = App.state.clients.find((cl) => String(cl.id) === String(id));
+        return c ? clientName(c) : 'Unknown';
+      }).join(', ');
+      html += '<div class="empty-line">Next up: ' + escapeHtml(when) + (next.time ? ' · ' + escapeHtml(next.time) : '') +
+        ' · ' + escapeHtml(names) + ' · ' + formatCurrency(next.amount) +
+        ' <button class="btn btn-sm" data-action="session-month-goto" data-month="' + escapeHtml(next.date.slice(0, 7)) + '">Go to that month</button></div>';
+    }
+    // Prefill: first of the shown month when that is in the future, otherwise today (the form's default).
+    const first = sessionMonth + '-01';
+    const prefill = first > today ? first : today;
+    html += '<div class="empty-line"><button class="btn btn-primary btn-sm" data-action="add-session" data-date="' + escapeHtml(prefill) + '">Add Session</button></div>';
+    return html;
+  }
+
   function renderSessions() {
     const sessions = App.state.sessions;
 
@@ -120,9 +146,7 @@
     if (!tbody) return;
 
     if (filtered.length === 0) {
-      const hint = sessionMonth
-        ? 'No sessions in ' + escapeHtml(monthLabel(sessionMonth)) + '. <button class="btn btn-sm" data-action="session-month-all">Show all time</button>'
-        : 'No sessions match your filters';
+      const hint = sessionMonth ? emptyMonthHtml() : 'No sessions match your filters';
       tbody.innerHTML = '<tr class="empty-row"><td colspan="9">' + hint + '</td></tr>';
       updateSessionTotals([]);
       updateBulkBar();

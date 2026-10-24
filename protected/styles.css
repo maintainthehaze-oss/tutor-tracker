@@ -1120,6 +1120,14 @@ button.stat-pill:hover { border-color: var(--accent); }
   font-style: italic;
 }
 
+.empty-row .empty-line + .empty-line {
+  margin-top: 0.6rem;
+}
+.empty-row .empty-line .btn {
+  margin-left: 0.4rem;
+  font-style: normal;
+}
+
 /* Row selection */
 .data-table tbody tr.selected {
   background: var(--accent-subtle);
