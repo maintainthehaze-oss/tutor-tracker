@@ -1,6 +1,6 @@
 # 2026-10-24 — Dashboard / toolbar / chrome polish (Fable 5.1 primary, Sonnet implementer)
 
-Three small UI changes MTH approved in the 2026-10-24 review. Built as one commit, NOT pushed (rides with the next "Ship it").
+Three small UI changes MTH approved in the 2026-10-24 review. Shipped 2026-10-24: `main` `076de6b → 7dfd229`, live files verified identical via curl (CRLF normalised).
 
 ## What changed
 1. **Income Trend audit text behind an info toggle.** The "Current v2: stored historical shares…" paragraph (`#income-report-notice`) is hidden until the round "i" button in the card header (`#income-audit-toggle`, `data-action="toggle-income-audit"`) is pressed. The button only appears when there are warnings. The "Show the N records" link stays visible. `dashboard.js` (`incomeAuditOpen`, `App.toggleIncomeAudit`), `ui.js` (one click case), `index.html`, `styles.css`.
