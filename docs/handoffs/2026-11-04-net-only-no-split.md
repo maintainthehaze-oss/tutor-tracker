@@ -16,7 +16,7 @@ Every Dashboard comparison is now net vs net, charts included (the Income Trend 
 | R4 | **Locked-record evidence stays visible**: the View original dialog still lists "Company share percent / amount" (now never hidden); the Clients form's "Historical company details" section is unchanged. | Audit evidence of immutable records; it was only ever hidden by the toggle. |
 | R5 | Reports labels: "Your Cut (after split)" → **Net Revenue**; "Net Profit (after split, expenses, mileage)" → **Net Profit (after expenses, mileage)**; family table "Your Cut" → **Net**. "Total Income" (gross) and the family "Gross" column stay. | Gross is a distinct figure the tax tab also uses; only the split wording goes. |
 | R6 | The Dashboard Net card has no sub-line any more (was "Gross: $x \| Historical share: $y"); the report-model warning notice now anchors on the trend line. | Nothing gross on the Dashboard. |
-| R7 | `tutoring-show-split` localStorage key: the app **no longer reads or writes** it; existing values are left in place (never deleted). `SECURITY-PRIVACY.md` line 22 still lists the key. **Left for MTH**: published privacy text is reserved; the one-line edit is to drop `tutoring-show-split` from that row. | Privacy text is MTH-only. |
+| R7 | `tutoring-show-split` localStorage key: the app **no longer reads or writes** it; existing values are left in place (never deleted). `SECURITY-PRIVACY.md` now lists the key as retired (no longer read or written, leftover copy inert), edited on MTH's "finish everything here" after the ship. | Privacy text is MTH-only; he authorised this edit. |
 | R8 | Income Trend: Net Revenue becomes the filled line (it was the unfilled third line under Gross). Dashed "Net, a year earlier" unchanged. | One series needs the fill to read as the series. |
 
 ## Files
@@ -56,9 +56,8 @@ Every Dashboard comparison is now net vs net, charts included (the Income Trend 
 - Real data (a real legacy share would have shown in the removed places; the net figures themselves are unchanged).
 - Light theme for this change (CSS change is one deleted rule; nothing theme-specific).
 - Print stylesheet with the narrower tables.
-- `SECURITY-PRIVACY.md` line 22 still names `tutoring-show-split` (R7, MTH's edit).
 
 ## Next
 
 1. MTH: "Ship it" → push from his terminal (this commit + the slice-2 handoff commit 527d443), hard-refresh, check Dashboard charts and the Sessions table width.
-2. MTH: drop `tutoring-show-split` from `SECURITY-PRIVACY.md` line 22 (one-line edit, his call).
+2. Done 2026-11-04: `SECURITY-PRIVACY.md` row for `tutoring-show-split` marked retired (commit after 8f37ada).
