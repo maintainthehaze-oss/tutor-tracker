@@ -1,6 +1,6 @@
 # 2026-11-04 — Sessions-tab monthly calendar (dashboard slice 2)
 
-Tool: Claude Code, Fable 5.1 (side session started by the slice-1 session). State: **built, tested, browser-observed on the fabricated preview, committed locally, NOT pushed** (MTH pushes after "Ship it").
+Tool: Claude Code, Fable 5.1 (side session started by the slice-1 session). State: **SHIPPED** — MTH said "Ship it" and pushed `f197cd8` from his own terminal; all six changed live files curled identical to local (CRLF-normalised) on the first poll (~20 s), markers `session-view` / `calendar-grid` / `dash-scheduled-count` / `renderSessionCalendar` present.
 
 ## What changed (one sentence)
 
@@ -59,7 +59,7 @@ Quick add and chip open are the **existing** paths: `data-action="add-session" d
 - Real data (fixture only). A month with 6+ sessions on one day (cells grow; no cap or "+N more" — ruled unnecessary for one tutor, veto if wrong).
 - Widths under ~800 px (desktop-only ruling). Print stylesheet (grid not hidden on print; untested).
 - `showMonthOf` after a save from calendar mode: pinned in code (view survives, `App.getSessionView()` stays `'calendar'`), not clicked through in the browser.
-- Live deploy: nothing pushed.
+- Live deploy verified by curl only; MTH's hard-refresh + a click on Sessions → Calendar on real data not yet reported.
 
 ## Next
 
