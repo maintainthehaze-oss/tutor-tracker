@@ -21,4 +21,4 @@ The Week button was the only entry into the "Log a week" modal (Slice A, 2026-10
 - NOT observed: light theme, real data.
 
 ## State
-1 local commit on `main`, NOT pushed. Next: "Ship it", then hard-refresh the live site and open Sessions.
+SHIPPED on MTH's "Ship it": `main` `211107d → 285d688`, pushed by MTH from his own terminal (the session push was blocked by the deploy gate, as expected). Live `protected/index.html`, `js/ui.js`, `styles.css` identical to the commit after CRLF normalisation via curl on the 2nd poll (~40 s); `js/week-log.js` returns 404. Next: hard-refresh the live site and open Sessions.
