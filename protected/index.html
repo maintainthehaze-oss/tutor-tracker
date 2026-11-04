@@ -194,7 +194,6 @@
           <div class="card-data">
             <span class="card-value" id="dash-net">$0</span>
             <span class="card-label">Net so far</span>
-            <span class="card-sub" id="dash-gross-split">Gross: $0</span>
             <span class="card-trend" id="dash-revenue-trend" aria-label="Trend"></span>
           </div>
         </article>
@@ -346,7 +345,6 @@
           <details class="toolbar-more" id="sessions-more">
             <summary class="btn btn-sm" aria-label="More session tools">More &#9662;</summary>
             <div class="toolbar-more-menu" role="menu">
-              <button class="btn btn-sm" data-action="toggle-split" aria-pressed="false" title="Show or hide company split figures">Show split</button>
               <button class="btn btn-sm" data-action="toggle-edit-mode" aria-pressed="false">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                 Edit Mode
@@ -455,7 +453,6 @@
               <th data-sort="client" class="sortable col-client" aria-sort="none" tabindex="0" role="button">Client(s)</th>
               <th data-sort="duration" class="sortable" aria-sort="none" tabindex="0" role="button">Duration</th>
               <th data-sort="amount" class="sortable" aria-sort="none" tabindex="0" role="button">Amount</th>
-              <th data-sort="split" class="split-info">Split</th>
               <th data-sort="mileage">Mileage</th>
               <th data-sort="payment" class="sortable col-pay-status" aria-sort="none" tabindex="0" role="button">Payment &middot; Status</th>
               <th class="col-actions">Actions</th>
@@ -463,7 +460,7 @@
           </thead>
           <tbody id="sessions-tbody">
             <tr class="empty-row">
-              <td colspan="9">No sessions recorded yet</td>
+              <td colspan="8">No sessions recorded yet</td>
             </tr>
           </tbody>
           <tfoot id="sessions-tfoot">
@@ -472,7 +469,6 @@
               <td colspan="3"><strong>Totals</strong></td>
               <td id="total-duration">0h</td>
               <td id="total-amount">$0</td>
-              <td class="split-info"></td>
               <td id="total-mileage">0 mi</td>
               <td colspan="2"></td>
             </tr>
@@ -608,7 +604,6 @@
           </select>
         </div>
         <button class="btn btn-sm btn-link" data-action="report-filter-reset">Reset</button>
-        <button class="btn btn-sm" data-action="toggle-split" aria-pressed="false" title="Show or hide company split figures">Show split</button>
       </div>
 
       <p id="report-notice" class="tax-flag-note" role="status"></p>
@@ -620,16 +615,10 @@
             <span class="card-label">Total Income</span>
           </div>
         </article>
-        <article class="summary-card split-info">
-          <div class="card-data">
-            <span class="card-value" id="report-company-split">$0</span>
-            <span class="card-label">Historical Share</span>
-          </div>
-        </article>
         <article class="summary-card">
           <div class="card-data">
             <span class="card-value" id="report-your-cut">$0</span>
-            <span class="card-label">Your Cut (after split)</span>
+            <span class="card-label">Net Revenue</span>
           </div>
         </article>
         <article class="summary-card">
@@ -641,7 +630,7 @@
         <article class="summary-card">
           <div class="card-data">
             <span class="card-value" id="report-net-profit">$0</span>
-            <span class="card-label">Net Profit (after split, expenses, mileage)</span>
+            <span class="card-label">Net Profit (after expenses, mileage)</span>
           </div>
         </article>
         <article class="summary-card">
@@ -669,7 +658,6 @@
               <th>Sessions</th>
               <th>Hours</th>
               <th>Income</th>
-              <th class="split-info">Historical Share</th>
               <th>Expenses</th>
               <th>Net</th>
               <th>Miles</th>
@@ -685,7 +673,6 @@
               <td id="report-foot-sessions">0</td>
               <td id="report-foot-hours">0</td>
               <td id="report-foot-income">$0</td>
-              <td id="report-foot-split" class="split-info">$0</td>
               <td id="report-foot-expenses">$0</td>
               <td id="report-foot-net">$0</td>
               <td id="report-foot-miles">0</td>
@@ -706,8 +693,7 @@
                 <th>Sessions</th>
                 <th>Hours</th>
                 <th>Gross</th>
-                <th class="split-info">Historical Share</th>
-                <th>Your Cut</th>
+                <th>Net</th>
                 <th>Outstanding</th>
               </tr>
             </thead>
@@ -720,7 +706,6 @@
                 <td id="family-foot-sessions">0</td>
                 <td id="family-foot-hours">0</td>
                 <td id="family-foot-gross">$0</td>
-                <td id="family-foot-split" class="split-info">$0</td>
                 <td id="family-foot-cut">$0</td>
                 <td id="family-foot-outstanding">$0</td>
               </tr>
@@ -1071,7 +1056,7 @@
             <small class="family-suggest" id="client-family-suggest" hidden></small>
           </div>
 
-          <section class="form-group-full split-info" id="client-legacy-details" hidden>
+          <section class="form-group-full" id="client-legacy-details" hidden>
             <h3>Historical company details — read-only</h3>
             <p>Saved evidence only. These values do not apply to new sessions. Quoted values retain their original text type; null means a saved empty value.</p>
             <pre id="client-legacy-content" class="record-evidence"></pre>

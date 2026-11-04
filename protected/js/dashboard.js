@@ -128,11 +128,8 @@
 
     // Net so far (month to date)
     setText('dash-net', formatCurrency(current.yourCut));
-    const dashGrossSplit = $('dash-gross-split');
-    // formatCurrency output is digits/punctuation only, safe to inject.
-    if (dashGrossSplit) dashGrossSplit.innerHTML = 'Gross: ' + formatCurrency(current.gross) +
-      (current.hasLegacyShare ? '<span class="split-info"> | Historical share: ' + formatCurrency(current.companySplit) + '</span>' : '');
-    reportNotice('dashboard-report-notice', dashGrossSplit, cmp.warnings);
+    // Net only on the Dashboard (ruled 2026-11-04): no gross figure, no historical-share figure, every trend net vs net.
+    reportNotice('dashboard-report-notice', $('dash-revenue-trend'), cmp.warnings);
     setTrend('dash-revenue-trend', current.yourCut, previous.yourCut, formatCurrency(previous.yourCut) + ' in ' + cmp.previousLabel);
 
     // On pace for: realized so far plus everything still scheduled this month, against the comparison month's final
@@ -274,8 +271,7 @@
       labels.push(d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
     }
 
-    const grossData = [];
-    const companyData = [];
+    // Net only (ruled 2026-11-04): the trend compares net revenue with net revenue a year earlier, nothing else.
     const netData = [];
     const countData = [];
     // Same months one year earlier, so Oct 2026 sits directly over Oct 2025 (ruled 2026-11-04). Not drawn on All Time.
@@ -287,15 +283,11 @@
         .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     });
 
-    let hasLegacyShare = false;
     const warnings = [];
     months.forEach((m) => {
       const metrics = App.reportModel.metrics({ month: m });
-      grossData.push(metrics.gross);
-      companyData.push(metrics.companySplit);
       netData.push(metrics.yourCut);
       countData.push(metrics.sessionCount);
-      hasLegacyShare = hasLegacyShare || metrics.hasLegacyShare;
       warnings.push(...metrics.warnings);
       if (rangeVal !== 'all') {
         const earlier = App.reportModel.metrics({ month: shiftMonth(m, -12) });
@@ -315,33 +307,11 @@
         labels,
         datasets: [
           {
-            label: 'Gross Income',
-            data: grossData,
-            borderColor: colors.primary,
-            backgroundColor: colors.primary + '18',
-            fill: true,
-            tension: 0.3,
-            pointRadius: rangeVal === 'all' ? 2 : 4,
-            pointHoverRadius: 6,
-            order: 3,
-          },
-          {
-            label: 'Historical share',
-            data: companyData,
-            borderColor: colors.secondary,
-            backgroundColor: colors.secondary + '18',
-            fill: true,
-            tension: 0.3,
-            pointRadius: rangeVal === 'all' ? 2 : 3,
-            pointHoverRadius: 5,
-            order: 2,
-          },
-          {
             label: 'Net Revenue',
             data: netData,
             borderColor: colors.success,
             backgroundColor: colors.success + '28',
-            fill: false,
+            fill: true,
             tension: 0.3,
             pointRadius: rangeVal === 'all' ? 2 : 4,
             pointHoverRadius: 6,
@@ -361,8 +331,7 @@
             pointHoverRadius: 4,
             order: 0,
           },
-        ].filter((dataset) => (dataset.label !== 'Historical share' || (hasLegacyShare && App.showSplit())) &&
-                              (dataset.label !== 'Net, a year earlier' || showPrevYear)),
+        ].filter((dataset) => dataset.label !== 'Net, a year earlier' || showPrevYear),
       },
       options: {
         responsive: true,

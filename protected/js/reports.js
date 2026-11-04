@@ -69,13 +69,10 @@
     // Net profit = your cut (gross - company split) - expenses - mileage deduction
     const netProfit = M.netProfit;
     App.reportModel.renderNotice($('report-notice'), M.warnings, mode);
-    const shareCard = $('report-company-split');
-    if (shareCard) shareCard.closest('article').hidden = !M.hasLegacyShare;
 
-    // Summary cards
+    // Summary cards (no Historical Share card since 2026-11-04; the CSV export still carries the column)
     const set = (id, val) => { const el = $(id); if (el) el.textContent = val; };
     set('report-total-income', formatCurrency(M.gross));
-    set('report-company-split', formatCurrency(M.companySplit));
     set('report-your-cut', formatCurrency(M.yourCut));
     set('report-total-expenses', formatCurrency(totalExpenses));
     set('report-net-profit', formatCurrency(netProfit));
@@ -103,21 +100,19 @@
             '<td>' + mm.sessionCount + '</td>' +
             '<td>' + formatDuration(mm.hours) + '</td>' +
             '<td>' + formatCurrency(mm.gross) + '</td>' +
-            '<td class="split-info">' + formatCurrency(mm.companySplit) + '</td>' +
             '<td>' + formatCurrency(mExp) + '</td>' +
             '<td>' + formatCurrency(mm.netProfit) + '</td>' +
             '<td>' + mm.miles.toFixed(1) + '</td>' +
             '<td>' + formatCurrency(mm.mileageDeduction) + '</td>' +
           '</tr>';
       }
-      tbody.innerHTML = rows || '<tr><td colspan="9">No data for this selection</td></tr>';
+      tbody.innerHTML = rows || '<tr><td colspan="8">No data for this selection</td></tr>';
     }
 
     // Footer totals
     set('report-foot-sessions', M.sessionCount);
     set('report-foot-hours', formatDuration(M.hours));
     set('report-foot-income', formatCurrency(M.gross));
-    set('report-foot-split', formatCurrency(M.companySplit));
     set('report-foot-expenses', formatCurrency(totalExpenses));
     set('report-foot-net', formatCurrency(netProfit));
     set('report-foot-miles', M.miles.toFixed(1));
@@ -135,7 +130,7 @@
 
     const rows = M.groups;
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7">No data for this selection</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6">No data for this selection</td></tr>';
     } else {
       tbody.innerHTML = rows.map((g) =>
         '<tr>' +
@@ -143,7 +138,6 @@
           '<td>' + g.sessions + '</td>' +
           '<td>' + formatDuration(g.hours) + '</td>' +
           '<td>' + formatCurrency(g.gross) + '</td>' +
-          '<td class="split-info">' + formatCurrency(g.companySplit) + '</td>' +
           '<td>' + formatCurrency(g.yourCut) + '</td>' +
           '<td>' + (g.outstanding > 0 ? '<span class="owe">' + formatCurrency(g.outstanding) + '</span>' : '—') + '</td>' +
         '</tr>'
@@ -154,7 +148,6 @@
     set('family-foot-sessions', M.sessionCount);
     set('family-foot-hours', formatDuration(M.hours));
     set('family-foot-gross', formatCurrency(M.gross));
-    set('family-foot-split', formatCurrency(M.companySplit));
     set('family-foot-cut', formatCurrency(M.yourCut));
     set('family-foot-outstanding', formatCurrency(M.outstanding));
   }

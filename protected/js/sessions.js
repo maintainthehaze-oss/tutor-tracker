@@ -54,8 +54,7 @@
     ];
     content.innerHTML = '<p>Original stored values. Missing means the field was not stored; null is an explicitly stored empty value. Quoted values are text. No values below are recalculated.</p>' +
       '<dl>' + fields.map(([label, field]) => {
-        const cls = /^company/.test(field) ? ' class="split-info"' : '';
-        return '<dt' + cls + '>' + label + '</dt><dd' + cls + '>' + escapeHtml(rawValue(field)) + '</dd>';
+        return '<dt>' + label + '</dt><dd>' + escapeHtml(rawValue(field)) + '</dd>';
       }).join('') + '</dl>';
     const appendEvidence = (label, value) => {
       const heading = document.createElement('h3');

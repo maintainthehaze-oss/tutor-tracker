@@ -178,8 +178,8 @@
         break;
 
       case 'report': {
-        // Same shared metrics model as the on-screen Reports table, so the
-        // exported numbers (incl. company split and net) match what's shown.
+        // Same shared metrics model as the on-screen Reports table, so the exported numbers match what's
+        // shown; the CSV keeps the Historical Share column (data export) although the screen no longer shows it.
         const mode = App.reportModel.mode('report');
         const filter = App.getReportFilter();
         const year = parseInt(filter.year);
@@ -625,7 +625,6 @@
 
       switch (action) {
         case 'toggle-theme': App.toggleTheme(); break;
-        case 'toggle-split': App.toggleSplit(); break;
         case 'open-settings': openSettings(); break;
         case 'global-search':
           openModal('modal-search');

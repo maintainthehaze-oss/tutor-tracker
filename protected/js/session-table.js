@@ -147,7 +147,7 @@
 
     if (filtered.length === 0) {
       const hint = sessionMonth ? emptyMonthHtml() : 'No sessions match your filters';
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">' + hint + '</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">' + hint + '</td></tr>';
       updateSessionTotals([]);
       updateBulkBar();
       if (App.renderSessionCalendar) App.renderSessionCalendar(filtered);
@@ -196,8 +196,6 @@
     const statusClass = 'status-badge status-' + escapeHtml(s.status || 'completed');
     const isSelected = selectedSessions.has(s.id);
 
-    const splitAmount = num(s.companyAmount);
-
     // Cancelled / no-show sessions carry no charge (owner ruling 2026-09-15):
     // show a dash instead of an amount and a payment state.
     const noCharge = s.status === 'cancelled' || s.status === 'no-show';
@@ -205,10 +203,6 @@
     const paymentCell = noCharge
       ? '<span title="No charge: session did not happen">&mdash;</span>'
       : '<span class="payment-badge ' + paymentClass + '">' + paymentLabel + '</span>';
-    const splitDisplay = splitAmount > 0
-      ? escapeHtml(num(s.companySplit)) + '% / ' + formatCurrency(splitAmount)
-      : '-';
-
     const weeklyTag = s.recurring && s.recurring.slotId ? ' <span class="outstanding-tag">weekly</span>' : '';
     const protectedRow = App.isProtectedSession(s.id);
     // Pre-activation sessions that were still scheduled at activation are read-only, so their outcome is
@@ -228,7 +222,6 @@
         '<td class="col-client">' + escapeHtml(clientNames) + typeNote + weeklyTag + '</td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.duration) + '" step="0.25" min="0.25" data-field="duration" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
         '<td><input type="number" class="input input-sm" value="' + num(s.amount) + '" step="0.01" min="0" data-field="amount" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '"></td>' +
-        '<td class="split-info">' + splitDisplay + '</td>' +
         '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
         '<td class="col-pay-status"><select class="input input-sm" data-field="payment" data-action="inline-edit" data-id="' + escapeHtml(s.id) + '">' +
           '<option value="paid"' + (s.paid ? ' selected' : '') + '>Paid</option>' +
@@ -252,7 +245,6 @@
       '<td class="col-client">' + escapeHtml(clientNames || '-') + typeNote + weeklyTag + '</td>' +
       '<td>' + formatDuration(s.duration) + '</td>' +
       '<td>' + amountDisplay + '</td>' +
-      '<td class="split-info">' + splitDisplay + '</td>' +
       '<td>' + (num(s.mileage) > 0 ? num(s.mileage).toFixed(1) + ' mi' : '-') + '</td>' +
       '<td class="col-pay-status">' + paymentCell + ' ' + statusCell + '</td>' +
       '<td class="col-actions">' +

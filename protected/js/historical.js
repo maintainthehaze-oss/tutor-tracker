@@ -51,18 +51,13 @@
     const sessions = App.reportModel.context().sessions;
     const sorted = Array.from(new Set(sessions.filter((s) => s.status === 'completed' && typeof s.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.date) && Number.isFinite(Date.parse(s.date + 'T00:00:00'))).map((s) => s.date.slice(0, 4)))).sort();
     const labels = [];
-    const grossData = [];
-    const cpData = [];
+    // Net only (ruled 2026-11-04): one bar per year, net revenue; no gross or historical-share bars.
     const netData = [];
-    let hasLegacyShare = false;
     const warnings = [];
     sorted.forEach(function (yr) {
       const metrics = App.reportModel.metrics({ year: yr });
       labels.push(yr);
-      grossData.push(metrics.gross);
-      cpData.push(metrics.companySplit);
       netData.push(metrics.yourCut);
-      hasLegacyShare = hasLegacyShare || metrics.hasLegacyShare;
       warnings.push(...metrics.warnings);
     });
     let notice = document.getElementById('yoy-report-notice');
@@ -80,8 +75,6 @@
     const textColor = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.7)';
     const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
     const colorNet  = isDark ? '#2ecc71' : '#27ae60';
-    const colorGross= isDark ? '#6c63ff' : '#5a52d5';
-    const colorCp   = isDark ? '#ff6584' : '#e8547a';
 
     if (App.state.yoyChart) {
       App.state.yoyChart.destroy();
@@ -111,25 +104,7 @@
             borderRadius: 4,
             order: 1,
           },
-          {
-            label: 'Gross Revenue',
-            data: grossData,
-            backgroundColor: colorGross + '55',
-            borderColor: colorGross,
-            borderWidth: 1,
-            borderRadius: 4,
-            order: 2,
-          },
-          {
-            label: 'Historical share',
-            data: cpData,
-            backgroundColor: colorCp + '55',
-            borderColor: colorCp,
-            borderWidth: 1,
-            borderRadius: 4,
-            order: 3,
-          },
-        ].filter((dataset) => dataset.label !== 'Historical share' || (hasLegacyShare && App.showSplit())),
+        ],
       },
       options: {
         responsive: true,

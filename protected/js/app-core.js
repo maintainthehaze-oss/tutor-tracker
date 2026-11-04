@@ -438,30 +438,10 @@
     updateThemeColor();
   }
 
-  /* ---- Company split visibility (collapsed by default, owner ruling 2026-09-10) ----
-     Every split figure in the UI carries class "split-info"; body.split-collapsed
-     hides them via CSS. Preference is per-device (localStorage), not synced data. */
-  const SPLIT_PREF_KEY = 'tutoring-show-split';
-  function showSplit() {
-    try { return localStorage.getItem(SPLIT_PREF_KEY) === '1'; } catch (e) { return false; }
-  }
-  function applySplitPref() {
-    const show = showSplit();
-    if (document.body) document.body.classList.toggle('split-collapsed', !show);
-    document.querySelectorAll('[data-action="toggle-split"]').forEach((btn) => {
-      btn.setAttribute('aria-pressed', show ? 'true' : 'false');
-      btn.textContent = show ? 'Hide split' : 'Show split';
-    });
-  }
-  function toggleSplit() {
-    const next = !showSplit();
-    try { localStorage.setItem(SPLIT_PREF_KEY, next ? '1' : '0'); } catch (e) { /* private mode: session-only */ }
-    applySplitPref();
-    // Chart datasets are built from the preference, so re-render the visible tab.
-    try { App.renderTab(activeTab); } catch (e) { /* tab not ready yet */ }
-  }
-  if (document.body) applySplitPref();
-  else document.addEventListener('DOMContentLoaded', applySplitPref);
+  /* Company split figures are no longer shown anywhere (ruled 2026-11-04): the "Show split" toggle, the
+     Split column, the Historical Share card/columns and the gross/share chart lines are gone. The stored
+     companySplit / companyAmount values on locked records are untouched; net = gross - split still comes from
+     App.reportModel. The old per-device preference key is simply no longer read. */
 
   function toggleTheme() {
     const current = document.documentElement.getAttribute('data-theme');
@@ -564,9 +544,6 @@
   // Theme
   App.initTheme = initTheme;
   App.toggleTheme = toggleTheme;
-  App.showSplit = showSplit;
-  App.toggleSplit = toggleSplit;
-  App.applySplitPref = applySplitPref;
   App.updateThemeColor = updateThemeColor;
 
   // Tab system
