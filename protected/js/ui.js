@@ -668,6 +668,8 @@
         case 'session-month-today': App.setSessionMonth('today'); break;
         case 'session-month-all': App.setSessionMonth('all'); break;
         case 'session-month-goto': App.setSessionMonth(target.getAttribute('data-month')); break;
+        case 'session-view': App.setSessionView(target.getAttribute('data-view')); break;
+        case 'open-calendar': App.openSessionCalendar(); break;
 
         case 'add-client': App.openClientForm(); break;
         case 'edit-client': App.openClientForm(id); break;

@@ -1319,6 +1319,125 @@ button.stat-pill:hover { border-color: var(--accent); }
   color: #fff;
 }
 
+/* --- List / Calendar toggle + month calendar (Sessions tab, ruled 2026-11-04; desktop only) --- */
+.view-toggle {
+  display: inline-flex;
+  margin-left: auto;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.view-toggle .btn {
+  border: none;
+  border-radius: 0;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+.view-toggle .btn + .btn { border-left: 1px solid var(--border-default); }
+.view-toggle .btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.session-calendar {
+  margin-bottom: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-default);
+}
+.calendar-weekdays span {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border-muted);
+}
+.calendar-day {
+  min-height: 7rem;
+  padding: 0.3rem 0.4rem 0.45rem;
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.calendar-day.is-outside { background: var(--bg-page); }
+.calendar-day.is-today { box-shadow: inset 0 0 0 2px var(--accent); }
+.calendar-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.6rem;
+}
+.calendar-day-number {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.calendar-day.is-today .calendar-day-number { color: var(--accent); }
+.calendar-add {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  line-height: 1;
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.calendar-day:hover .calendar-add,
+.calendar-day:focus-within .calendar-add { opacity: 1; }
+.calendar-day-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.calendar-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  text-align: left;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  cursor: pointer;
+}
+.calendar-chip:hover { border-color: var(--accent); }
+.calendar-chip .chip-time { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.calendar-chip .chip-label { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-weight: 600; }
+.calendar-chip .chip-duration { flex-shrink: 0; color: var(--text-muted); }
+.calendar-chip.chip-scheduled { border-left-color: var(--color-info); background: var(--color-info-bg); }
+.calendar-chip.chip-completed { border-left-color: var(--color-success); background: var(--color-success-bg); }
+.calendar-chip.chip-unpaid { border-left-color: var(--color-warning); background: var(--color-warning-bg); }
+.calendar-chip.chip-muted { border-left-color: var(--text-muted); opacity: 0.55; }
+.calendar-chip.chip-muted .chip-label { text-decoration: line-through; }
+
+/* --- Dashboard: one line linking to the Sessions calendar (no grid on the Dashboard) --- */
+.dashboard-calendar-line {
+  margin: 0.5rem 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 /* --- Owed panel (Sessions tab) --- */
 .owed-sub {
   margin-left: 0.4rem;

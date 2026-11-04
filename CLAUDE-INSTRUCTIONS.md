@@ -29,7 +29,7 @@ Every file is an IIFE. `app-core.js` creates `window.App`; each module exposes i
 - "Ship it" is the ONLY push/deploy authorization. A user-scope pre-push hook blocks `git push origin main` until MTH creates the session's ship-it file from his own terminal (the hook prints the exact command). Spell remotes literally.
 - Reserved for MTH: legal/compliance, published privacy text (`SECURITY-PRIVACY.md` promises), security posture, spending, deploys. Everything else: decide, state the ruling, move on.
 - Never commit data files (`historical_sessions.json`, `tutoring-backup-*.json`, `*recovery*.json`, `local-config.js`, `*.bat`). Never put real client names, addresses or the home address in code, tests, docs or commit messages.
-- Dark theme is primary. No build tools, no framework migration. Heatmap, calendar and the Dashboard "This week" strip were removed on purpose; do not re-add.
+- Dark theme is primary. No build tools, no framework migration. Heatmap and the Dashboard "This week" strip were removed on purpose; do not re-add. The Dashboard stays calendar-free (week/calendar widgets were removed from it twice), but MTH ruled on 2026-11-04 that a monthly calendar IS wanted as a List / Calendar toggle inside the Sessions tab (`protected/js/session-calendar.js`); the Dashboard carries at most one line linking to it.
 
 ## Handoffs
 

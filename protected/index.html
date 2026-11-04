@@ -235,6 +235,9 @@
         </article>
       </div>
 
+      <!-- One line only: the calendar itself lives in the Sessions tab (ruled 2026-11-04; no calendar on the Dashboard) -->
+      <p class="dashboard-calendar-line" id="dashboard-calendar-line"><span id="dash-scheduled-count">0 sessions scheduled this month</span> &middot; <button type="button" class="btn-link-inline" data-action="open-calendar">Open calendar</button></p>
+
       <!-- Charts Row -->
       <div class="charts-row">
         <article class="chart-card chart-card-full" aria-label="Income trend chart">
@@ -372,6 +375,11 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
         <button class="btn btn-sm" data-action="session-month-all" id="session-month-all" aria-pressed="false">All time</button>
+        <!-- List / Calendar toggle (ruled 2026-11-04): in memory only, the calendar is by month -->
+        <div class="view-toggle" role="group" aria-label="Sessions view">
+          <button class="btn btn-sm active" data-action="session-view" data-view="list" id="session-view-list" aria-pressed="true">List</button>
+          <button class="btn btn-sm" data-action="session-view" data-view="calendar" id="session-view-calendar" aria-pressed="false">Calendar</button>
+        </div>
       </nav>
 
       <!-- Filter Panel -->
@@ -433,8 +441,11 @@
         </ul>
       </details>
 
+      <!-- Month calendar (calendar mode only): one cell per day, chips per session, hover "+" to add on that day -->
+      <div class="session-calendar" id="session-calendar" role="region" aria-label="Sessions calendar" hidden></div>
+
       <!-- Sessions Table -->
-      <div class="table-wrapper" role="region" aria-label="Sessions table" tabindex="0">
+      <div class="table-wrapper" role="region" aria-label="Sessions table" tabindex="0" id="sessions-table-wrap">
         <table class="data-table" id="sessions-table">
           <thead>
             <tr>
@@ -1540,6 +1551,7 @@
   <script src="js/clients.js" defer></script>
   <script src="js/sessions.js" defer></script>
   <script src="js/session-table.js" defer></script>
+  <script src="js/session-calendar.js" defer></script>
   <script src="js/session-form.js" defer></script>
   <script src="js/mileage.js" defer></script>
   <script src="js/signatures.js" defer></script>

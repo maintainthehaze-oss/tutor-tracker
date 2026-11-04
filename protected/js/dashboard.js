@@ -123,6 +123,8 @@
     const select = document.querySelector('[data-action="dashboard-compare"]');
     if (select && select.value !== compareMode) select.value = compareMode;
     setText('dashboard-compare-label', cmp.currentLabel + ' vs ' + cmp.previousLabel);
+    // One-line link to the Sessions-tab calendar (ruled 2026-11-04): count only, no grid here.
+    setText('dash-scheduled-count', cmp.pace.scheduledCount + ' session' + (cmp.pace.scheduledCount === 1 ? '' : 's') + ' scheduled this month');
 
     // Net so far (month to date)
     setText('dash-net', formatCurrency(current.yourCut));

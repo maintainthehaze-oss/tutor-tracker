@@ -150,6 +150,7 @@
       tbody.innerHTML = '<tr class="empty-row"><td colspan="9">' + hint + '</td></tr>';
       updateSessionTotals([]);
       updateBulkBar();
+      if (App.renderSessionCalendar) App.renderSessionCalendar(filtered);
       return;
     }
 
@@ -157,6 +158,8 @@
     updateSessionTotals(filtered);
     updateBulkBar();
     updateSortHeaders();
+    // List / Calendar toggle (session-calendar.js): same filtered rows, one of the two views shown.
+    if (App.renderSessionCalendar) App.renderSessionCalendar(filtered);
   }
 
   /** Reflect current sessionSort state as aria-sort on the sessions table's
