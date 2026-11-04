@@ -1,6 +1,6 @@
 # 2026-11-04 — Net-only comparisons, split UI removed
 
-Tool: Claude Code, Fable 5.1 (same session as slice 2). MTH's words: "make sure all the comparisons are compared to the NET revenue values and remove the SPLIT." State: **built, tested, browser-observed on the fabricated preview, committed locally, NOT pushed**.
+Tool: Claude Code, Fable 5.1 (same session as slice 2). MTH's words: "make sure all the comparisons are compared to the NET revenue values and remove the SPLIT." State: **SHIPPED** — MTH said "Ship it" and pushed `814e6d2` from his own terminal; all nine changed live files curled identical to local (CRLF-normalised) on the second poll (~40 s); live `dashboard.js` / `historical.js` carry the "Net only (ruled 2026-11-04)" marker and no file carries `Gross Income`, `Gross Revenue`, `Historical share`, `toggle-split`, `split-info`, `showSplit` or `split-collapsed`.
 
 ## What changed (one sentence)
 
