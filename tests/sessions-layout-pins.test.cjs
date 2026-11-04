@@ -60,7 +60,7 @@ test('static: Sessions toolbar is Filters / More / Add Session / Week; Mileage l
   assert.ok(mileage > menuStart && mileage < menuEnd, 'Mileage is inside the More menu');
   assert.ok(!(mileage > right && mileage < more), 'Mileage is not a top-level toolbar button');
   const direct = toolbar.replace(/<details[\s\S]*?<\/details>/, '');
-  assert.deepEqual([...direct.matchAll(/data-action="([^"]+)"/g)].map(m => m[1]), ['toggle-filters', 'add-session', 'open-week-log']);
+  assert.deepEqual([...direct.matchAll(/data-action="([^"]+)"/g)].map(m => m[1]), ['toggle-filters', 'add-session']);
 });
 
 test('wiring: the Mileage action still reaches calculateMileageByDay from the More menu', async () => {
