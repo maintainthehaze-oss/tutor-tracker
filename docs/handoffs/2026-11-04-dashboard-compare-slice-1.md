@@ -1,6 +1,6 @@
 # 2026-11-04 — Dashboard slice 1: day-matched comparison cards, Hours by family, dashed last-year line
 
-Claude Code, Fable 5.1. Built locally in 1 commit, NOT pushed. Awaiting "Ship it".
+Claude Code, Fable 5.1. SHIPPED on MTH's "Ship it": `main` `0c893bc → a3a8147`, pushed by MTH from his own terminal 2026-11-04. Live `protected/index.html`, `styles.css`, `js/dashboard.js`, `js/ui.js` identical to local (CRLF-normalised) via curl on the first poll, ~30 s after the push. Not yet observed on real data in the browser.
 
 ## What MTH asked for (2026-11-04)
 
