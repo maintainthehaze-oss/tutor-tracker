@@ -176,48 +176,61 @@
 
     <!-- ==================== DASHBOARD TAB ==================== -->
     <section class="tab-panel active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
-      <!-- Summary Cards -->
+      <!-- Compare target for the cards and the family bars: same month last year by default (ruled 2026-11-04) -->
+      <div class="dashboard-compare">
+        <span class="dashboard-compare-label" id="dashboard-compare-label"></span>
+        <select class="chart-range-select" data-action="dashboard-compare" aria-label="Compare this month with">
+          <option value="year" selected>vs same month last year</option>
+          <option value="month">vs last month</option>
+        </select>
+      </div>
+
+      <!-- Summary Cards: month to date, day-matched against the comparison window -->
       <div class="summary-cards">
-        <article class="summary-card card-net" aria-label="Net revenue">
+        <article class="summary-card card-net" aria-label="Net revenue so far this month">
           <div class="card-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
           </div>
           <div class="card-data">
             <span class="card-value" id="dash-net">$0</span>
-            <span class="card-label">Net Revenue</span>
-            <span class="card-sub" id="dash-gross-split">Gross: $0 | Split: $0</span>
+            <span class="card-label">Net so far</span>
+            <span class="card-sub" id="dash-gross-split">Gross: $0</span>
             <span class="card-trend" id="dash-revenue-trend" aria-label="Trend"></span>
           </div>
         </article>
 
-        <article class="summary-card card-sessions" aria-label="Sessions this month">
+        <article class="summary-card card-pace" aria-label="On pace for this month">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+          </div>
+          <div class="card-data">
+            <span class="card-value" id="dash-pace">$0</span>
+            <span class="card-label">On pace for</span>
+            <span class="card-note" id="dash-pace-sub"></span>
+            <span class="card-trend" id="dash-pace-trend" aria-label="Trend"></span>
+          </div>
+        </article>
+
+        <article class="summary-card card-hours" aria-label="Hours tutored so far this month">
           <div class="card-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
           </div>
           <div class="card-data">
-            <span class="card-value" id="dash-sessions">0</span>
-            <span class="card-label">Sessions This Month</span>
-            <span class="card-trend" id="dash-sessions-trend" aria-label="Trend"></span>
+            <span class="card-value" id="dash-hours">0h</span>
+            <span class="card-label">Hours so far</span>
+            <span class="card-note" id="dash-hours-sub"></span>
+            <span class="card-trend" id="dash-hours-trend" aria-label="Trend"></span>
           </div>
         </article>
 
-        <article class="summary-card card-clients" aria-label="Active clients">
-          <div class="card-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
-          </div>
-          <div class="card-data">
-            <span class="card-value" id="dash-clients">0</span>
-            <span class="card-label">Active Clients</span>
-          </div>
-        </article>
-
-        <article class="summary-card card-rate" aria-label="Average hourly rate">
+        <article class="summary-card card-rate" aria-label="Earned per hour so far this month">
           <div class="card-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
           </div>
           <div class="card-data">
-            <span class="card-value" id="dash-avg-rate">$0/hr</span>
-            <span class="card-label">Avg Rate</span>
+            <span class="card-value" id="dash-per-hour">$0/h</span>
+            <span class="card-label">Earned per hour</span>
+            <span class="card-trend" id="dash-per-hour-trend" aria-label="Trend"></span>
           </div>
         </article>
       </div>
@@ -243,16 +256,18 @@
 
       </div>
 
-      <!-- Top Clients + Outstanding -->
+      <!-- Hours by family + Outstanding -->
       <div class="dashboard-bottom-row">
-        <article class="dash-card" aria-label="Top clients by revenue">
-          <header class="dash-card-header">
-            <h2>Top Clients</h2>
+        <article class="dash-card" aria-label="Hours by family">
+          <header class="dash-card-header dash-card-header-split">
+            <h2>Hours by family</h2>
+            <span class="dash-card-sub" id="family-hours-sub"></span>
           </header>
           <div class="dash-card-body">
-            <ol class="top-clients-list" id="top-clients-list" aria-label="Top clients ranked by revenue">
+            <ol class="family-hours-list" id="family-hours-list" aria-label="Hours tutored per family, this month against the comparison window">
               <li class="empty-state">No session data yet</li>
             </ol>
+            <p class="family-hours-legend" aria-hidden="true"><span class="legend-now"></span>this month <span class="legend-then"></span>comparison</p>
           </div>
         </article>
 

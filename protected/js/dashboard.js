@@ -1,6 +1,6 @@
 /* ============================================================
    Tutoring Tracker Pro — Dashboard
-   Dashboard rendering, charts, top clients, heatmap, calendar
+   Dashboard rendering, month-to-date comparison cards, charts, hours by family, outstanding
    ============================================================ */
 (function () {
   'use strict';
@@ -46,91 +46,141 @@
      DASHBOARD
      ========================================================== */
 
+  // Compare target for the cards and the family bars: the same month a year earlier (default) or last month.
+  // Ruled 2026-11-04. In memory only: no storage key, nothing to disclose in SECURITY-PRIVACY.md.
+  let compareMode = 'year';
+  App.dashboardCompareMode = () => compareMode;
+  App.setDashboardCompare = (mode) => { compareMode = mode === 'month' ? 'month' : 'year'; App.renderDashboard(); };
+
+  const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function monthParts(key) { const [y, m] = key.split('-').map(Number); return { y, m }; }
+  function shiftMonth(key, delta) { const { y, m } = monthParts(key); return App.monthKey(new Date(y, m - 1 + delta, 1)); }
+  function daysInMonth(key) { const { y, m } = monthParts(key); return new Date(y, m, 0).getDate(); }
+  const pad2 = (n) => String(n).padStart(2, '0');
+  /** "Nov 1–4" / "Nov 1–4, 2025" for a window inside one month; "Nov" / "Nov 2025" when it covers the whole month. */
+  function windowLabel(key, lastDay, withYear) {
+    const { y, m } = monthParts(key);
+    const whole = lastDay == null || lastDay >= daysInMonth(key);
+    return MONTHS_SHORT[m - 1] + (whole ? '' : ' 1–' + lastDay) + (withYear ? (whole ? ' ' : ', ') + y : '');
+  }
+
+  /**
+   * Month-to-date comparison, DAY-MATCHED: the 1st–Nth of this month against the 1st–Nth of the comparison
+   * month, so the 4th of a month never reads as a collapse against a whole earlier month. `today` is ISO;
+   * `mode` is 'year' (same month last year) or 'month' (last month). Realized money comes only from
+   * App.reportModel; "on pace" adds this month's still-scheduled rows, the same operational read as the
+   * header Projected pill (waived fees count $0).
+   */
+  function comparison(today, mode) {
+    const thisMonth = today.slice(0, 7);
+    const day = Number(today.slice(8, 10));
+    const prevKey = shiftMonth(thisMonth, mode === 'month' ? -1 : -12);
+    const prevDay = Math.min(day, daysInMonth(prevKey));
+    const withYear = mode !== 'month';
+    const current = App.reportModel.metrics({ month: thisMonth, dateEnd: today });
+    const previous = App.reportModel.metrics({ month: prevKey, dateEnd: prevKey + '-' + pad2(prevDay) });
+    const prevFull = App.reportModel.metrics({ month: prevKey });
+    const scheduled = scheduledSessions().filter((s) => typeof s.date === 'string' && s.date.slice(0, 7) === thisMonth);
+    const scheduledNet = scheduled.reduce((sum, s) => sum + App.revenueAmount(s) - App.revenueSplit(s), 0);
+    const scheduledHours = scheduled.reduce((sum, s) => sum + num(s.duration), 0);
+    const perHour = (m) => (m.hours > 0 ? m.yourCut / m.hours : 0);
+    return {
+      mode, thisMonth, prevKey, current, previous, prevFull,
+      currentLabel: windowLabel(thisMonth, day, false),
+      previousLabel: windowLabel(prevKey, prevDay, withYear),
+      prevFullLabel: windowLabel(prevKey, null, withYear),
+      pace: { net: current.yourCut + scheduledNet, hours: current.hours + scheduledHours, scheduledCount: scheduled.length, scheduledHours },
+      perHour: { current: perHour(current), previous: perHour(previous) },
+      warnings: [...current.warnings, ...previous.warnings, ...prevFull.warnings],
+    };
+  }
+
+  /** Hours per family (siblings roll up; solo clients stand alone) in the two day-matched windows, busiest first, top 8. */
+  function familyRows(cmp) {
+    const byKey = new Map();
+    cmp.current.groups.forEach((g) => byKey.set(g.key, { key: g.key, label: g.label, family: g.family, hours: g.hours, prevHours: 0, net: g.yourCut, sessions: g.sessions }));
+    cmp.previous.groups.forEach((g) => {
+      const row = byKey.get(g.key) || { key: g.key, label: g.label, family: g.family, hours: 0, prevHours: 0, net: 0, sessions: 0 };
+      row.prevHours = g.hours;
+      byKey.set(g.key, row);
+    });
+    return [...byKey.values()].filter((r) => r.hours > 0 || r.prevHours > 0)
+      .sort((a, b) => b.hours - a.hours || b.prevHours - a.prevHours || a.label.localeCompare(b.label))
+      .slice(0, 8);
+  }
+
+  function setText(id, text) { const el = $(id); if (el) el.textContent = text; }
+
+  /** The ONE operational read in this file (read-guard exemption): rows still SCHEDULED, which the report
+   *  model deliberately does not cover. Feeds the header Projected pill and the "On pace for" card. */
+  function scheduledSessions() {
+    return App.state.sessions.filter((s) => s.status === 'scheduled');
+  }
+
   function renderDashboard() {
-    const clients = App.state.clients;
+    const cmp = comparison(todayISO(), compareMode);
+    const { current, previous, prevFull } = cmp;
+    const select = document.querySelector('[data-action="dashboard-compare"]');
+    if (select && select.value !== compareMode) select.value = compareMode;
+    setText('dashboard-compare-label', cmp.currentLabel + ' vs ' + cmp.previousLabel);
 
-    const now = new Date();
-    const thisMonth = App.currentMonth();
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthStr = App.monthKey(lastMonth);
-
-    const current = App.reportModel.metrics({ month: thisMonth });
-    const previous = App.reportModel.metrics({ month: lastMonthStr });
-    const thisRevenue = current.gross;
-    const thisCompanySplit = current.companySplit;
-    const thisCount = current.sessionCount;
-    const lastCount = previous.sessionCount;
-
-    const activeClients = clients.filter((c) => c.status === 'active').length;
-
-    // Average rate from active clients
-    const activeRates = clients.filter((c) => c.status === 'active' && num(c.rate) > 0);
-    const avgRate = activeRates.length > 0
-      ? activeRates.reduce((s, c) => s + num(c.rate), 0) / activeRates.length
-      : 0;
-
-    // Update cards
-    const thisNet = current.yourCut;
-    const dashNet = $('dash-net');
-    if (dashNet) dashNet.textContent = formatCurrency(thisNet);
-
+    // Net so far (month to date)
+    setText('dash-net', formatCurrency(current.yourCut));
     const dashGrossSplit = $('dash-gross-split');
     // formatCurrency output is digits/punctuation only, safe to inject.
-    if (dashGrossSplit) dashGrossSplit.innerHTML = 'Gross: ' + formatCurrency(thisRevenue) +
-      (current.hasLegacyShare ? '<span class="split-info"> | Historical share: ' + formatCurrency(thisCompanySplit) + '</span>' : '');
-    reportNotice('dashboard-report-notice', dashGrossSplit, [...current.warnings, ...previous.warnings]);
+    if (dashGrossSplit) dashGrossSplit.innerHTML = 'Gross: ' + formatCurrency(current.gross) +
+      (current.hasLegacyShare ? '<span class="split-info"> | Historical share: ' + formatCurrency(current.companySplit) + '</span>' : '');
+    reportNotice('dashboard-report-notice', dashGrossSplit, cmp.warnings);
+    setTrend('dash-revenue-trend', current.yourCut, previous.yourCut, formatCurrency(previous.yourCut) + ' in ' + cmp.previousLabel);
 
-    const dashSess = $('dash-sessions');
-    if (dashSess) dashSess.textContent = thisCount;
+    // On pace for: realized so far plus everything still scheduled this month, against the comparison month's final
+    setText('dash-pace', formatCurrency(cmp.pace.net));
+    setText('dash-pace-sub', cmp.pace.scheduledCount > 0
+      ? cmp.pace.scheduledCount + ' session' + (cmp.pace.scheduledCount === 1 ? '' : 's') + ' still scheduled this month'
+      : 'Nothing more scheduled this month');
+    setTrend('dash-pace-trend', cmp.pace.net, prevFull.yourCut, cmp.prevFullLabel + ' finished at ' + formatCurrency(prevFull.yourCut));
 
-    const dashClients = $('dash-clients');
-    if (dashClients) dashClients.textContent = activeClients;
+    // Hours so far
+    setText('dash-hours', formatDuration(current.hours));
+    setText('dash-hours-sub', current.sessionCount + ' session' + (current.sessionCount === 1 ? '' : 's') +
+      (cmp.pace.scheduledHours > 0 ? ' · ' + formatDuration(cmp.pace.scheduledHours) + ' still scheduled' : ''));
+    setTrend('dash-hours-trend', current.hours, previous.hours, formatDuration(previous.hours) + ' in ' + cmp.previousLabel);
 
-    const dashRate = $('dash-avg-rate');
-    if (dashRate) dashRate.textContent = formatCurrency(avgRate) + '/hr';
+    // Earned per hour actually worked (net / hours), not the list rate
+    setText('dash-per-hour', formatCurrency(cmp.perHour.current) + '/h');
+    setTrend('dash-per-hour-trend', cmp.perHour.current, cmp.perHour.previous, formatCurrency(cmp.perHour.previous) + '/h in ' + cmp.previousLabel);
 
-    // Trends
-    setTrend('dash-revenue-trend', thisNet, previous.yourCut);
-    setTrend('dash-sessions-trend', thisCount, lastCount);
-
-    // Charts
-    renderIncomeChart();
-
-    // Top clients
-    renderTopClients();
-
-    // Outstanding / unpaid
+    App.renderIncomeChart();
+    renderFamilyHours(cmp);
     renderOutstanding();
-
-    // Heatmap
-
-    // Header stats
     updateHeaderStats();
 
-    // Year-over-year historical comparison
+    // Year-over-year historical comparison (annual bars, unchanged)
     if (typeof App.renderYearOverYearChart === 'function') {
       App.renderYearOverYearChart();
     }
   }
 
-  function setTrend(elId, current, previous) {
+  /** Arrow + percent, then `suffix` ("$360.00 in Nov 1–4, 2025") so the reader sees what the change is against. */
+  function setTrend(elId, current, previous, suffix) {
     const el = $(elId);
     if (!el) return;
+    const tail = suffix ? ' · ' + suffix : '';
     if (previous === 0 && current === 0) {
-      el.textContent = '';
+      el.textContent = suffix || '';
       el.className = 'card-trend';
       return;
     }
     const diff = current - previous;
     const pct = previous > 0 ? Math.round((diff / previous) * 100) : (current > 0 ? 100 : 0);
     if (diff > 0) {
-      el.innerHTML = '&#9650; ' + pct + '%';
+      el.textContent = '▲ ' + pct + '%' + tail;
       el.className = 'card-trend trend-up';
     } else if (diff < 0) {
-      el.innerHTML = '&#9660; ' + Math.abs(pct) + '%';
+      el.textContent = '▼ ' + Math.abs(pct) + '%' + tail;
       el.className = 'card-trend trend-down';
     } else {
-      el.textContent = '0%';
+      el.textContent = '0%' + tail;
       el.className = 'card-trend';
     }
   }
@@ -141,7 +191,7 @@
     // Projected pill: every scheduled (not-yet-realized) session, any date.
     // Past-dated scheduled sessions get auto-completed on load, so this is
     // effectively "upcoming". Waived fees count as $0 via App.revenueAmount.
-    const scheduled = App.state.sessions.filter((s) => s.status === 'scheduled');
+    const scheduled = scheduledSessions();
     const projected = scheduled.reduce((sum, s) => sum + App.revenueAmount(s), 0);
     const hpEl = $('header-projected');
     const hpPill = $('header-projected-pill');
@@ -226,6 +276,8 @@
     const companyData = [];
     const netData = [];
     const countData = [];
+    // Same months one year earlier, so Oct 2026 sits directly over Oct 2025 (ruled 2026-11-04). Not drawn on All Time.
+    const prevYearData = [];
     // Full "Month YYYY" labels for tooltip titles (the axis uses short labels)
     const fullLabels = months.map((m) => {
       const [y, mo] = m.split('-');
@@ -243,7 +295,13 @@
       countData.push(metrics.sessionCount);
       hasLegacyShare = hasLegacyShare || metrics.hasLegacyShare;
       warnings.push(...metrics.warnings);
+      if (rangeVal !== 'all') {
+        const earlier = App.reportModel.metrics({ month: shiftMonth(m, -12) });
+        prevYearData.push(earlier.yourCut);
+        warnings.push(...earlier.warnings);
+      }
     });
+    const showPrevYear = rangeVal !== 'all' && prevYearData.some((v) => v > 0);
     reportNotice('income-report-notice', canvas, warnings);
 
     const colors = getChartColors();
@@ -288,7 +346,21 @@
             borderWidth: 2.5,
             order: 1,
           },
-        ].filter((dataset) => dataset.label !== 'Historical share' || (hasLegacyShare && App.showSplit())),
+          {
+            label: 'Net, a year earlier',
+            data: prevYearData,
+            borderColor: colors.success,
+            backgroundColor: 'transparent',
+            borderDash: [6, 4],
+            borderWidth: 1.5,
+            fill: false,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            order: 0,
+          },
+        ].filter((dataset) => (dataset.label !== 'Historical share' || (hasLegacyShare && App.showSplit())) &&
+                              (dataset.label !== 'Net, a year earlier' || showPrevYear)),
       },
       options: {
         responsive: true,
@@ -360,37 +432,33 @@
     });
   }
 
-  function renderTopClients() {
-    const list = $('top-clients-list');
+  /** "Hours by family": two bars per family, this month to date against the comparison window. Hours lead;
+   *  money and session count sit in the row's title. A family with nothing in the comparison window shows a dash. */
+  function renderFamilyHours(cmp) {
+    const list = $('family-hours-list');
     if (!list) return;
-
-    const metrics = App.reportModel.metrics({});
-    const revenueByClient = new Map();
-    metrics.groups.forEach((group) => {
-      Object.values(group.members).forEach((member) => {
-        const key = String(member.client.id);
-        const existing = revenueByClient.get(key);
-        if (existing) existing.revenue += member.gross;
-        else revenueByClient.set(key, { client: member.client, revenue: member.gross });
-      });
-    });
-    const sorted = Array.from(revenueByClient.values())
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 8);
-    reportNotice('top-clients-report-notice', list, metrics.warnings);
-
-    if (sorted.length === 0) {
-      list.innerHTML = '<li class="empty-state">No session data yet</li>';
+    setText('family-hours-sub', cmp.currentLabel + ' vs ' + cmp.previousLabel);
+    reportNotice('family-hours-report-notice', list, [...cmp.current.warnings, ...cmp.previous.warnings]);
+    const rows = familyRows(cmp);
+    if (rows.length === 0) {
+      list.innerHTML = '<li class="empty-state">No sessions in ' + escapeHtml(cmp.currentLabel) + ' or ' + escapeHtml(cmp.previousLabel) + '</li>';
       return;
     }
-
-    list.innerHTML = sorted.map((x, i) =>
-      '<li class="top-client-item">' +
-        '<span class="top-rank">' + (i + 1) + '</span>' +
-        '<span class="top-name">' + escapeHtml(clientName(x.client)) + '</span>' +
-        '<span class="top-revenue">' + formatCurrency(x.revenue) + '</span>' +
-      '</li>'
-    ).join('');
+    const max = Math.max(0.01, ...rows.map((r) => Math.max(r.hours, r.prevHours)));
+    const pct = (h) => Math.round((h / max) * 100);
+    list.innerHTML = rows.map((r) => {
+      const title = formatDuration(r.hours) + ', ' + formatCurrency(r.net) + ', ' + r.sessions + ' session' + (r.sessions === 1 ? '' : 's') +
+        ' in ' + cmp.currentLabel + '; ' + (r.prevHours > 0 ? formatDuration(r.prevHours) : 'nothing') + ' in ' + cmp.previousLabel;
+      return '<li class="family-hours-item" title="' + escapeHtml(title) + '">' +
+        '<span class="family-hours-name">' + escapeHtml(r.label) + (r.family ? ' <span class="outstanding-tag">family</span>' : '') + '</span>' +
+        '<span class="family-hours-bars" aria-hidden="true">' +
+          '<span class="family-hours-bar bar-now" style="width:' + pct(r.hours) + '%"></span>' +
+          '<span class="family-hours-bar bar-then" style="width:' + pct(r.prevHours) + '%"></span>' +
+        '</span>' +
+        '<span class="family-hours-value">' + formatDuration(r.hours) +
+          '<small>' + (r.prevHours > 0 ? formatDuration(r.prevHours) : '—') + '</small></span>' +
+      '</li>';
+    }).join('');
   }
 
   function renderOutstanding() {
@@ -438,5 +506,8 @@
   App.renderOwedList = renderOwedList;
   App.updateHeaderStats = updateHeaderStats;
   App.renderIncomeChart = renderIncomeChart;
+  App.renderFamilyHours = renderFamilyHours;
+  App.dashboardComparison = comparison;
+  App.dashboardFamilyRows = familyRows;
 
 })();

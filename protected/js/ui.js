@@ -877,6 +877,7 @@
       if (action === 'archived-status') { App.setArchivedStatus(target); return; }
       if (action === 'filter-sessions') { App.renderSessions(); return; }
       if (action === 'income-chart-range') { App.renderIncomeChart(); return; }
+      if (action === 'dashboard-compare') { App.setDashboardCompare(target.value); return; }
       if (action === 'report-filter') { App.renderReports(); return; }
       if (target.id === 'session-type') { App.syncInPersonGroup(); return; }
       if (action === 'change-report-version') { populateReportYears(); App.renderReports(); return; }
