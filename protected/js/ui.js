@@ -770,7 +770,8 @@
           break;
         case 'calc-mileage': App.calcFormMileage(); break;
         case 'toggle-income-audit': App.toggleIncomeAudit(); break;
-        case 'calc-mileage-by-day': App.calculateMileageByDay(); break;
+        case 'calc-now': App.calculateNow(); break;
+        case 'calc-now-save': App.saveCalculateNow(); break;
         case 'export-sessions-csv': exportCSV('sessions'); break;
 
         case 'add-expense': App.openExpenseForm(); break;

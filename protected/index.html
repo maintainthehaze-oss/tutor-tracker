@@ -353,9 +353,13 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 CSV
               </button>
-              <button class="btn btn-sm" data-action="calc-mileage-by-day" title="Work out mileage for every in-person session that has none, by day, in drive order">Mileage</button>
             </div>
           </details>
+          <!-- Mileage "Calculate now" (2026-11-09): offline scan of every day, review before any write -->
+          <button class="btn btn-sm" data-action="calc-now" title="Check every in-person session's mileage against its day's drive. Only sessions with no miles, a changed day or an odd jump are proposed; you review before anything is saved">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            Calculate now
+          </button>
           <button class="btn btn-primary" data-action="add-session" aria-label="Add new session">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Add Session
@@ -1132,6 +1136,25 @@
     </div>
   </div>
 
+  <!-- Calculate now review (2026-11-09): every proposed mileage change, ticked by default; Cancel writes nothing -->
+  <div class="modal-overlay" id="modal-calc-now" role="dialog" aria-modal="true" aria-labelledby="modal-calc-now-title" hidden>
+    <div class="modal modal-lg">
+      <header class="modal-header">
+        <h2 id="modal-calc-now-title">Review mileage changes</h2>
+        <button class="modal-close" data-action="close-modal" aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p class="form-hint">Only sessions that need work are listed; everything else already matches its day. Untick a row to leave it as it is. <strong>Jump</strong> = far off the usual for that leg. <strong>New route</strong> = a leg never driven before, just routed: check it looks right.</p>
+        <div id="calc-now-list"></div>
+        <p class="form-hint" id="calc-now-note" hidden></p>
+      </div>
+      <footer class="modal-footer">
+        <button class="btn" data-action="close-modal">Cancel</button>
+        <button class="btn btn-primary" data-action="calc-now-save">Save selected</button>
+      </footer>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-session" role="dialog" aria-modal="true" aria-labelledby="modal-session-title" hidden>
     <div class="modal" data-modal="session">
       <header class="modal-header">
@@ -1369,8 +1392,8 @@
                 <small class="form-hint">Use the pin button next to Mileage in the session form: it works out that session's leg of the day's drive (home, each session in time order, then home). A lone session gets the full round trip. You can edit the number before saving.</small>
               </div>
               <div class="form-group form-group-full">
-                <button type="button" class="btn btn-sm" data-action="calc-mileage-by-day">Calculate mileage by day</button>
-                <small class="form-hint">Routes every day in drive order and gives each in-person session its own leg. Fills sessions with 0 mi and corrects earlier auto-calculated values. Hand-entered miles are never changed. Save your address and key above first.</small>
+                <button type="button" class="btn btn-sm" data-action="calc-now">Calculate now</button>
+                <small class="form-hint">Checks every day offline against the legs you have already driven and lists only the sessions that need work: no miles, a day whose stops changed since, or a figure far off the usual. Legs never driven before are routed through OpenRouteService after a confirm (address and key above). You tick what gets saved. Hand-entered miles are never changed; locked sessions keep their original on file.</small>
               </div>
             </div>
           </fieldset>

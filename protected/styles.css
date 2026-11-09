@@ -2881,3 +2881,13 @@ select.input[multiple] {
 .slot-duration, .slot-with { margin-top: 0.5rem; }
 .slot-duration-input { width: 5rem; }
 .client-slot-line { color: var(--text-muted); }
+
+/* ---- Calculate now review list (2026-11-09): one row per proposed mileage change ---- */
+.calc-now-table th, .calc-now-table td { white-space: nowrap; vertical-align: middle; }
+.calc-now-table .calc-now-who { white-space: normal; }
+.calc-now-miles { font-variant-numeric: tabular-nums; }
+.calc-tag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 100px; font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+  background: var(--bg-elevated); border: 1px solid var(--border-default); color: var(--text-secondary); }
+.calc-tag-blank { color: var(--color-info); border-color: var(--color-info); background: var(--color-info-bg); }
+.calc-tag-jump { color: var(--color-warning); border-color: var(--color-warning); background: var(--color-warning-bg); }
+.calc-tag-new { color: var(--color-danger); border-color: var(--color-danger); background: var(--color-danger-bg); }

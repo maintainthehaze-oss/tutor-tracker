@@ -49,24 +49,27 @@ test('static: narrow layout pins - toolbar wraps / stacks, table scrolls inside 
   assert.match(block('.tab-nav', tablet), /flex-wrap:\s*wrap;/, 'tab strip wraps under 768 px');
 });
 
-test('static: Sessions toolbar is Filters / More / Add Session / Week; Mileage lives under More (ruled 2026-10-24)', () => {
+test('static: Sessions toolbar is Filters / More / Calculate now / Add Session; the whole-history Mileage rewrite is gone (2026-11-09)', () => {
   const html = readSource('index.html');
   const start = html.indexOf('id="panel-sessions"'), tb = html.indexOf('<div class="panel-toolbar">', start), end = html.indexOf('<!-- Month Navigator -->', tb);
   assert.ok(start > 0 && tb > start && end > tb);
   const toolbar = html.slice(tb, end);
-  const right = toolbar.indexOf('<div class="toolbar-right">'), more = toolbar.indexOf('<details class="toolbar-more"');
   const menuStart = toolbar.indexOf('<div class="toolbar-more-menu"'), menuEnd = toolbar.indexOf('</details>');
-  const mileage = toolbar.indexOf('data-action="calc-mileage-by-day"');
-  assert.ok(mileage > menuStart && mileage < menuEnd, 'Mileage is inside the More menu');
-  assert.ok(!(mileage > right && mileage < more), 'Mileage is not a top-level toolbar button');
+  assert.deepEqual([...toolbar.slice(menuStart, menuEnd).matchAll(/data-action="([^"]+)"/g)].map(m => m[1]), ['toggle-edit-mode', 'export-sessions-csv'], 'More menu holds Edit Mode and CSV only');
   const direct = toolbar.replace(/<details[\s\S]*?<\/details>/, '');
-  assert.deepEqual([...direct.matchAll(/data-action="([^"]+)"/g)].map(m => m[1]), ['toggle-filters', 'add-session']);
+  assert.deepEqual([...direct.matchAll(/data-action="([^"]+)"/g)].map(m => m[1]), ['toggle-filters', 'calc-now', 'add-session'], 'Calculate now is a visible toolbar button');
+  // The old tool re-routed every writable row in all history; nothing may reach it any more.
+  assert.ok(!html.includes('calc-mileage-by-day'), 'no calc-mileage-by-day action in the page');
+  assert.ok(!readSource('js/ui.js').includes('calc-mileage-by-day') && !readSource('js/mileage.js').includes('calculateMileageByDay'));
+  assert.equal(html.split('data-action="calc-now"').length - 1, 2, 'toolbar + Settings point at the same flow');
 });
 
-test('wiring: the Mileage action still reaches calculateMileageByDay from the More menu', async () => {
+test('wiring: the Calculate now action reaches App.calculateNow; Save selected reaches App.saveCalculateNow', async () => {
   const ui = await boot();
-  let calls = 0;
-  ui.App.calculateMileageByDay = () => { calls++; };
-  await ui.click('calc-mileage-by-day');
-  assert.equal(calls, 1);
+  let calls = 0, saves = 0;
+  ui.App.calculateNow = () => { calls++; };
+  ui.App.saveCalculateNow = () => { saves++; };
+  await ui.click('calc-now');
+  await ui.click('calc-now-save');
+  assert.equal(calls, 1); assert.equal(saves, 1);
 });

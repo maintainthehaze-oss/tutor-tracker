@@ -31,7 +31,7 @@ any gist/token-shaped field (`repository.js` `withoutSecrets`, pinned by a test)
 ## 2. Every path data can leave the device
 
 1. **OpenRouteService** (`protected/js/mileage.js`) — only when the owner clicks the
-   mileage pin in the session form or Settings > "Calculate mileage by day" (explicit
+   mileage pin in the session form or "Calculate now" on the Sessions tab or Settings (explicit
    confirm with counts). Sends the business address and the client addresses being
    routed, for geocoding and driving directions. The API key travels in the
    `Authorization` header for BOTH calls (never in a URL). Nothing runs in the
