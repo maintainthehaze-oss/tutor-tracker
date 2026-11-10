@@ -85,6 +85,7 @@ Click -> `planCalculateNow()` (offline). Nothing -> info toast (warning when day
 
 ## Next
 
-1. Primary reviews the diff in the worktree; MTH reads the rulings.
-2. MTH: "Ship it" -> commit + push from his terminal, hard-refresh, Sessions -> Calculate now, review the 9 rows, tick, Save selected.
-3. MTH: one-word edit to `SECURITY-PRIVACY.md` §2 item 1 ("Calculate mileage by day" -> "Calculate now").
+1. DONE: primary reviewed the diff and fixed the toolbar icon being wiped after a lookup run (labels saved and restored as innerHTML); 3 mutations re-run by the primary (manual guard, 10% threshold, unticked rows): each red, then restored byte-identical; 268/268.
+2. DONE: `SECURITY-PRIVACY.md` §2 item 1 renamed to "Calculate now" (MTH approved; disclosure unchanged).
+3. PUSHED: MTH said "Ship it", commit 88cc2ba, MTH pushed from his terminal (the session's push was blocked by the deploy hook). Pages run 42735739219 timed out at "syncing_files" (GitHub side); its re-run sat queued with no jobs, so the push of this note is the fresh deploy.
+4. Still open: confirm live files match the repo; MTH hard-refreshes, Sessions -> Calculate now, checks 10/6 and 10/12 before ticking, Save selected. First real ORS lookups will be the 3 new-route rows for one client.
